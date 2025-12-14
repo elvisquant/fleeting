@@ -1,0 +1,61 @@
+<!-- HEADER -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
+    <div>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Driver & Staff Management</h2>
+        <p class="text-slate-400 text-sm mt-1">Control access, roles, and operational status.</p>
+    </div>
+    
+    <!-- INVITE BUTTON -->
+    <button onclick="alert('Please use the public Signup page to register new users.')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
+        <i data-lucide="user-plus" class="w-4 h-4"></i>
+        <span>Invite User</span>
+    </button>
+</div>
+
+<!-- FILTERS -->
+<div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
+    <div class="relative w-full md:w-96">
+        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
+        <input type="text" id="userSearch" placeholder="Search name, matricule, or email..." 
+            class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition placeholder-slate-500">
+    </div>
+    
+    <div class="flex items-center gap-3">
+        <select id="userRoleFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
+            <option value="all">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="driver">Driver</option>
+            <option value="logistic">Logistic</option>
+            <option value="chef">Chef</option>
+            <option value="user">User</option>
+        </select>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/20">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/40">
+                    <th class="p-4 font-semibold">User Details</th>
+                    <th class="p-4 font-semibold">Role & Access</th>
+                    <th class="p-4 font-semibold">Department</th>
+                    <th class="p-4 font-semibold">Status</th>
+                    <th class="p-4 font-semibold text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="usersBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
+                <tr><td colspan="5" class="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> Loading...
+                </td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="p-4 border-t border-slate-700/30 bg-slate-800/20 flex justify-between items-center">
+        <span class="text-xs text-slate-500" id="usersCount">0 users found</span>
+    </div>
+</div>
+
+<!-- MODALS CONTAINER (Required for JS to inject modals) -->
+<div id="usersModalsContainer"></div>

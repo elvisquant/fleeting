@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - Gestion Chauffeurs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    .modal { transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; }
+    .modal.hidden { visibility: hidden; opacity: 0; }
+    .modal:not(.hidden) { visibility: visible; opacity: 1; }
+    .dark .modal-content { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.2); }
+    /* .date-filter-btn.active { background-color: #3b82f6; color: white; } */ /* Not needed for driver */
+    /* .dark .date-filter-btn.active { background-color: #60a5fa; } */ /* Not needed for driver */
+    .view-detail-label { font-weight: 500; color: #4b5563; }
+    .dark .view-detail-label { color: #d1d5db; }
+    .view-detail-value { color: #1f2937; }
+    .dark .view-detail-value { color: #f9fafb; }
+  </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+
+<!-- Main application wrapper -->
+<div class="flex h-screen">
+
+    <!-- Sidebar (Left) - Modified for responsiveness -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800/95 backdrop-blur-sm p-4 space-y-6 shadow-lg 
+                             transform -translate-x-full transition-transform duration-300 ease-in-out 
+                             md:relative md:translate-x-0 md:shadow-lg md:border-r dark:border-gray-700 
+                             flex flex-col flex-shrink-0">
+      <div class="flex justify-between items-center">
+        <div class="text-2xl font-bold flex items-center space-x-2 text-primary dark:text-primary-light">
+          <i data-lucide="command" class="w-7 h-7"></i><span>FleetDash</span>
+        </div>
+        <!-- Close button for mobile sidebar -->
+        <button id="sidebar-close-button" class="md:hidden text-gray-700 dark:text-gray-300 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      <nav class="flex-1 overflow-y-auto">
+        <ul class="space-y-2">
+            <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="layout-dashboard" class="w-5 h-5"></i><a href="dashboard">Dashboard</a>
+            </li>
+            <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="pie-chart" class="w-5 h-5"></i><a href="analytics">Analytics</a>
+            </li>
+            <!--li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="users" class="w-5 h-5"></i><a href="users">User</a>
+           </!li-->
+            <li class="flex items-center space-x-3 text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="user" class="w-5 h-5"></i><a href="driver">Chauffeur</a>
+            </li>
+            <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="alert-triangle" class="w-5 h-5"></i><a href="panne">Panne</a>
+            </li>
+            <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="car" class="w-5 h-5"></i><a href="vehicle">Vehicule</a>
+            </li>
+            <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="wrench" class="w-5 h-5"></i><a href="reparation">Reparation</a>
+            </li>
+            <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="droplet" class="w-5 h-5"></i><a href="fuel">Carburent</a>
+            </li>
+            <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="settings" class="w-5 h-5"></i><a href="maintenance">Maintenance</a>
+            </li>
+            <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+              <i data-lucide="route" class="w-5 h-5"></i><a href="trip">Voyage</a>
+            </li>
+        </ul>
+      </nav>
+       <div class="pt-4 border-t border-gray-200 dark:border-gray-700/50 mt-auto">
+            <a href="#" id="global-logout-btn" class="flex items-center space-x-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/40 p-2.5 rounded-lg transition-colors">
+                <i data-lucide="log-out" class="w-5 h-5"></i><span>Deconnexion</span>
+            </a>
+       </div>
+    </aside>
+
+    <!-- Overlay for mobile menu -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
+    
+    <!-- Content Area Wrapper (Header + Main Content + Right Sidebar) -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      
+      <!-- Header (Mobile Hamburger, Desktop Title, Theme Toggle, User Info) -->
+      <header class="bg-white dark:bg-gray-800 shadow p-3 flex justify-between items-center flex-shrink-0 h-16">
+          <!-- Hamburger Menu Button - visible only on mobile -->
+          <button id="mobile-menu-button" class="md:hidden text-gray-700 dark:text-gray-300 focus:outline-none p-2">
+              <i data-lucide="menu" class="w-6 h-6"></i>
+          </button>
+          
+          <!-- Mobile Title - visible only on mobile -->
+          <div class="text-lg font-bold text-primary dark:text-primary-light md:hidden">
+              FleetDash
+          </div>
+
+          <!-- Desktop Title/Context - hidden on mobile -->
+          <div class="hidden md:block text-xl font-semibold text-gray-700 dark:text-gray-200">
+              Gestion Chaffeur
+          </div>
+          
+          <!-- Right side of header: Theme Toggle & User Info -->
+          <div class="flex items-center space-x-3">
+              <button id="theme-toggle-header" class="text-xl p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  <!-- Icon will be set by JS -->
+              </button>
+              <!-- User info for desktop header - hidden on mobile -->
+              <div class="hidden md:flex items-center space-x-2">
+                  <div class="text-sm font-semibold" id="userDisplayNameHeader">Utilisateur</div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">Admin</div>
+              </div>
+          </div>
+      </header>
+
+      <!-- Main scrollable content area (Main Page Content + Right Sidebar) -->
+      <div class="flex-1 flex overflow-hidden">
+        <main class="flex-1 overflow-y-auto p-6">
+          <!-- Driver Table Section -->
+          <section id="driver-section" class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
+              <div class="flex flex-wrap gap-2 items-center">
+                <button onclick="openAddDriverModal()" class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-1 text-sm shadow-sm">
+                  <i data-lucide="plus" class="w-4 h-4"></i> Ajoutter Chaffeur
+                </button>
+                <input type="text" id="driverSearch" placeholder="Search drivers (name, CNI, email...)" class="border dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-black dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto">
+              </div>
+              <div class="flex flex-wrap gap-2 items-center">
+                <button onclick="exportDriversExcel()" class="bg-green-500 text-white px-3 py-2 rounded-lg hover:bg-green-600 text-sm shadow-sm">📄 Excel</button>
+                <button onclick="exportDriversPDF()" class="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 text-sm shadow-sm">🧾 PDF</button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table id="driversTable" class="w-full text-left text-sm">
+                <thead>
+                  <tr class="border-b dark:border-gray-700">
+                    <th class="py-3 px-2 font-semibold">ID</th>
+                    <th class="px-2 font-semibold">Nom Et Prenom</th>
+                    <th class="px-2 font-semibold">Email</th>
+                    <th class="px-2 font-semibold">Matricule</th>
+                    <th class="px-2 font-semibold">CNI</th>
+                    <th class="px-2 font-semibold">Enregistre</th>
+                    <th class="px-2 font-semibold text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="driversBody"></tbody>
+              </table>
+            </div>
+            <div class="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+              <div class="text-sm text-gray-600 dark:text-gray-400" id="driversCount"></div>
+              <div class="flex items-center space-x-1" id="driversPagination"></div>
+            </div>
+          </section>
+        </main>
+
+        <!-- Right Sidebar -->
+         <aside class="w-1/5 bg-white dark:bg-gray-800/95 backdrop-blur-sm p-4 space-y-6 shadow-lg hidden lg:block flex-shrink-0 border-l dark:border-gray-700 overflow-y-auto">
+            <div class="flex justify-end items-center">
+                <div class="text-right">
+                    <div class="text-sm font-semibold text-gray-800 dark:text-white" id="userDisplayNameRightSidebar">Utulisateur</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Fleet Analyst</div>
+                </div>
+                <img src="https://i.pravatar.cc/40?u=analyst_jane_doe" alt="Analyst" class="w-10 h-10 rounded-full ml-2 object-cover">
+            </div>
+            <hr class="dark:border-gray-700/50">
+            <div>
+                <h4 class="font-semibold mb-3 text-gray-700 dark:text-gray-200">Key Performance Insights</h4>
+                <ul id="keyPerformanceInsightsList" class="text-xs space-y-2.5 text-gray-600 dark:text-gray-300">
+                    <li class="flex items-start space-x-2"><i data-lucide="loader-2" class="w-4 h-4 text-gray-400 animate-spin mt-0.5 shrink-0"></i><span>Loading insights...</span></li>
+                </ul>
+            </div>
+            <hr class="dark:border-gray-700/50">
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-semibold text-gray-700 dark:text-gray-200">Alertes & Notifications</h4>
+                    <a href="#" id="viewAllNotificationsLink" class="text-xs text-primary dark:text-primary-light hover:underline">Vior Tous (<span id="notificationCount">0</span>)</a>
+                </div>
+                <div id="notificationsList" class="space-y-3 max-h-40 overflow-y-auto pr-1">
+                     <div class="flex items-start space-x-2 p-2.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg"><i data-lucide="loader-2" class="w-5 h-5 text-gray-400 animate-spin mt-0.5 flex-shrink-0"></i><p class="text-xs text-gray-700 dark:text-gray-300">Chargement alertes...</p></div>
+                </div>
+            </div>
+        </aside>
+      </div>
+    </div>
+</div>
+
+<!-- Add/Edit Driver Modal -->
+<div id="addDriverModal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
+  <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-gray-800 dark:text-white" id="driverModalTitle">Ajouter Nouveau Chaffeur</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Completer les details du Chauffeur</p>
+        </div>
+        <button onclick="closeAddDriverModal()" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+          <i data-lucide="x" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+        </button>
+      </div>
+      <form id="addDriverForm" class="space-y-4">
+        <input type="hidden" id="driverId_form">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="driver_first_name_form" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
+              <input type="text" id="driver_first_name_form" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="e.g., John">
+            </div>
+            <div>
+              <label for="driver_last_name_form" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prenom</label>
+              <input type="text" id="driver_last_name_form" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="e.g., Doe">
+            </div>
+        </div>
+        <div>
+            <label for="driver_email_form" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+            <input type="email" id="driver_email_form" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="e.g., john.doe@example.com">
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="driver_cni_number_form" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Numero CNI</label>
+              <input type="text" id="driver_cni_number_form" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="National ID Card Number">
+            </div>
+            <div>
+              <label for="driver_matricule_form" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Matricule (ID)</label>
+              <input type="text" id="driver_matricule_form" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="e.g., EMP12345">
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-4">
+          <button type="button" onclick="closeAddDriverModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
+          <button type="submit" id="driverSubmitButton" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Ajouter Chaffeur
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- View Driver Record Modal -->
+<div id="viewDriverModal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
+  <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold text-gray-800 dark:text-white">Details Chauffeur</h3>
+        <button onclick="closeViewDriverModal()" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+          <i data-lucide="x" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+        </button>
+      </div>
+      <div id="viewDriverDetails" class="space-y-3 text-sm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+            <div><span class="view-detail-label">ID Chauffeur:</span> <span id="view-driver-id" class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Nom Complet:</span> <span id="view-driver-full_name" class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Email:</span> <span id="view-driver-email" class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Numero CNI:</span> <span id="view-driver-cni_number" class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Matricule:</span> <span id="view-driver-matricule" class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Enregistre A:</span> <span id="view-driver-created_at" class="view-detail-value"></span></div>
+        </div>
+      </div>
+      <div class="flex justify-end pt-6">
+          <button type="button" onclick="closeViewDriverModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Generic Confirmation Modal (reused) -->
+<div id="genericConfirmModal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
+  <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="genericConfirmModalTitle" class="text-xl font-bold text-gray-800 dark:text-white">Confirme Action</h3>
+        <button onclick="closeGenericConfirmModal()" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+          <i data-lucide="x" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+        </button>
+      </div>
+      <p id="genericConfirmModalMessage" class="text-sm text-gray-600 dark:text-gray-400 mb-6">Voulez vous vraiment proceeder?</p>
+      <div class="flex justify-end gap-3 pt-4">
+        <button onclick="closeGenericConfirmModal()"
+                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+          Annuler
+        </button>
+        <button id="genericConfirmModalConfirmBtn"
+                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2">
+          Confirmer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Information/Status Modal (reused) -->
+<div id="infoStatusModal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
+  <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
+    <div class="p-6 text-center">
+      <div id="infoStatusModalIconContainer" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+      </div>
+      <h3 id="infoStatusModalTitle" class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-2">Status</h3>
+      <div class="mt-2">
+        <p id="infoStatusModalMessage" class="text-sm text-gray-500 dark:text-gray-400">Message ici.</p>
+      </div>
+      <div class="mt-5 sm:mt-6">
+        <button type="button"
+                onclick="closeInfoStatusModal()"
+                id="infoStatusModalOkButton"
+                class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm">
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE_URL = '';
+  const LOGIN_PAGE_URL = '/login';
+
+  // --- Authentication Helper ---
+  function getAuthToken() { return localStorage.getItem('accessToken'); }
+  function parseJwt(token) { try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { console.error("JWT Parse Error:", e); return null; }}
+
+  function updateUserInfoDisplay() {
+    const token = getAuthToken();
+    const userDisplayElements = [
+        document.getElementById('userDisplayNameHeader'),
+        document.getElementById('userDisplayNameRightSidebar')
+    ];
+
+    userDisplayElements.forEach(userDisplayElement => {
+        if (!userDisplayElement) return;
+        if (token) {
+            const decoded = parseJwt(token);
+            userDisplayElement.textContent = (decoded && decoded.sub) ? decoded.sub : 'User (Authenticated)';
+        } else {
+            userDisplayElement.textContent = 'Guest';
+        }
+    });
+  }
+
+  async function apiRequest(endpoint, method = 'GET', body = null) {
+    const token = getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    } else if (!endpoint.startsWith('/login')) {
+        console.warn(`WARN: Protected endpoint ${endpoint} called without token.`);
+    }
+
+    const config = { method, headers };
+    if (body) config.body = JSON.stringify(body);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+      if (response.status === 401 && !endpoint.endsWith('/login/')) {
+        openInfoStatusModal("Authentication Error", "Session expired or unauthorized. Please log in again.", "error", 3000);
+        return null;
+      }
+      if (response.status === 204) return true;
+
+      const responseData = await response.json().catch(async (jsonError) => {
+          const text = await response.text();
+          console.error(`JSON Parse Error for ${endpoint}. Status: ${response.status}. Response text: ${text.substring(0,100)}...`, jsonError);
+          if (!response.ok) { return Promise.reject({ detail: text || `Server error ${response.status}` }); }
+          throw new Error(`Invalid JSON response from server (status ${response.status}). Check console.`);
+      });
+
+      if (!response.ok) {
+        const errorDetail = responseData.detail || 'Unknown server error.';
+        console.error(`API Error for ${endpoint}: ${response.status}`, errorDetail);
+        openInfoStatusModal(`API Error: ${response.status}`, Array.isArray(errorDetail) ? errorDetail[0].msg : errorDetail, "error");
+        return null;
+      }
+      return responseData;
+    } catch (error) {
+      console.error(`Network/Catch Error during API request to ${endpoint}:`, error);
+      openInfoStatusModal("Request Error", error.message || "A network error occurred.", "error");
+      return null;
+    }
+  }
+
+  // --- Global Variables for Drivers ---
+  let allFetchedDriversFromServer = [];
+  const driversPerPage = 5;
+  let currentDriverPage = 1;
+  let driverToEditId = null;
+  let currentConfirmAction = null;
+  let currentActionData = null;
+  let infoStatusModalTimeout = null;
+
+  // --- Sidebar Toggle ---
+  const sidebar = document.getElementById('sidebar');
+  const mobileMenuButton = document.getElementById('mobile-menu-button');
+  const sidebarCloseButton = document.getElementById('sidebar-close-button');
+  const sidebarOverlay = document.getElementById('sidebar-overlay');
+  function openMobileMenu() { if (sidebar && sidebarOverlay) { sidebar.classList.remove('-translate-x-full'); sidebar.classList.add('translate-x-0'); sidebarOverlay.classList.remove('hidden'); document.body.classList.add('overflow-hidden', 'md:overflow-auto'); } }
+  function closeMobileMenu() { if (sidebar && sidebarOverlay) { sidebar.classList.add('-translate-x-full'); sidebar.classList.remove('translate-x-0'); sidebarOverlay.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); } }
+
+  // --- Theme Toggle Logic (Complete & Persistent) ---
+  function applyTheme(theme) {
+    localStorage.setItem('theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    const themeToggleButton = document.getElementById('theme-toggle-header');
+    if (themeToggleButton) {
+      themeToggleButton.innerHTML = theme === 'dark' ? '<i data-lucide="sun" class="w-5 h-5"></i>' : '<i data-lucide="moon" class="w-5 h-5"></i>';
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+    }
+  }
+  function toggleTheme() {
+    const newTheme = localStorage.getItem('theme') === 'dark' ? 'light' : 'dark';
+    applyTheme(newTheme);
+  }
+  (function setInitialTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      applyTheme(savedTheme);
+      return;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      applyTheme('dark');
+      return;
+    }
+    applyTheme('light');
+  })();
+
+  // --- Dashboard Widget Functions ---
+  async function fetchAndDisplayPerformanceInsights() { const insightsList = document.getElementById('keyPerformanceInsightsList'); if (!insightsList) return; insightsList.innerHTML = `<li class="flex items-start space-x-2"><i data-lucide="loader-2" class="w-4 h-4 text-gray-400 animate-spin mt-0.5 shrink-0"></i><span>Loading insights...</span></li>`; lucide.createIcons(); const data = await apiRequest('/dashboard-data/performance-insights'); if (!data) { insightsList.innerHTML = `<li class="flex items-start space-x-2 text-red-500"><i data-lucide="alert-circle" class="w-4 h-4 mt-0.5 shrink-0"></i><span>Failed to load insights.</span></li>`; lucide.createIcons(); return; } let insightsHTML = ''; const { fuel_efficiency, maintenance_compliance } = data; if (fuel_efficiency) { let trendColor = 'text-gray-500 dark:text-gray-400', trendText = 'steady'; if (fuel_efficiency.trend === 'up') { trendColor = 'text-green-500'; trendText = 'improving'; } else if (fuel_efficiency.trend === 'down') { trendColor = 'text-red-500'; trendText = 'worsening'; } const percentageText = fuel_efficiency.percentage_change !== null ? `(${fuel_efficiency.percentage_change > 0 ? '+' : ''}${fuel_efficiency.percentage_change}%)` : '(No prior data)'; insightsHTML += `<li class="flex items-start space-x-2"><i data-lucide="droplet" class="w-4 h-4 text-blue-500 mt-0.5 shrink-0"></i><div><span>Fuel Efficiency is <span class="${trendColor} font-semibold">${trendText}</span>.</span><span class="block text-gray-400 dark:text-gray-500 text-xs">Consumption vs last month ${percentageText}.</span></div></li>`; } if (maintenance_compliance) { insightsHTML += `<li class="flex items-start space-x-2"><i data-lucide="wrench" class="w-4 h-4 text-yellow-500 mt-0.5 shrink-0"></i><div><span><span class="font-semibold">${maintenance_compliance.total_maintenance_records}</span> maintenance records logged.</span><span class="block text-gray-400 dark:text-gray-500 text-xs">Total historical tasks.</span></div></li>`; } insightsList.innerHTML = insightsHTML || `<li>No performance data available.</li>`; lucide.createIcons(); }
+  async function fetchAndDisplayAlerts() { const alertsList = document.getElementById('notificationsList'); const notificationCountSpan = document.getElementById('notificationCount'); if (!alertsList || !notificationCountSpan) return; alertsList.innerHTML = `<div class="flex items-start space-x-2 p-2.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg"><i data-lucide="loader-2" class="w-5 h-5 text-gray-400 animate-spin mt-0.5 flex-shrink-0"></i><p class="text-xs text-gray-700 dark:text-gray-300">Loading alerts...</p></div>`; lucide.createIcons(); const data = await apiRequest('/dashboard-data/alerts'); if (!data) { alertsList.innerHTML = `<div class="flex items-start space-x-2 text-red-500"><i data-lucide="alert-circle" class="w-4 h-4 mt-0.5 shrink-0"></i><p class="text-xs">Failed to load alerts.</p></div>`; notificationCountSpan.textContent = '0'; lucide.createIcons(); return; } notificationCountSpan.textContent = data.total_alerts || '0'; let alertsHTML = ''; const createAlertItemHTML = (alert, icon, colorClass) => { if (!alert) return ''; return `<div class="flex items-start space-x-2 p-2.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg"><i data-lucide="${icon}" class="w-5 h-5 ${colorClass} mt-0.5 flex-shrink-0"></i><div><p class="text-xs font-semibold text-gray-800 dark:text-gray-200">${alert.plate_number}</p><p class="text-xs text-gray-600 dark:text-gray-300">${alert.message}</p></div></div>`; }; alertsHTML += createAlertItemHTML(data.critical_panne, 'shield-alert', 'text-red-500'); alertsHTML += createAlertItemHTML(data.maintenance_alert, 'calendar-clock', 'text-blue-500'); alertsHTML += createAlertItemHTML(data.trip_alert, 'route', 'text-purple-500'); if (data.total_alerts === 0) { alertsHTML = `<div class="flex items-center justify-center text-center p-4"><div class="text-gray-500 dark:text-gray-400"><i data-lucide="check-circle" class="w-8 h-8 mx-auto mb-2 text-green-500"></i><p class="text-xs">All clear! No new alerts.</p></div></div>`; } alertsList.innerHTML = alertsHTML; lucide.createIcons(); }
+  async function initializeDashboardWidgets() { await Promise.all([ fetchAndDisplayPerformanceInsights(), fetchAndDisplayAlerts() ]); }
+
+  // --- MODAL CONTROL ---
+  function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); document.body.style.overflow = ''; }
+  function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+  function closeAddDriverModal() { closeModal('addDriverModal'); driverToEditId = null; document.getElementById('addDriverForm').reset(); }
+  function closeViewDriverModal() { closeModal('viewDriverModal'); }
+  function closeGenericConfirmModal() { closeModal('genericConfirmModal'); currentConfirmAction = null; currentActionData = null; }
+  function closeInfoStatusModal() { if (infoStatusModalTimeout) { clearTimeout(infoStatusModalTimeout); infoStatusModalTimeout = null; } closeModal('infoStatusModal'); }
+  function openGenericConfirmModal(title, message, confirmButtonText, confirmButtonIcon, onConfirmCallback, actionData = null) { document.getElementById('genericConfirmModalTitle').textContent = title; document.getElementById('genericConfirmModalMessage').textContent = message; const confirmBtn = document.getElementById('genericConfirmModalConfirmBtn'); confirmBtn.innerHTML = `<i data-lucide="${confirmButtonIcon || 'check-circle'}" class="w-4 h-4"></i> ${confirmButtonText || 'Confirm'}`; if(confirmButtonIcon === 'trash-2'){ confirmBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600'); confirmBtn.classList.add('bg-red-500', 'hover:bg-red-600');} else { confirmBtn.classList.remove('bg-red-500', 'hover:bg-red-600'); confirmBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');} lucide.createIcons(); currentConfirmAction = onConfirmCallback; currentActionData = actionData; openModal('genericConfirmModal'); }
+  function openInfoStatusModal(title, message, type = 'success', autoCloseDelay = 3000) { const modal = document.getElementById('infoStatusModal'); const titleEl = document.getElementById('infoStatusModalTitle'); const messageEl = document.getElementById('infoStatusModalMessage'); const iconContainer = document.getElementById('infoStatusModalIconContainer'); const okButton = document.getElementById('infoStatusModalOkButton'); titleEl.textContent = title; messageEl.textContent = message; if (infoStatusModalTimeout) clearTimeout(infoStatusModalTimeout); iconContainer.innerHTML = ''; if (type === 'success') { iconContainer.className = 'mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4'; iconContainer.innerHTML = `<i data-lucide="check" class="h-6 w-6 text-green-600"></i>`; okButton.className = 'inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:text-sm';} else if (type === 'error') { iconContainer.className = 'mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4'; iconContainer.innerHTML = `<i data-lucide="x-circle" class="h-6 w-6 text-red-600"></i>`; okButton.className = 'inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm';} else { iconContainer.className = 'mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4'; iconContainer.innerHTML = `<i data-lucide="info" class="h-6 w-6 text-blue-600"></i>`; okButton.className = 'inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm';} lucide.createIcons(); openModal('infoStatusModal'); if (autoCloseDelay > 0) { infoStatusModalTimeout = setTimeout(() => { closeInfoStatusModal(); }, autoCloseDelay); } }
+
+  // --- DOMContentLoaded ---
+  document.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      updateUserInfoDisplay();
+      
+      document.getElementById('theme-toggle-header')?.addEventListener('click', toggleTheme);
+      mobileMenuButton?.addEventListener('click', openMobileMenu);
+      sidebarCloseButton?.addEventListener('click', closeMobileMenu);
+      sidebarOverlay?.addEventListener('click', closeMobileMenu);
+      document.querySelectorAll('#sidebar nav a').forEach(link => {
+          link.addEventListener('click', () => { if (window.innerWidth < 768) closeMobileMenu(); });
+      });
+
+      document.getElementById('addDriverModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeAddDriverModal(); });
+      document.getElementById('viewDriverModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeViewDriverModal(); });
+      document.getElementById('genericConfirmModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeGenericConfirmModal(); });
+      document.getElementById('genericConfirmModalConfirmBtn').addEventListener('click', async () => { if (typeof currentConfirmAction === 'function') await currentConfirmAction(currentActionData); closeGenericConfirmModal(); });
+      document.getElementById('infoStatusModal').addEventListener('click', e => { if (e.target.id === 'infoStatusModal' || e.target.closest('#infoStatusModalOkButton')) closeInfoStatusModal(); });
+
+      document.getElementById('global-logout-btn')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          localStorage.removeItem('accessToken');
+          openInfoStatusModal("Logged Out", "Successfully logged out.", "success", 2500);
+          updateUserInfoDisplay();
+          allFetchedDriversFromServer = [];
+          renderDriversTable();
+          document.getElementById('keyPerformanceInsightsList').innerHTML = `<li class="flex items-start space-x-2 text-gray-500"><i data-lucide="log-in" class="w-4 h-4 mt-0.5 shrink-0"></i><span>Please log in to see insights.</span></li>`;
+          document.getElementById('notificationsList').innerHTML = `<div class="flex items-start space-x-2 text-gray-500 p-2.5"><i data-lucide="log-in" class="w-5 h-5 mt-0.5 shrink-0"></i><p class="text-xs">Please log in to see alerts.</p></div>`;
+          document.getElementById('notificationCount').textContent = '0';
+          lucide.createIcons();
+      });
+      await initializeDriverSection();
+  });
+
+  // --- Initializer & Main Logic ---
+  async function initializeDriverSection() {
+    if (getAuthToken()) {
+        await fetchAndRenderDrivers();
+        await initializeDashboardWidgets();
+    } else {
+        renderDriversTable(); 
+    }
+    document.getElementById('driverSearch').addEventListener('input', () => { currentDriverPage = 1; renderDriversTable(); });
+    document.getElementById('addDriverForm').addEventListener('submit', handleDriverFormSubmit);
+  }
+
+  async function fetchAndRenderDrivers() {
+    if (!getAuthToken()) { allFetchedDriversFromServer = []; renderDriversTable(); return; }
+    const data = await apiRequest(`/driver/?limit=200`);
+    allFetchedDriversFromServer = Array.isArray(data) ? data : [];
+    renderDriversTable();
+  }
+  
+  function getFilteredDrivers() {
+      let records = [...allFetchedDriversFromServer];
+      const searchTerm = document.getElementById('driverSearch').value.toLowerCase();
+      if (searchTerm) {
+          records = records.filter(d => 
+              (d.first_name?.toLowerCase().includes(searchTerm)) ||
+              (d.last_name?.toLowerCase().includes(searchTerm)) ||
+              (d.email?.toLowerCase().includes(searchTerm)) ||
+              (d.cni_number?.toLowerCase().includes(searchTerm)) ||
+              (d.matricule?.toLowerCase().includes(searchTerm))
+          );
+      }
+      return records;
+  }
+
+  function formatDateTimeForDisplay(dateTimeString) { if (!dateTimeString) return 'N/A'; try { return new Date(dateTimeString).toLocaleDateString(); } catch (e) { return dateTimeString; } }
+
+  function renderDriversTable() {
+    const driversBody = document.getElementById('driversBody');
+    if (!getAuthToken()) {
+        driversBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-red-500">Please log in to view driver records.</td></tr>`;
+        document.getElementById('driversCount').textContent = '0 records';
+        document.getElementById('driversPagination').innerHTML = '';
+        return;
+    }
+
+    const filteredRecords = getFilteredDrivers();
+    const totalRecords = filteredRecords.length;
+    const totalPages = Math.ceil(totalRecords / driversPerPage);
+    if (currentDriverPage > totalPages) currentDriverPage = totalPages || 1;
+    
+    const start = (currentDriverPage - 1) * driversPerPage;
+    const paginatedRecords = filteredRecords.slice(start, start + driversPerPage);
+
+    if (paginatedRecords.length > 0) {
+        driversBody.innerHTML = paginatedRecords.map(d => {
+            const fullName = `${d.first_name} ${d.last_name}`;
+            return `<tr class="border-b dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50" data-id="${d.id}">
+                        <td class="py-3 px-2">${d.id}</td> <td class="px-2">${fullName}</td> <td class="px-2">${d.email}</td>
+                        <td class="px-2">${d.matricule}</td> <td class="px-2">${d.cni_number}</td>
+                        <td class="px-2">${formatDateTimeForDisplay(d.created_at)}</td>
+                        <td class="px-2 text-center whitespace-nowrap">
+                            <button onclick="openViewDriverModal(${d.id})" class="text-green-600 dark:text-green-400 p-1" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                            <button onclick="openEditDriverModal(${d.id})" class="text-blue-600 dark:text-blue-400 p-1 ml-1" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                            <button onclick="openConfirmDeleteDriverModal(${d.id})" class="text-red-600 dark:text-red-400 p-1 ml-1" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </td></tr>`;
+        }).join('');
+    } else {
+        const message = document.getElementById('driverSearch').value ? "No drivers match your current search criteria." : "No driver records found. Try adding one!";
+        driversBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-500">${message}</td></tr>`;
+    }
+    lucide.createIcons();
+    const startRecord = totalRecords > 0 ? start + 1 : 0;
+    const endRecord = start + paginatedRecords.length;
+    document.getElementById('driversCount').textContent = `Showing ${startRecord} to ${endRecord} of ${totalRecords} records`;
+    renderDriverPagination(totalRecords);
+  }
+
+  function renderDriverPagination(totalRecords) { const totalPages = Math.ceil(totalRecords / driversPerPage); const paginationContainer = document.getElementById('driversPagination'); paginationContainer.innerHTML = ''; if (totalPages <= 1) return; const btnClasses = "px-3 py-1.5 text-sm rounded-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-gray-900 focus:ring-blue-500"; const itemClasses = "bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"; const disabledClasses = "bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"; const prevButton = Object.assign(document.createElement('button'), { innerHTML: `<i data-lucide="chevron-left" class="w-4 h-4 inline-block mr-1"></i> Prev`, className: `${btnClasses} ${currentDriverPage === 1 ? disabledClasses : itemClasses}`, disabled: currentDriverPage === 1, onclick: () => { if(currentDriverPage > 1) {currentDriverPage--; renderDriversTable();} } }); const pageInfo = Object.assign(document.createElement('span'), { className: "px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400", textContent: `Page ${currentDriverPage} of ${totalPages}` }); const nextButton = Object.assign(document.createElement('button'), { innerHTML: `Next <i data-lucide="chevron-right" class="w-4 h-4 inline-block ml-1"></i>`, className: `${btnClasses} ${currentDriverPage >= totalPages ? disabledClasses : itemClasses}`, disabled: currentDriverPage >= totalPages, onclick: () => { if(currentDriverPage < totalPages) {currentDriverPage++; renderDriversTable();} } }); paginationContainer.append(prevButton, pageInfo, nextButton); lucide.createIcons(); }
+
+  // --- Modal & Form Handling ---
+  async function openAddDriverModal() { if (!getAuthToken()) { openInfoStatusModal("Authentication Required","Please log in to add a driver.", "error"); return; } driverToEditId = null; document.getElementById('addDriverForm').reset(); document.getElementById('driverModalTitle').textContent = "Add New Driver"; document.getElementById('driverSubmitButton').innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4"></i> Add Driver`; lucide.createIcons(); openModal('addDriverModal'); }
+  async function openEditDriverModal(id) { if (!getAuthToken()) { openInfoStatusModal("Authentication Required","Please log in to edit a driver.", "error"); return; } const recordToEdit = await apiRequest(`/driver/${id}`); if (!recordToEdit) { openInfoStatusModal("Error","Could not fetch driver details for editing.", "error"); return; } driverToEditId = id; document.getElementById('addDriverForm').reset(); document.getElementById('driverModalTitle').textContent = "Edit Driver Record"; document.getElementById('driverSubmitButton').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Save Changes`; document.getElementById('driverId_form').value = recordToEdit.id; document.getElementById('driver_first_name_form').value = recordToEdit.first_name; document.getElementById('driver_last_name_form').value = recordToEdit.last_name; document.getElementById('driver_email_form').value = recordToEdit.email; document.getElementById('driver_cni_number_form').value = recordToEdit.cni_number; document.getElementById('driver_matricule_form').value = recordToEdit.matricule; lucide.createIcons(); openModal('addDriverModal'); }
+  async function openViewDriverModal(id) { const record = await apiRequest(`/driver/${id}`); if (!record) { openInfoStatusModal("Error", "Could not fetch driver details.", "error"); return; } document.getElementById('view-driver-id').textContent = record.id; document.getElementById('view-driver-full_name').textContent = `${record.first_name} ${record.last_name}`; document.getElementById('view-driver-email').textContent = record.email; document.getElementById('view-driver-cni_number').textContent = record.cni_number; document.getElementById('view-driver-matricule').textContent = record.matricule; document.getElementById('view-driver-created_at').textContent = formatDateTimeForDisplay(record.created_at); openModal('viewDriverModal'); }
+  async function handleDriverFormSubmit(event) { event.preventDefault(); if (!getAuthToken()) { openInfoStatusModal("Authentication Required","Please log in to submit.", "error"); return; } const driverData = { first_name: document.getElementById('driver_first_name_form').value.trim(), last_name: document.getElementById('driver_last_name_form').value.trim(), email: document.getElementById('driver_email_form').value.trim(), cni_number: document.getElementById('driver_cni_number_form').value.trim(), matricule: document.getElementById('driver_matricule_form').value.trim(), }; if (!driverData.first_name || !driverData.last_name || !driverData.email || !driverData.cni_number || !driverData.matricule) { openInfoStatusModal("Validation Error", "Please fill all required driver fields.", "error"); return; } if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(driverData.email)) { openInfoStatusModal("Validation Error", "Please enter a valid email address.", "error"); return; } const actionType = driverToEditId ? "update" : "add"; const confirmTitle = driverToEditId ? "Confirm Update" : "Confirm Add Driver"; const confirmMessage = `Are you sure you want to ${actionType} this driver${driverToEditId ? "'s details" : ""}?`; const confirmBtnText = driverToEditId ? "Update" : "Add Driver"; const confirmBtnIcon = driverToEditId ? "save" : "plus-circle"; openGenericConfirmModal( confirmTitle, confirmMessage, confirmBtnText, confirmBtnIcon, async (dataForAction) => { let result; if (driverToEditId) { result = await apiRequest(`/driver/${driverToEditId}`, 'PUT', dataForAction); } else { result = await apiRequest('/driver/', 'POST', dataForAction); } if (result) { openInfoStatusModal("Success", `Driver record ${driverToEditId ? 'updated' : 'added'} successfully!`, "success"); closeAddDriverModal(); currentDriverPage = 1; await fetchAndRenderDrivers(); } }, driverData ); }
+  function openConfirmDeleteDriverModal(id) { if (!getAuthToken()) { openInfoStatusModal("Authentication Required","Please log in to delete.", "error"); return; } openGenericConfirmModal( "Confirm Deletion", "Are you sure you want to permanently delete this driver record? This action cannot be undone and might affect related trip records.", "Delete", "trash-2", async (driverIdToDelete) => { if (!driverIdToDelete) return; const result = await apiRequest(`/driver/${driverIdToDelete}`, 'DELETE'); if (result) { openInfoStatusModal("Success", "Driver record deleted successfully!", "success"); currentDriverPage = 1; await fetchAndRenderDrivers(); } }, id ); }
+
+  // --- Export Functions ---
+  function exportDriversExcel() { if (!getAuthToken()) { openInfoStatusModal("Export Error", "Log in or load data to export.", "error"); return; } const recordsToExport = getFilteredDrivers(); if (recordsToExport.length === 0) { openInfoStatusModal("Export Info", "No data to export based on current filters.", "info"); return; } const wsData = recordsToExport.map(d => ({ 'ID': d.id, 'First Name': d.first_name, 'Last Name': d.last_name, 'Email': d.email, 'CNI Number': d.cni_number, 'Matricule': d.matricule, 'Registered At': formatDateTimeForDisplay(d.created_at) })); const ws = XLSX.utils.json_to_sheet(wsData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Drivers"); XLSX.writeFile(wb, "drivers_export.xlsx"); }
+  function exportDriversPDF() { if (!getAuthToken()) { openInfoStatusModal("Export Error", "Log in or load data to export.", "error"); return; } const {jsPDF} = window.jspdf; const doc = new jsPDF(); doc.setFontSize(18); doc.text('Driver Records', 14, 15); const recordsToExport = getFilteredDrivers(); if (recordsToExport.length === 0) { openInfoStatusModal("Export Info", "No data to export based on current filters.", "info"); return; } const headers = [['ID', 'Full Name', 'Email', 'Matricule', 'CNI']]; const data = recordsToExport.map(d => [ d.id, `${d.first_name} ${d.last_name}`, d.email, d.matricule, d.cni_number ]); doc.autoTable({ head: headers, body: data, startY: 25, theme:'grid', headStyles:{fillColor:[59,130,246], textColor:255}, }); doc.save('drivers_export.pdf'); }
+
+</script>
+<script src="/static/js/global.js"></script> 
+</body>
+</html>

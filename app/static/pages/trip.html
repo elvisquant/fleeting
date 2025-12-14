@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - Gestion Voyages</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    .modal {
+      transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+    }
+
+    .modal.hidden {
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    .modal:not(.hidden) {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .dark .modal-content {
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    }
+
+    .date-filter-btn.active {
+      background-color: #3b82f6;
+      color: white;
+    }
+
+    .dark .date-filter-btn.active {
+      background-color: #60a5fa;
+    }
+
+    .view-detail-label {
+      font-weight: 500;
+      color: #4b5563;
+    }
+
+    .dark .view-detail-label {
+      color: #d1d5db;
+    }
+
+    .view-detail-value {
+      color: #1f2937;
+    }
+
+    .dark .view-detail-value {
+      color: #f9fafb;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+
+  <div class="flex h-screen">
+
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800/95 backdrop-blur-sm p-4 space-y-6 shadow-lg
+                             transform -translate-x-full transition-transform duration-300 ease-in-out
+                             md:relative md:translate-x-0 md:shadow-lg md:border-r dark:border-gray-700
+                             flex flex-col flex-shrink-0">
+      <div class="flex justify-between items-center">
+        <div class="text-2xl font-bold flex items-center space-x-2 text-primary dark:text-primary-light">
+          <i data-lucide="command" class="w-7 h-7"></i><span>FleetDash</span>
+        </div>
+        <button id="sidebar-close-button"
+          class="md:hidden text-gray-700 dark:text-gray-300 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      <nav class="flex-1 overflow-y-auto">
+        <ul class="space-y-2">
+          <li
+            class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i><a href="dashboard.html">Dashboard</a>
+          </li>
+          <li
+            class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="pie-chart" class="w-5 h-5"></i><a href="analytics.html">Analytics</a>
+          </li>
+          <li
+            class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="user" class="w-5 h-5"></i><a href="users.html">Utilisateurs</a>
+          </li>
+          <li
+            class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="alert-triangle" class="w-5 h-5"></i><a href="panne.html">Panne</a>
+          </li>
+          <li
+            class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="car" class="w-5 h-5"></i><a href="vehicle.html">Vehicule</a>
+          </li>
+          <li
+            class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="wrench" class="w-5 h-5"></i><a href="reparation.html">Reparation</a>
+          </li>
+          <li
+            class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="droplet" class="w-5 h-5"></i><a href="fuel.html">Carburant</a>
+          </li>
+          <li
+            class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="settings" class="w-5 h-5"></i><a href="maintenance.html">Maintenance</a>
+          </li>
+          <li
+            class="flex items-center space-x-3 text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-gray-700 p-2 rounded-md transition-colors">
+            <i data-lucide="route" class="w-5 h-5"></i><a href="trip.html">Voyage</a>
+          </li>
+        </ul>
+      </nav>
+      <div class="pt-4 border-t border-gray-200 dark:border-gray-700/50 mt-auto">
+        <a href="#" id="global-logout-btn"
+          class="flex items-center space-x-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/40 p-2.5 rounded-lg transition-colors">
+          <i data-lucide="log-out" class="w-5 h-5"></i><span>Deconnexion</span>
+        </a>
+      </div>
+    </aside>
+
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <header class="bg-white dark:bg-gray-800 shadow p-3 flex justify-between items-center flex-shrink-0 h-16">
+        <button id="mobile-menu-button" class="md:hidden text-gray-700 dark:text-gray-300 focus:outline-none p-2">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+        <div class="hidden md:block text-xl font-semibold text-gray-700 dark:text-gray-200">
+          Gestion Voyages
+        </div>
+        <div class="flex items-center space-x-3">
+          <button id="theme-toggle-header"
+            class="text-xl p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+          </button>
+          <div class="hidden md:flex items-center space-x-2">
+            <div class="text-sm font-semibold" id="userDisplayNameHeader">Utilisateur</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">Admin</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="flex-1 flex overflow-hidden">
+        <main class="flex-1 overflow-y-auto p-6">
+          <section id="trip-section" class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
+              <div class="flex flex-wrap gap-2 items-center">
+                <button onclick="openAddTripModal()"
+                  class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-1 text-sm shadow-sm">
+                  <i data-lucide="plus" class="w-4 h-4"></i> Ajout Voyage
+                </button>
+                <input type="text" id="tripSearch" placeholder="Search (vehicle, driver, location...)"
+                  class="border dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-black dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto">
+              </div>
+              <div class="flex flex-wrap gap-2 items-center">
+                <button onclick="exportTripsExcel()"
+                  class="bg-green-500 text-white px-3 py-2 rounded-lg hover:bg-green-600 text-sm shadow-sm">📄
+                  Excel</button>
+                <button onclick="exportTripsPDF()"
+                  class="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 text-sm shadow-sm">🧾 PDF</button>
+              </div>
+            </div>
+
+            <div class="mb-4 flex flex-wrap items-center gap-2">
+              <span class="text-sm font-medium mr-2">Filtre Voyages par Date:</span>
+              <button id="trip-filter-today" onclick="applyTripDateFilter('today')"
+                class="date-filter-btn px-3 py-1.5 text-sm border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Aujourdhui</button>
+              <button id="trip-filter-last7" onclick="applyTripDateFilter('last7days')"
+                class="date-filter-btn px-3 py-1.5 text-sm border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Dernier
+                7 Jours</button>
+              <button id="trip-filter-last30" onclick="applyTripDateFilter('last30days')"
+                class="date-filter-btn px-3 py-1.5 text-sm border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Dernier
+                30 Jours</button>
+              <button id="trip-filter-all" onclick="applyTripDateFilter('all')"
+                class="date-filter-btn px-3 py-1.5 text-sm border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 active">Tous
+                le Temps</button>
+              <button id="trip-filter-custom-btn" onclick="toggleTripCustomDateRange()"
+                class="date-filter-btn px-3 py-1.5 text-sm border dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Personalise</button>
+            </div>
+            <div id="tripCustomDateRange"
+              class="mb-4 hidden items-center gap-2 p-3 border dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-800/50">
+              <input type="date" id="tripCustomStartDate"
+                class="border dark:border-gray-600 rounded-md px-2 py-1.5 text-sm text-black dark:bg-gray-700 dark:text-white">
+              <span class="text-sm">to</span>
+              <input type="date" id="tripCustomEndDate"
+                class="border dark:border-gray-600 rounded-md px-2 py-1.5 text-sm text-black dark:bg-gray-700 dark:text-white">
+              <button onclick="applyTripCustomDateFilter()"
+                class="bg-blue-500 text-white px-3 py-1.5 text-sm rounded-md hover:bg-blue-600">Appliquer</button>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table id="tripsTable" class="w-full text-left text-sm">
+                <thead>
+                  <tr class="border-b dark:border-gray-700">
+                    <th class="py-3 px-2 font-semibold">ID</th>
+                    <th class="px-2 font-semibold">Vehicule</th>
+                    <th class="px-2 font-semibold">Driver</th>
+                    <th class="px-2 font-semibold">De:</th>
+                    <th class="px-2 font-semibold">A:</th>
+                    <th class="px-2 font-semibold">Depart:</th>
+                    <th class="px-2 font-semibold">Status</th>
+                    <th class="px-2 font-semibold text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="tripsBody"></tbody>
+              </table>
+            </div>
+            <div class="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+              <div class="text-sm text-gray-600 dark:text-gray-400" id="tripsCount"></div>
+              <div class="flex items-center space-x-1" id="tripsPagination"></div>
+            </div>
+          </section>
+        </main>
+
+        <aside
+          class="w-1/5 bg-white dark:bg-gray-800/95 backdrop-blur-sm p-4 space-y-6 shadow-lg hidden lg:block flex-shrink-0 border-l dark:border-gray-700 overflow-y-auto">
+          <div class="flex justify-end items-center">
+            <div class="text-right">
+              <div class="text-sm font-semibold text-gray-800 dark:text-white" id="userDisplayNameRightSidebar">
+                Utilisateur</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">Fleet Analyst</div>
+            </div>
+            <img src="https://i.pravatar.cc/40?u=analyst_jane_doe" alt="Analyst"
+              class="w-10 h-10 rounded-full ml-2 object-cover">
+          </div>
+          <hr class="dark:border-gray-700/50">
+          <div>
+            <h4 class="font-semibold mb-3 text-gray-700 dark:text-gray-200">Key Performance Insights</h4>
+            <ul id="keyPerformanceInsightsList" class="text-xs space-y-2.5 text-gray-600 dark:text-gray-300">
+              <li class="flex items-start space-x-2"><i data-lucide="loader-2"
+                  class="w-4 h-4 text-gray-400 animate-spin mt-0.5 shrink-0"></i><span>Chargement insights...</span>
+              </li>
+            </ul>
+          </div>
+          <hr class="dark:border-gray-700/50">
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <h4 class="font-semibold text-gray-700 dark:text-gray-200">Alertes & Notifications</h4>
+              <a href="#" id="viewAllNotificationsLink"
+                class="text-xs text-primary dark:text-primary-light hover:underline">Voir Tous (<span
+                  id="notificationCount">0</span>)</a>
+            </div>
+            <div id="notificationsList" class="space-y-3 max-h-40 overflow-y-auto pr-1">
+              <div class="flex items-start space-x-2 p-2.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg"><i
+                  data-lucide="loader-2" class="w-5 h-5 text-gray-400 animate-spin mt-0.5 flex-shrink-0"></i>
+                <p class="text-xs text-gray-700 dark:text-gray-300">Loading alerts...</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- All modals are included below -->
+  <div id="addTripModal"
+    class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
+    <div
+      class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h3 class="text-xl font-bold text-gray-800 dark:text-white" id="tripModalTitle">Ajout Nouveau Voyage</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Completer les details du voyage</p>
+          </div>
+          <button onclick="closeAddTripModal()" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><i
+              data-lucide="x" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i></button>
+        </div>
+        <form id="addTripForm" class="space-y-4">
+          <input type="hidden" id="tripId_form">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label for="trip_vehicle_id_form"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vehicule</label><select
+                id="trip_vehicle_id_form" required
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"></select>
+            </div>
+            <div><label for="trip_driver_id_form"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Chauffeur</label><select
+                id="trip_driver_id_form" required
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"></select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label for="trip_start_location_form"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">De:</label><input type="text"
+                id="trip_start_location_form" required
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="e.g., Main Office"></div>
+            <div><label for="trip_end_location_form"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">A:</label><input type="text"
+                id="trip_end_location_form" required
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="e.g., Client Site A"></div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label for="trip_start_time_form"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Depart:</label><input
+                type="datetime-local" id="trip_start_time_form" required
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+            </div>
+            <div><label for="trip_end_time_form"
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Arrive:</label><input
+                type="datetime-local" id="trip_end_time_form"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+            </div>
+          </div>
+          <div><label for="trip_purpose_form"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Objectif</label><input type="text"
+              id="trip_purpose_form"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="e.g., Delivery, Client Meeting"></div>
+          <div><label for="trip_notes_form"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (Optionel)</label><textarea
+              id="trip_notes_form" rows="3"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="Any additional details..."></textarea></div>
+          <div class="flex justify-end gap-3 pt-4"><button type="button" onclick="closeAddTripModal()"
+              class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button><button
+              type="submit" id="tripSubmitButton"
+              class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2"><i
+                data-lucide="plus-circle" class="w-4 h-4"></i> Add Trip</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div id="viewTripModal"
+    class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
+    <div
+      class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-bold text-gray-800 dark:text-white">Details Voyage</h3><button
+            onclick="closeViewTripModal()" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><i
+              data-lucide="x" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i></button>
+        </div>
+        <div id="viewTripDetails" class="space-y-3 text-sm">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+            <div><span class="view-detail-label">ID Voyage:</span> <span id="view-trip-id"
+                class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Vehicule:</span> <span id="view-trip-vehicle"
+                class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Chauffeur:</span> <span id="view-trip-driver"
+                class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">De:</span> <span id="view-trip-start_location"
+                class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">A:</span> <span id="view-trip-end_location"
+                class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Depart:</span> <span id="view-trip-start_time"
+                class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Arrive:</span> <span id="view-trip-end_time"
+                class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Objectif:</span> <span id="view-trip-purpose"
+                class="view-detail-value"></span></div>
+            <div><span class="view-detail-label">Status:</span> <span id="view-trip-status"
+                class="view-detail-value"></span></div>
+            <div class="md:col-span-2"><span class="view-detail-label">Notes:</span>
+              <p id="view-trip-notes" class="view-detail-value whitespace-pre-wrap mt-1"></p>
+            </div>
+            <div><span class="view-detail-label">Enregistre:</span> <span id="view-trip-created_at"
+                class="view-detail-value"></span></div>
+          </div>
+        </div>
+        <div class="flex justify-end pt-6"><button type="button" onclick="closeViewTripModal()"
+            class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg">Fermer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="genericConfirmModal"
+    class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
+    <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="genericConfirmModalTitle" class="text-xl font-bold text-gray-800 dark:text-white">Confirmer</h3>
+          <button onclick="closeGenericConfirmModal()"
+            class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><i data-lucide="x"
+              class="w-5 h-5 text-gray-500 dark:text-gray-400"></i></button>
+        </div>
+        <p id="genericConfirmModalMessage" class="text-sm mb-6 text-gray-600 dark:text-gray-400">Etes Vous sur?</p>
+        <div class="flex justify-end gap-3 pt-4"><button onclick="closeGenericConfirmModal()"
+            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">Annuler</button><button
+            id="genericConfirmModalConfirmBtn"
+            class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2">Confirmer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="infoStatusModal"
+    class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
+    <div class="modal-content bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
+      <div class="p-6 text-center">
+        <div id="infoStatusModalIconContainer"
+          class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4"></div>
+        <h3 id="infoStatusModalTitle" class="text-lg font-medium mb-2 text-gray-900 dark:text-white">Status</h3>
+        <div class="mt-2">
+          <p id="infoStatusModalMessage" class="text-sm text-gray-500 dark:text-gray-400">Message.</p>
+        </div>
+        <div class="mt-5"><button type="button" onclick="closeInfoStatusModal()" id="infoStatusModalOkButton"
+            class="inline-flex justify-center w-full rounded-md px-4 py-2 font-medium sm:text-sm text-white">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // --- Configuration ---
+    const API_BASE_URL = '';
+    const LOGIN_PAGE_URL = '/login';
+
+    // --- API Endpoints ---
+    const VEHICLE_API_ENDPOINT = '/api/v1/vehicles/';
+    const USER_API_ENDPOINT = '/api/v1/users/';
+    const TRIP_API_ENDPOINT = '/trip/';
+
+    // --- Global Variables ---
+    let currentTripsOnPage = [];
+    let allVehicles = [];
+    let allDrivers = [];
+
+    const tripsPerPage = 10;
+    let currentTripPage = 1;
+    let totalTripRecords = 0;
+    let tripToEditId = null;
+
+    let activeTripDateFilter = 'all';
+    let customTripFilterStartDate = null;
+    let customTripFilterEndDate = null;
+
+    let currentConfirmAction = null;
+    let currentActionData = null;
+    let infoStatusModalTimeout = null;
+
+    // --- Authentication Helper ---
+    function getAuthToken() { return localStorage.getItem('accessToken'); }
+    function parseJwt(token) { try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; } }
+
+    function updateUserInfoDisplay() {
+      const token = getAuthToken();
+      const userDisplayElements = document.querySelectorAll('#userDisplayNameHeader, #userDisplayNameRightSidebar');
+      userDisplayElements.forEach(el => {
+        if (!el) return;
+        if (token) {
+          const decoded = parseJwt(token);
+          el.textContent = (decoded && decoded.sub) ? decoded.sub : 'User';
+        } else {
+          el.textContent = 'Guest';
+        }
+      });
+    }
+
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      const token = getAuthToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const config = { method, headers };
+      if (body) config.body = JSON.stringify(body);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+
+        // Handle Unauthorized (401)
+        if (response.status === 401 && !endpoint.includes('login')) {
+          openInfoStatusModal("Authentication Error", "Session expired. Please log in again.", "error", 4000);
+          return null;
+        }
+
+        // Handle No Content (204)
+        if (response.status === 204) return { data: true, headers: response.headers };
+
+        const data = await response.json().catch(async () => {
+          const text = await response.text();
+          console.error(`JSON Parse Error for ${endpoint}: ${text.substring(0, 100)}...`);
+          if (!response.ok) return Promise.reject({ detail: text || `Server error ${response.status}` });
+          throw new Error(`Invalid JSON response from server (status ${response.status})`);
+        });
+
+        if (!response.ok) {
+          const errorMsg = data.detail || `An unknown error occurred.`;
+          const displayMsg = Array.isArray(errorMsg) ? errorMsg.map(e => e.msg).join(', ') : errorMsg;
+          openInfoStatusModal(`API Error (${response.status})`, displayMsg, "error");
+          return null;
+        }
+        return { data, headers: response.headers };
+      } catch (error) {
+        console.error(`Network/Fetch Error on ${method} ${endpoint}:`, error);
+        openInfoStatusModal("Network Error", "Could not connect to the server.", "error");
+        return null;
+      }
+    }
+
+    // --- UI & Modals ---
+    // Sidebar & Theme
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuButton = document.getElementById('mobile-menu-button');
+    const sidebarCloseButton = document.getElementById('sidebar-close-button');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const themeToggleButton = document.getElementById('theme-toggle-header');
+
+    function openMobileMenu() {
+      if (sidebar && sidebarOverlay) {
+        sidebar.classList.remove('-translate-x-full');
+        sidebarOverlay.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden', 'md:overflow-auto');
+      }
+    }
+
+    function closeMobileMenu() {
+      if (sidebar && sidebarOverlay) {
+        sidebar.classList.add('-translate-x-full');
+        sidebarOverlay.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }
+    }
+
+    function setInitialThemeIcon() {
+      if (themeToggleButton) {
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+          themeToggleButton.innerHTML = '<i data-lucide="sun" class="w-5 h-5"></i>';
+        } else {
+          document.documentElement.classList.remove('dark');
+          themeToggleButton.innerHTML = '<i data-lucide="moon" class="w-5 h-5"></i>';
+        }
+        lucide.createIcons();
+      }
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+      setInitialThemeIcon();
+    }
+
+    // Modal Helpers
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    function openModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // Specific Modal Functions
+    function closeAddTripModal() {
+      closeModal('addTripModal');
+      tripToEditId = null;
+      document.getElementById('addTripForm').reset();
+    }
+    function closeViewTripModal() { closeModal('viewTripModal'); }
+    function closeGenericConfirmModal() {
+      closeModal('genericConfirmModal');
+      currentConfirmAction = null;
+      currentActionData = null;
+    }
+    function closeInfoStatusModal() {
+      if (infoStatusModalTimeout) {
+        clearTimeout(infoStatusModalTimeout);
+        infoStatusModalTimeout = null;
+      }
+      closeModal('infoStatusModal');
+    }
+
+    function openGenericConfirmModal(title, message, confirmButtonText, confirmButtonIcon, onConfirmCallback, actionData = null) {
+      document.getElementById('genericConfirmModalTitle').textContent = title;
+      document.getElementById('genericConfirmModalMessage').textContent = message;
+      const btn = document.getElementById('genericConfirmModalConfirmBtn');
+
+      btn.innerHTML = `<i data-lucide="${confirmButtonIcon}" class="w-4 h-4 mr-2"></i> ${confirmButtonText}`;
+      // Adjust button color based on action type (delete vs others)
+      if (confirmButtonIcon === 'trash-2') {
+        btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+        btn.classList.add('bg-red-500', 'hover:bg-red-600');
+      } else {
+        btn.classList.remove('bg-red-500', 'hover:bg-red-600');
+        btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+      }
+
+      lucide.createIcons();
+      currentConfirmAction = onConfirmCallback;
+      currentActionData = actionData;
+      openModal('genericConfirmModal');
+    }
+
+    function openInfoStatusModal(title, message, type = 'success', autoCloseDelay = 3500) {
+      const icons = {
+        success: { class: 'bg-green-100 text-green-600', btn: 'bg-green-600', icon: 'check-circle' },
+        error: { class: 'bg-red-100 text-red-600', btn: 'bg-red-600', icon: 'x-circle' },
+        info: { class: 'bg-blue-100 text-blue-600', btn: 'bg-blue-600', icon: 'info' }
+      };
+      const config = icons[type] || icons.info;
+
+      document.getElementById('infoStatusModalTitle').textContent = title;
+      document.getElementById('infoStatusModalMessage').textContent = message;
+
+      const iconContainer = document.getElementById('infoStatusModalIconContainer');
+      iconContainer.className = `mx-auto flex items-center justify-center h-12 w-12 rounded-full ${config.class} mb-4`;
+      iconContainer.innerHTML = `<i data-lucide="${config.icon}" class="w-6 h-6"></i>`;
+
+      document.getElementById('infoStatusModalOkButton').className = `inline-flex justify-center w-full rounded-md px-4 py-2 font-medium sm:text-sm text-white ${config.btn}`;
+
+      lucide.createIcons();
+      openModal('infoStatusModal');
+
+      if (autoCloseDelay) {
+        if (infoStatusModalTimeout) clearTimeout(infoStatusModalTimeout);
+        infoStatusModalTimeout = setTimeout(closeInfoStatusModal, autoCloseDelay);
+      }
+    }
+
+    // --- Page Initialization ---
+    document.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      updateUserInfoDisplay();
+      setInitialThemeIcon();
+
+      // Event Listeners
+      themeToggleButton?.addEventListener('click', toggleTheme);
+      mobileMenuButton?.addEventListener('click', openMobileMenu);
+      sidebarCloseButton?.addEventListener('click', closeMobileMenu);
+      sidebarOverlay?.addEventListener('click', closeMobileMenu);
+
+      // Close mobile menu when clicking a link
+      document.querySelectorAll('#sidebar nav a').forEach(link => {
+        link.addEventListener('click', () => { if (window.innerWidth < 768) closeMobileMenu(); });
+      });
+
+      // Modal click-outside handlers
+      ['addTripModal', 'viewTripModal', 'genericConfirmModal'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', e => { if (e.target.id === id) closeModal(id); });
+      });
+
+      // Form Listeners
+      document.getElementById('addTripForm')?.addEventListener('submit', handleTripFormSubmit);
+      document.getElementById('tripSearch')?.addEventListener('input', () => { currentTripPage = 1; fetchAndRenderTrips(); });
+
+      // Filter Listeners
+      document.getElementById('trip-filter-today')?.addEventListener('click', () => applyTripDateFilter('today'));
+      document.getElementById('trip-filter-last7')?.addEventListener('click', () => applyTripDateFilter('last7days'));
+      document.getElementById('trip-filter-last30')?.addEventListener('click', () => applyTripDateFilter('last30days'));
+      document.getElementById('trip-filter-all')?.addEventListener('click', () => applyTripDateFilter('all'));
+      document.getElementById('trip-filter-custom-btn')?.addEventListener('click', toggleTripCustomDateRange);
+
+      // Confirm Modal Action
+      document.getElementById('genericConfirmModalConfirmBtn').addEventListener('click', async () => {
+        if (typeof currentConfirmAction === 'function') await currentConfirmAction(currentActionData);
+        closeGenericConfirmModal();
+      });
+
+      // --- LOGOUT LOGIC (MATCHING PANNE.HTML) ---
+      const handleLogout = (e) => {
+        e.preventDefault();
+
+        // 1. Remove Tokens
+        localStorage.removeItem('accessToken');
+
+        // 2. Show Modal
+        openInfoStatusModal('Logged Out', 'You have been successfully logged out.', 'success', 2500);
+
+        // 3. Update User Info Display to "Guest"
+        updateUserInfoDisplay();
+
+        // 4. Clear Trip Data & Reset Table (Triggers "Please log in" message)
+        currentTripsOnPage = [];
+        totalTripRecords = 0;
+        renderTripsTable();
+
+        // 5. Reset Widgets to "Please log in" state
+        const insightsList = document.getElementById('keyPerformanceInsightsList');
+        if (insightsList) insightsList.innerHTML = `<li class="flex items-start space-x-2 text-gray-500"><i data-lucide="log-in" class="w-4 h-4 mt-0.5 shrink-0"></i><span>Please log in to see insights.</span></li>`;
+
+        const alertsList = document.getElementById('notificationsList');
+        if (alertsList) alertsList.innerHTML = `<div class="flex items-start space-x-2 text-gray-500 p-2.5"><i data-lucide="log-in" class="w-5 h-5 mt-0.5 shrink-0"></i><p class="text-xs">Please log in to see alerts.</p></div>`;
+
+        const notifCount = document.getElementById('notificationCount');
+        if (notifCount) notifCount.textContent = '0';
+
+        lucide.createIcons();
+      };
+
+      document.getElementById('global-logout-btn')?.addEventListener('click', handleLogout);
+
+      // Start Logic
+      await initializeTripSection();
+      setActiveTripDateFilterButton('all');
+    });
+
+    async function initializeTripSection() {
+      if (!getAuthToken()) {
+        renderTripsTable(); // Renders "Please log in" message
+        initializeDashboardWidgets(); // Renders "Please log in" widgets
+        return;
+      }
+      await populateLookupData();
+      await fetchAndRenderTrips();
+      await initializeDashboardWidgets();
+    }
+
+    async function populateLookupData() {
+      const [vehicleResult, driverResult] = await Promise.all([
+        apiRequest(`${VEHICLE_API_ENDPOINT}?limit=1000`),
+        apiRequest(`${USER_API_ENDPOINT}by_role/driver`)
+      ]);
+      allVehicles = vehicleResult?.data?.items || vehicleResult?.data || [];
+      allDrivers = (driverResult?.data || []).filter(d => d.status === 'active');
+    }
+
+    // --- Data Fetching and Rendering ---
+    async function fetchAndRenderTrips() {
+      if (!getAuthToken()) {
+        currentTripsOnPage = [];
+        totalTripRecords = 0;
+        renderTripsTable();
+        return;
+      }
+
+      let queryParams = `limit=${tripsPerPage}&skip=${(currentTripPage - 1) * tripsPerPage}`;
+      const searchTerm = document.getElementById('tripSearch').value;
+      if (searchTerm) queryParams += `&search=${encodeURIComponent(searchTerm)}`;
+
+      if (activeTripDateFilter !== 'all') {
+        const range = (activeTripDateFilter === 'custom')
+          ? { startDate: customTripFilterStartDate, endDate: customTripFilterEndDate }
+          : getDateRange(activeTripDateFilter);
+        if (range.startDate && range.endDate) {
+          queryParams += `&start_date=${range.startDate}&end_date=${range.endDate}`;
+        }
+      }
+
+      const apiResult = await apiRequest(`${TRIP_API_ENDPOINT}?${queryParams}`);
+      if (!apiResult) {
+        currentTripsOnPage = [];
+        totalTripRecords = 0;
+      } else {
+        // Handle array response or paginated response object
+        currentTripsOnPage = Array.isArray(apiResult.data) ? apiResult.data : (apiResult.data.items || []);
+        totalTripRecords = parseInt(apiResult.headers.get('x-total-count') || currentTripsOnPage.length, 10);
+      }
+      renderTripsTable();
+    }
+
+    function renderTripsTable() {
+      const tripsBody = document.getElementById('tripsBody');
+      const countEl = document.getElementById('tripsCount');
+      const paginationEl = document.getElementById('tripsPagination');
+
+      if (!getAuthToken()) {
+        tripsBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-red-500">Please log in to view trip records.</td></tr>`;
+        countEl.textContent = '0 records';
+        paginationEl.innerHTML = '';
+        return;
+      }
+
+      const startRecord = currentTripsOnPage.length > 0 ? (currentTripPage - 1) * tripsPerPage + 1 : 0;
+      const endRecord = startRecord + currentTripsOnPage.length - 1;
+      const countText = totalTripRecords > 0
+        ? `Showing ${startRecord} to ${endRecord} of ${totalTripRecords} records`
+        : `Showing ${startRecord} to ${endRecord}`;
+      countEl.textContent = currentTripsOnPage.length > 0 ? countText : 'No records found';
+
+      if (currentTripsOnPage.length === 0) {
+        tripsBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-gray-500">No trips found for the current filter.</td></tr>`;
+        paginationEl.innerHTML = '';
+        return;
+      }
+
+      tripsBody.innerHTML = currentTripsOnPage.map(r => {
+        const isLocked = r.status.toLowerCase() === 'completed' || r.status.toLowerCase() === 'ongoing';
+        const vehicle = allVehicles.find(v => v.id === r.vehicle_id);
+        const driver = allDrivers.find(d => d.id === r.driver_id);
+        const statusFormatted = (r.status || 'N/A').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        const statusColor = {
+          planned: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+          ongoing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+          completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+          cancelled: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+          booked: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+        }[r.status] || "bg-gray-100 dark:bg-gray-700";
+
+        const disabledTitle = `Cannot modify an ${r.status} trip`;
+
+        return `<tr class="border-b dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td class="py-3 px-2">${r.id}</td>
+                    <td class="px-2">${vehicle ? vehicle.plate_number : `VID ${r.vehicle_id}`}</td>
+                    <td class="px-2">${driver ? `${driver.first_name} ${driver.last_name}` : `DID ${r.driver_id}`}</td>
+                    <td class="px-2">${r.start_location}</td>
+                    <td class="px-2">${r.end_location}</td>
+                    <td class="px-2">${formatDateTimeForDisplay(r.start_time)}</td>
+                    <td class="px-2"><span class="px-2 py-1 text-xs rounded-full ${statusColor}">${statusFormatted}</span></td>
+                    <td class="px-2 text-center whitespace-nowrap">
+                        <button onclick="openViewTripModal(${r.id})" class="p-1" title="View"><i data-lucide="eye" class="w-4 h-4 text-green-500"></i></button>
+                        <button onclick="openEditTripModal(${r.id})" class="p-1 ml-1 disabled:opacity-50" title="${isLocked ? disabledTitle : 'Edit'}" ${isLocked ? 'disabled' : ''}><i data-lucide="edit-2" class="w-4 h-4 text-blue-500"></i></button>
+                        <button onclick="openConfirmDeleteTripModal(${r.id}, '${r.status}')" class="p-1 ml-1 disabled:opacity-50" title="${isLocked ? disabledTitle : 'Delete'}" ${isLocked ? 'disabled' : ''}><i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i></button>
+                    </td></tr>`;
+      }).join('');
+
+      lucide.createIcons();
+      renderTripPagination();
+    }
+
+    function renderTripPagination() {
+      const paginationContainer = document.getElementById('tripsPagination');
+      paginationContainer.innerHTML = '';
+      const totalPages = totalTripRecords > 0 ? Math.ceil(totalTripRecords / tripsPerPage) : 1;
+      const hasNextPage = currentTripPage < totalPages;
+      const hasPrevPage = currentTripPage > 1;
+
+      if (totalPages <= 1) return;
+
+      const btnClasses = "px-3 py-1.5 text-sm rounded-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-gray-900 focus:ring-blue-500";
+      const itemClasses = "bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700";
+      const disabledClasses = "bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed";
+
+      const prevButton = Object.assign(document.createElement('button'), {
+        innerHTML: `<i data-lucide="chevron-left" class="w-4 h-4 inline-block mr-1"></i> Prev`,
+        className: `${btnClasses} ${hasPrevPage ? itemClasses : disabledClasses}`,
+        disabled: !hasPrevPage,
+        onclick: () => { if (hasPrevPage) { currentTripPage--; fetchAndRenderTrips(); } }
+      });
+
+      const pageInfo = Object.assign(document.createElement('span'), {
+        className: "px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400",
+        textContent: `Page ${currentTripPage} of ${totalPages}`
+      });
+
+      const nextButton = Object.assign(document.createElement('button'), {
+        innerHTML: `Next <i data-lucide="chevron-right" class="w-4 h-4 inline-block ml-1"></i>`,
+        className: `${btnClasses} ${hasNextPage ? itemClasses : disabledClasses}`,
+        disabled: !hasNextPage,
+        onclick: () => { if (hasNextPage) { currentTripPage++; fetchAndRenderTrips(); } }
+      });
+
+      paginationContainer.append(prevButton, pageInfo, nextButton);
+      lucide.createIcons();
+    }
+
+    // --- Form & Modal Logic ---
+    function formatDateTimeForInput(isoString) { return isoString ? isoString.slice(0, 16) : ''; }
+    function formatDateTimeForDisplay(isoString) { return isoString ? new Date(isoString).toLocaleString() : 'N/A'; }
+
+    async function populateFormDropdowns(currentTripDetails = {}) {
+      const { vehicle_id: currentVehicleId } = currentTripDetails;
+      const vehicleSelect = document.getElementById('trip_vehicle_id_form');
+      const driverSelect = document.getElementById('trip_driver_id_form');
+
+      vehicleSelect.innerHTML = '<option value="">Loading Vehicles...</option>';
+      driverSelect.innerHTML = '<option value="">Loading Drivers...</option>';
+
+      // Populate vehicles: available ones + the one currently assigned to this trip (if editing)
+      const availableVehicles = allVehicles.filter(v => v.status === 'available' || v.id === currentVehicleId);
+      if (availableVehicles.length > 0) {
+        vehicleSelect.innerHTML = '<option value="">Select an Available Vehicle</option>';
+        availableVehicles.forEach(v => vehicleSelect.add(new Option(`${v.plate_number} (${v.make} ${v.model})`, v.id)));
+      } else {
+        vehicleSelect.innerHTML = '<option value="">No available vehicles found</option>';
+      }
+
+      // Populate drivers
+      if (allDrivers.length > 0) {
+        driverSelect.innerHTML = '<option value="">Select a Driver</option>';
+        let sortedDrivers = [...allDrivers];
+        sortedDrivers.forEach(d => driverSelect.add(new Option(`${d.first_name} ${d.last_name}`, d.id)));
+      } else {
+        driverSelect.innerHTML = '<option value="">No active drivers found</option>';
+      }
+    }
+
+    async function openAddTripModal() {
+      if (!getAuthToken()) return openInfoStatusModal("Authentication Required", "Please log in.", "error");
+
+      tripToEditId = null;
+      document.getElementById('addTripForm').reset();
+
+      await populateLookupData();
+      await populateFormDropdowns();
+
+      document.getElementById('tripModalTitle').textContent = "Add New Trip";
+      document.getElementById('tripSubmitButton').innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4 mr-2"></i> Add Trip`;
+      lucide.createIcons();
+      openModal('addTripModal');
+    }
+
+    async function openEditTripModal(id) {
+      if (!getAuthToken()) return openInfoStatusModal("Authentication Required", "Please log in.", "error");
+
+      const result = await apiRequest(`${TRIP_API_ENDPOINT}${id}`);
+      if (!result || !result.data) return openInfoStatusModal("Error", "Could not find trip details.", "error");
+
+      const record = result.data;
+      tripToEditId = id;
+      document.getElementById('addTripForm').reset();
+
+      await populateLookupData();
+      await populateFormDropdowns(record);
+
+      // Fill Form
+      document.getElementById('trip_vehicle_id_form').value = record.vehicle_id;
+      document.getElementById('trip_driver_id_form').value = record.driver_id;
+      document.getElementById('trip_start_location_form').value = record.start_location;
+      document.getElementById('trip_end_location_form').value = record.end_location;
+      document.getElementById('trip_start_time_form').value = formatDateTimeForInput(record.start_time);
+      document.getElementById('trip_end_time_form').value = formatDateTimeForInput(record.end_time);
+      document.getElementById('trip_purpose_form').value = record.purpose || '';
+      document.getElementById('trip_notes_form').value = record.notes || '';
+
+      document.getElementById('tripModalTitle').textContent = "Edit Trip Record";
+      document.getElementById('tripSubmitButton').innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Changes`;
+      lucide.createIcons();
+      openModal('addTripModal');
+    }
+
+    async function handleTripFormSubmit(event) {
+      event.preventDefault();
+
+      const startTimeValue = document.getElementById('trip_start_time_form').value;
+      const endTimeValue = document.getElementById('trip_end_time_form').value;
+
+      if (endTimeValue && new Date(endTimeValue) <= new Date(startTimeValue)) {
+        return openInfoStatusModal("Validation Error", "End time must be after start time.", "error");
+      }
+
+      const tripData = {
+        vehicle_id: parseInt(document.getElementById('trip_vehicle_id_form').value),
+        driver_id: parseInt(document.getElementById('trip_driver_id_form').value),
+        start_location: document.getElementById('trip_start_location_form').value,
+        end_location: document.getElementById('trip_end_location_form').value,
+        start_time: new Date(startTimeValue).toISOString(),
+        end_time: endTimeValue ? new Date(endTimeValue).toISOString() : null,
+        purpose: document.getElementById('trip_purpose_form').value || null,
+        notes: document.getElementById('trip_notes_form').value || null
+      };
+
+      if (isNaN(tripData.vehicle_id) || isNaN(tripData.driver_id)) {
+        return openInfoStatusModal("Validation Error", "Vehicle and Driver are required.", "error");
+      }
+
+      const action = tripToEditId ? 'update' : 'add';
+
+      openGenericConfirmModal(
+        `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        `Are you sure you want to ${action} this trip?`,
+        action.charAt(0).toUpperCase() + action.slice(1),
+        tripToEditId ? 'save' : 'plus-circle',
+        async (data) => {
+          const endpoint = tripToEditId ? `${TRIP_API_ENDPOINT}${tripToEditId}` : TRIP_API_ENDPOINT;
+          const method = tripToEditId ? 'PUT' : 'POST';
+          const result = await apiRequest(endpoint, method, data);
+
+          if (result) {
+            openInfoStatusModal("Success", `Trip ${action}ed successfully!`, "success");
+            closeAddTripModal();
+            if (!tripToEditId) currentTripPage = 1;
+            await fetchAndRenderTrips();
+          }
+        },
+        tripData
+      );
+    }
+
+    async function openViewTripModal(id) {
+      const result = await apiRequest(`${TRIP_API_ENDPOINT}${id}`);
+      if (!result || !result.data) return openInfoStatusModal("Error", "Could not load trip details.", "error");
+
+      const record = result.data;
+      const vehicle = allVehicles.find(v => v.id === record.vehicle_id);
+      const driver = allDrivers.find(d => d.id === record.driver_id) || (await apiRequest(`${USER_API_ENDPOINT}${record.driver_id}`))?.data;
+
+      document.getElementById('view-trip-id').textContent = record.id;
+      document.getElementById('view-trip-vehicle').textContent = vehicle ? `${vehicle.plate_number} (${vehicle.make} ${vehicle.model})` : 'N/A';
+      document.getElementById('view-trip-driver').textContent = driver ? `${driver.first_name} ${driver.last_name}` : 'N/A';
+      document.getElementById('view-trip-start_location').textContent = record.start_location;
+      document.getElementById('view-trip-end_location').textContent = record.end_location;
+      document.getElementById('view-trip-start_time').textContent = formatDateTimeForDisplay(record.start_time);
+      document.getElementById('view-trip-end_time').textContent = formatDateTimeForDisplay(record.end_time);
+      document.getElementById('view-trip-purpose').textContent = record.purpose || 'N/A';
+      document.getElementById('view-trip-status').textContent = (record.status || 'N/A').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      document.getElementById('view-trip-notes').textContent = record.notes || 'None';
+      document.getElementById('view-trip-created_at').textContent = formatDateTimeForDisplay(record.created_at);
+
+      openModal('viewTripModal');
+    }
+
+    function openConfirmDeleteTripModal(id, status) {
+      if (status === 'ongoing' || status === 'completed') {
+        openInfoStatusModal("Action Denied", "Cannot delete an ongoing or completed trip.", "error");
+        return;
+      }
+      openGenericConfirmModal(
+        "Confirm Deletion",
+        "Are you sure you want to delete this trip? This cannot be undone.",
+        "Delete",
+        "trash-2",
+        async () => {
+          const result = await apiRequest(`${TRIP_API_ENDPOINT}${id}`, 'DELETE');
+          if (result) {
+            openInfoStatusModal("Success", "Trip deleted.", "success");
+            await fetchAndRenderTrips();
+          }
+        }
+      );
+    }
+
+    // --- Filtering & Export ---
+    function getISODateString(date) { return date.toISOString().split('T')[0]; }
+
+    function getDateRange(filterType) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let sD = new Date(today);
+      let eD = new Date(today);
+      eD.setHours(23, 59, 59, 999);
+
+      switch (filterType) {
+        case 'today': break;
+        case 'last7days': sD.setDate(today.getDate() - 6); break;
+        case 'last30days': sD.setDate(today.getDate() - 29); break;
+        case 'all': return { startDate: null, endDate: null };
+        default: return { startDate: null, endDate: null };
+      }
+      return { startDate: getISODateString(sD), endDate: getISODateString(eD) };
+    }
+
+    function applyTripDateFilter(type) {
+      activeTripDateFilter = type;
+      customTripFilterStartDate = null;
+      customTripFilterEndDate = null;
+      document.getElementById('tripCustomDateRange').classList.add('hidden');
+      setActiveTripDateFilterButton(type);
+      currentTripPage = 1;
+      fetchAndRenderTrips();
+    }
+
+    function toggleTripCustomDateRange() {
+      const el = document.getElementById('tripCustomDateRange');
+      el.classList.toggle('hidden');
+      if (!el.classList.contains('hidden')) {
+        setActiveTripDateFilterButton('trip-filter-custom-btn');
+      } else if (activeTripDateFilter === 'custom') {
+        applyTripDateFilter('all');
+      }
+    }
+
+    function applyTripCustomDateFilter() {
+      const startDate = document.getElementById('tripCustomStartDate').value;
+      const endDate = document.getElementById('tripCustomEndDate').value;
+      if (!startDate || !endDate || new Date(startDate) > new Date(endDate)) {
+        return openInfoStatusModal("Input Error", "Please select a valid date range.", "error");
+      }
+      activeTripDateFilter = 'custom';
+      customTripFilterStartDate = startDate;
+      customTripFilterEndDate = endDate;
+      setActiveTripDateFilterButton('trip-filter-custom-btn');
+      currentTripPage = 1;
+      fetchAndRenderTrips();
+    }
+
+    function setActiveTripDateFilterButton(id) {
+      document.querySelectorAll('#trip-section .date-filter-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById(id.startsWith('trip-filter-') ? id : `trip-filter-${id}`);
+      if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    async function getFilteredDataForExport() {
+      let queryParams = 'limit=2000';
+      const searchTerm = document.getElementById('tripSearch').value;
+      if (searchTerm) queryParams += `&search=${encodeURIComponent(searchTerm)}`;
+      if (activeTripDateFilter !== 'all') {
+        const range = (activeTripDateFilter === 'custom')
+          ? { startDate: customTripFilterStartDate, endDate: customTripFilterEndDate }
+          : getDateRange(activeTripDateFilter);
+        if (range.startDate && range.endDate) {
+          queryParams += `&start_date=${range.startDate}&end_date=${range.endDate}`;
+        }
+      }
+      const result = await apiRequest(`${TRIP_API_ENDPOINT}?${queryParams}`);
+      return Array.isArray(result?.data) ? result.data : (result?.data?.items || []);
+    }
+
+    async function exportTripsExcel() {
+      if (!getAuthToken()) return openInfoStatusModal("Error", "Please log in to export data.", "error");
+      const records = await getFilteredDataForExport();
+      if (records.length === 0) return openInfoStatusModal("Info", "No data to export for the current filter.", "info");
+
+      const wsData = records.map(r => {
+        const vehicle = allVehicles.find(v => v.id === r.vehicle_id);
+        const driver = allDrivers.find(d => d.id === r.driver_id);
+        return {
+          'ID': r.id,
+          'Vehicle Plate': vehicle ? vehicle.plate_number : `VID: ${r.vehicle_id}`,
+          'Driver': driver ? `${driver.first_name} ${driver.last_name}` : `DID: ${r.driver_id}`,
+          'Start Location': r.start_location,
+          'End Location': r.end_location,
+          'Start Time': formatDateTimeForDisplay(r.start_time),
+          'End Time': formatDateTimeForDisplay(r.end_time),
+          'Purpose': r.purpose,
+          'Status': r.status
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Trips");
+      XLSX.writeFile(wb, "trips_export.xlsx");
+      openInfoStatusModal("Success", `Exported ${records.length} records to Excel.`);
+    }
+
+    async function exportTripsPDF() {
+      if (!getAuthToken()) return openInfoStatusModal("Error", "Please log in to export data.", "error");
+      const records = await getFilteredDataForExport();
+      if (records.length === 0) return openInfoStatusModal("Info", "No data to export for the current filter.", "info");
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('l');
+      doc.setFontSize(18); doc.text('Trip Records', 14, 15);
+
+      const headers = [['ID', 'Vehicle', 'Driver', 'Start Loc', 'End Loc', 'Start Time', 'Status']];
+      const data = records.map(r => {
+        const vehicle = allVehicles.find(v => v.id === r.vehicle_id);
+        const driver = allDrivers.find(d => d.id === r.driver_id);
+        return [
+          r.id,
+          vehicle ? vehicle.plate_number : `VID:${r.vehicle_id}`,
+          driver ? `${driver.first_name.substring(0, 1)}. ${driver.last_name}` : `DID:${r.driver_id}`,
+          r.start_location,
+          r.end_location,
+          new Date(r.start_time).toLocaleDateString(),
+          r.status
+        ];
+      });
+
+      doc.autoTable({ head: headers, body: data, startY: 25, theme: 'grid', headStyles: { fillColor: [59, 130, 246], textColor: 255 } });
+      doc.save('trips_export.pdf');
+      openInfoStatusModal("Success", `Exported ${records.length} records to PDF.`);
+    }
+
+    // --- Dashboard Widgets ---
+    async function initializeDashboardWidgets() {
+      const insightsList = document.getElementById('keyPerformanceInsightsList');
+      const alertsList = document.getElementById('notificationsList');
+      const notificationCountSpan = document.getElementById('notificationCount');
+      if (!insightsList || !alertsList || !notificationCountSpan) return;
+
+      if (!getAuthToken()) {
+        insightsList.innerHTML = `<li class="flex items-start space-x-2 text-gray-500"><i data-lucide="log-in" class="w-4 h-4 mt-0.5 shrink-0"></i><span>Please log in to see insights.</span></li>`;
+        alertsList.innerHTML = `<div class="flex items-start space-x-2 text-gray-500 p-2.5"><i data-lucide="log-in" class="w-5 h-5 mt-0.5 shrink-0"></i><p class="text-xs">Please log in to see alerts.</p></div>`;
+        notificationCountSpan.textContent = '0';
+        lucide.createIcons();
+        return;
+      }
+
+      insightsList.innerHTML = `<li class="flex items-start space-x-2"><i data-lucide="loader-2" class="w-4 h-4 text-gray-400 animate-spin mt-0.5 shrink-0"></i><span>Loading insights...</span></li>`;
+      alertsList.innerHTML = `<div class="flex items-start space-x-2 p-2.5"><i data-lucide="loader-2" class="w-5 h-5 text-gray-400 animate-spin mt-0.5 flex-shrink-0"></i><p class="text-xs">Loading alerts...</p></div>`;
+      lucide.createIcons();
+
+      const [insightsResult, alertsResult] = await Promise.all([
+        apiRequest('/dashboard-data/performance-insights'),
+        apiRequest('/dashboard-data/alerts')
+      ]);
+
+      // Insights Render
+      if (!insightsResult || !insightsResult.data) {
+        insightsList.innerHTML = `<li class="flex items-start space-x-2 text-red-500"><i data-lucide="alert-circle" class="w-4 h-4 mt-0.5 shrink-0"></i><span>Failed to load insights.</span></li>`;
+      } else {
+        const { fuel_efficiency, maintenance_compliance } = insightsResult.data;
+        let insightsHTML = '';
+        if (fuel_efficiency) insightsHTML += `<li class="flex items-start space-x-2"><i data-lucide="droplet" class="w-4 h-4 text-blue-500 mt-0.5 shrink-0"></i><span>Fuel efficiency trend is ${fuel_efficiency.trend}.</span></li>`;
+        if (maintenance_compliance) insightsHTML += `<li class="flex items-start space-x-2"><i data-lucide="wrench" class="w-4 h-4 text-yellow-500 mt-0.5 shrink-0"></i><span>${maintenance_compliance.total_maintenance_records} maintenance tasks logged.</span></li>`;
+        insightsList.innerHTML = insightsHTML || `<li>No performance data available.</li>`;
+      }
+
+      // Alerts Render
+      if (!alertsResult || !alertsResult.data) {
+        alertsList.innerHTML = `<div class="flex items-start space-x-2 text-red-500"><i data-lucide="alert-circle" class="w-4 h-4 mt-0.5 shrink-0"></i><p class="text-xs">Failed to load alerts.</p></div>`;
+        notificationCountSpan.textContent = '0';
+      } else {
+        const { total_alerts, critical_panne, maintenance_alert, trip_alert } = alertsResult.data;
+        notificationCountSpan.textContent = total_alerts || '0';
+        let alertsHTML = '';
+        const createAlertHTML = (alert, icon, color) => alert ? `<div class="flex items-start space-x-2 p-2.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg"><i data-lucide="${icon}" class="w-5 h-5 ${color} mt-0.5 shrink-0"></i><div><p class="text-xs font-semibold">${alert.plate_number}</p><p class="text-xs">${alert.message}</p></div></div>` : '';
+        alertsHTML += createAlertHTML(critical_panne, 'shield-alert', 'text-red-500');
+        alertsHTML += createAlertHTML(maintenance_alert, 'calendar-clock', 'text-blue-500');
+        alertsHTML += createAlertHTML(trip_alert, 'route', 'text-purple-500');
+
+        alertsList.innerHTML = total_alerts === 0
+          ? `<div class="text-center p-4 text-gray-500"><i data-lucide="check-circle" class="w-8 h-8 mx-auto mb-2 text-green-500"></i><p class="text-xs">All clear! No new alerts.</p></div>`
+          : alertsHTML;
+      }
+      lucide.createIcons();
+    }
+  </script>
+  <script src="/static/js/global.js"></script>
+
+</body>
+
+</html>

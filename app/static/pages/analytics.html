@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - Statistics & Reports</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class', 
+      theme: {
+        extend: {
+          colors: {
+            primary: { DEFAULT: '#3b82f6', hover: '#2563eb', dark: '#60a5fa', 'dark-hover': '#3b82f6', light: '#dbeafe' },
+            secondary: { DEFAULT: '#10b981', hover: '#059669', dark: '#34d399', 'dark-hover': '#10b981', light: '#d1fae5' },
+            warning: { DEFAULT: '#f59e0b', hover: '#d97706', dark: '#fbbf24', 'dark-hover': '#f59e0b', light: '#fef3c7' },
+            danger: { DEFAULT: '#ef4444', hover: '#dc2626', dark: '#f87171', 'dark-hover': '#ef4444', light: '#fee2e2' },
+            info: { DEFAULT: '#6366f1', hover: '#4f46e5', dark: '#818cf8', 'dark-hover': '#6366f1', light: '#e0e7ff' }, 
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #c7c7c7; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a3a3a3; }
+    .dark ::-webkit-scrollbar-track { background: #2d3748; }
+    .dark ::-webkit-scrollbar-thumb { background: #4a5568; }
+    .dark ::-webkit-scrollbar-thumb:hover { background: #718096; }
+    .chart-container { position: relative; height: 320px; }
+    @media (min-width: 768px) { .chart-container { height: 384px; } }
+    .kpi-value { font-size: 1.75rem; line-height: 2.25rem; word-break: break-all; }
+    @media (min-width: 1024px) { .kpi-value { font-size: 1.875rem; line-height: 2.25rem; } }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+    #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 0.5rem; }
+    .toast-message { background-color: #333; color: white; padding: 10px 15px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-size: 0.875rem; }
+    .toast-message.success { background-color: #10b981; }
+    .toast-message.error { background-color: #ef4444; }
+    .toast-message.info { background-color: #3b82f6; }
+  </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white antialiased">
+
+<div id="toast-container"></div>
+
+<div class="flex h-screen">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800/95 backdrop-blur-sm p-4 space-y-6 shadow-lg 
+                             transform -translate-x-full transition-transform duration-300 ease-in-out 
+                             md:relative md:translate-x-0 md:shadow-lg md:border-r dark:border-gray-700 
+                             flex flex-col flex-shrink-0">
+      <div class="flex items-center justify-between">
+          <div class="text-2xl font-bold flex items-center space-x-2 text-primary dark:text-primary-light">
+            <i data-lucide="command" class="w-7 h-7"></i><span>FleetDash</span>
+          </div>
+          <button id="sidebar-close-button" class="md:hidden p-1 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
+              <span class="sr-only">Fermer Menu</span><i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+      </div>
+      <nav class="flex-1 overflow-y-auto">
+        <ul class="space-y-2">
+        <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="layout-dashboard" class="w-5 h-5"></i><a href="dashboard.html">Dashboard</a>
+        </li>
+        <li class="flex items-center space-x-3 text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="pie-chart" class="w-5 h-5"></i><a href="analytics.html">Analytics</a>
+        </li>
+        <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="user" class="w-5 h-5"></i><a href="users.html">Utilisateurs</a></li>
+        <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i><a href="panne.html">Pannes</a></li>
+        <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="car" class="w-5 h-5"></i><a href="vehicle.html">Vehicules</a></li>
+         <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="wrench" class="w-5 h-5"></i><a href="reparation.html">Reparation</a></li>
+        <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="droplet" class="w-5 h-5"></i><a href="fuel.html">Carburent</a></li>
+        <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="settings" class="w-5 h-5"></i><a href="maintenance.html">Maintenance</a></li>
+        <li class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-md transition-colors">
+          <i data-lucide="route" class="w-5 h-5"></i><a href="trip.html">Voyage</a></li>
+      </ul>
+      </nav>
+       <div class="pt-4 border-t border-gray-200 dark:border-gray-700/50 mt-auto">
+            <a href="#" id="global-logout-btn" class="flex items-center space-x-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/40 p-2.5 rounded-lg transition-colors">
+                <i data-lucide="log-out" class="w-5 h-5"></i><span>Deconnexion</span></a>
+       </div>
+    </aside>
+
+    <div id="sidebar-overlay" class="fixed inset-0 z-30 bg-black bg-opacity-50 hidden md:hidden transition-opacity duration-300 ease-in-out"></div>
+    
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="bg-white dark:bg-gray-800 shadow p-3 flex justify-between items-center flex-shrink-0 h-16">
+          <button id="mobile-menu-button" class="md:hidden text-gray-700 dark:text-gray-300 focus:outline-none p-2">
+              <i data-lucide="menu" class="w-6 h-6"></i></button>
+          <div class="text-lg font-bold text-primary dark:text-primary-light md:hidden">FleetDash</div>
+          <div class="hidden md:block text-xl font-semibold text-gray-700 dark:text-gray-200">Statistics & Reports</div>
+          <div class="flex items-center space-x-3">
+              <button id="theme-toggle-header" class="text-xl p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"></button>
+              <div class="flex items-center space-x-2">
+                  <img src="https://i.pravatar.cc/40?u=analyst_jane_doe" alt="Analyst" class="w-10 h-10 rounded-full object-cover">
+                  <div class="text-right">
+                      <div class="text-sm font-semibold" id="userDisplayNameHeader">Utilisateur</div>
+                      <div class="text-xs text-gray-500 dark:text-gray-400">Fleet Analyse</div>
+                  </div>
+              </div>
+          </div>
+      </header>
+
+      <div class="flex-1 flex overflow-hidden">
+        <main class="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 md:space-y-8">
+          <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+              <div></div> 
+              <div class="flex items-center space-x-3">
+                  <label for="reportPeriod" class="text-sm font-medium text-gray-600 dark:text-gray-300 shrink-0">Periode:</label>
+                  <select id="reportPeriod" class="border dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-black dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent appearance-none">
+                      <option value="last30days">Dernier 30 Jours</option>
+                      <option value="last90days">Dernier 90 Jours</option>
+                      <option value="last6months">Dernier 6 Mois</option>
+                      <option value="last12months" selected>Dernier 12 Mois</option>
+                      <option value="currentYear">Cette Annee</option>
+                      <option value="custom">Periode Personalisee</option>
+                  </select>
+                  <div id="customReportDateContainer" class="hidden items-center gap-2">
+                      <input type="date" id="reportCustomStart" class="border dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-black dark:bg-gray-700 dark:text-white">
+                      <span class="text-xs">A</span>
+                      <input type="date" id="reportCustomEnd" class="border dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-black dark:bg-gray-700 dark:text-white">
+                      <button id="applyCustomDateBtn" class="bg-primary text-white px-3 py-1.5 text-xs rounded-md hover:bg-primary-hover">Appliquer</button>
+                  </div>
+              </div>
+          </header>
+
+          <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
+                  <div class="flex items-center justify-between mb-2">
+                      <p class="text-sm text-gray-500 dark:text-gray-400">Prix Total Carburent</p>
+                      <div class="p-2 rounded-full bg-danger-light dark:bg-danger/20 text-danger dark:text-danger-light"><i data-lucide="fuel" class="w-5 h-5"></i></div>
+                  </div>
+                  <p id="kpiFuelTotal" class="kpi-value font-bold text-gray-800 dark:text-white">BIF0.00</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pour La periode Selectionnee</p>
+              </div>
+              <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
+                  <div class="flex items-center justify-between mb-2">
+                      <p class="text-sm text-gray-500 dark:text-gray-400">Prix Total Reparation</p>
+                      <div class="p-2 rounded-full bg-warning-light dark:bg-warning/20 text-warning dark:text-warning-light"><i data-lucide="wrench" class="w-5 h-5"></i></div>
+                  </div>
+                  <p id="kpiReparationTotal" class="kpi-value font-bold text-gray-800 dark:text-white">BIF0.00</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pour La periode Selectionnee</p>
+              </div>
+              <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
+                  <div class="flex items-center justify-between mb-2">
+                       <p class="text-sm text-gray-500 dark:text-gray-400">Prix Total Maintenance</p>
+                       <div class="p-2 rounded-full bg-info-light dark:bg-info/20 text-info dark:text-info-light"><i data-lucide="settings-2" class="w-5 h-5"></i></div>
+                  </div>
+                  <p id="kpiMaintenanceTotal" class="kpi-value font-bold text-gray-800 dark:text-white">BIF0.00</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pour La periode Selectionnee</p>
+              </div>
+              <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
+                  <div class="flex items-center justify-between mb-2">
+                      <p class="text-sm text-gray-500 dark:text-gray-400">Vehicules Achetes</p>
+                      <div class="p-2 rounded-full bg-secondary-light dark:bg-secondary/20 text-secondary dark:text-secondary-light"><i data-lucide="shopping-cart" class="w-5 h-5"></i></div>
+                  </div>
+                  <p id="kpiVehiclePurchaseTotal" class="kpi-value font-bold text-gray-800 dark:text-white">BIF0.00</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pour La periode Selectionnee</p>
+              </div>
+          </section>
+
+          <section class="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+              <div class="lg:col-span-3 bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
+                  <h3 class="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Tendance Consomation Mensuel</h3>
+                  <div class="chart-container"><canvas id="monthlyExpenseChart"></canvas></div>
+              </div>
+              <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
+                  <h3 class="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Depenses Distribues</h3>
+                  <div class="chart-container"><canvas id="expenseDistributionChart"></canvas></div>
+              </div>
+          </section>
+          
+          <section class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
+              <h3 class="text-xl font-semibold mb-6 text-gray-700 dark:text-gray-200">Genere Un Report Personalise</h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                  <div>
+                      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expense Categories</label>
+                      <div class="space-y-2 mt-2">
+                          <div><label class="inline-flex items-center"><input type="checkbox" id="reportCatFuel" value="fuel" class="rounded border-gray-300 dark:border-gray-600 text-primary dark:bg-gray-700 focus:ring-primary" checked> <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">Carburant</span></label></div>
+                          <div><label class="inline-flex items-center"><input type="checkbox" id="reportCatReparation" value="reparation" class="rounded border-gray-300 dark:border-gray-600 text-primary dark:bg-gray-700 focus:ring-primary" checked> <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">Reparations</span></label></div>
+                          <div><label class="inline-flex items-center"><input type="checkbox" id="reportCatMaintenance" value="maintenance" class="rounded border-gray-300 dark:border-gray-600 text-primary dark:bg-gray-700 focus:ring-primary" checked> <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">Maintenance</span></label></div>
+                          <div><label class="inline-flex items-center"><input type="checkbox" id="reportCatPurchases" value="purchases" class="rounded border-gray-300 dark:border-gray-600 text-primary dark:bg-gray-700 focus:ring-primary" checked> <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">Achat Vehicules</span></label></div>
+                      </div>
+                  </div>
+                  <div>
+                      <label for="reportFormat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Format Rapport</label>
+                      <select id="reportFormat" class="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm text-black dark:text-white">
+                          <option value="pdf">PDF Document</option><option value="excel">Excel Spreadsheet</option>
+                      </select>
+                  </div>
+                  <div><button onclick="generateReport()" class="w-full bg-secondary text-white px-6 py-3 rounded-lg hover:bg-secondary-hover dark:bg-secondary-dark dark:hover:bg-secondary-dark-hover flex items-center justify-center gap-2 text-sm font-medium shadow-sm transition-colors">
+                          <i data-lucide="download" class="w-5 h-5"></i> Genere Report</button>
+                  </div>
+              </div>
+          </section>
+        </main>
+
+        <aside class="w-1/5 bg-white dark:bg-gray-800/95 backdrop-blur-sm p-4 space-y-6 shadow-lg hidden lg:block flex-shrink-0 border-l dark:border-gray-700 overflow-y-auto">
+            <div>
+                <h4 class="font-semibold mb-3 text-gray-700 dark:text-gray-200">Key Performance Insights</h4>
+                <ul id="keyPerformanceInsightsList" class="text-xs space-y-2.5 text-gray-600 dark:text-gray-300">
+                    <li class="flex items-start space-x-2"><i data-lucide="loader-2" class="w-4 h-4 text-gray-400 animate-spin mt-0.5 shrink-0"></i><span>Loading insights...</span></li>
+                </ul>
+            </div>
+            <hr class="dark:border-gray-700/50">
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-semibold text-gray-700 dark:text-gray-200">Alertes & Notifications</h4>
+                    <a href="#" id="viewAllNotificationsLink" class="text-xs text-primary dark:text-primary-light hover:underline">Vior Tous (<span id="notificationCount">0</span>)</a>
+                </div>
+                <div id="notificationsList" class="space-y-3 max-h-40 overflow-y-auto pr-1">
+                     <div class="flex items-start space-x-2 p-2.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg"><i data-lucide="loader-2" class="w-5 h-5 text-gray-400 animate-spin mt-0.5 flex-shrink-0"></i><p class="text-xs text-gray-700 dark:text-gray-300">Chargement alertes...</p></div>
+                </div>
+            </div>
+        </aside>
+      </div>
+    </div>
+</div>
+
+<script>
+  function showToast(message, duration = 3000, type = 'info') { 
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toastElement = document.createElement('div');
+      toastElement.textContent = message;
+      toastElement.className = `toast-message ${type}`;
+      container.appendChild(toastElement);
+      setTimeout(() => {
+          toastElement.style.opacity = '0';
+          setTimeout(() => { toastElement.remove(); }, 300); 
+      }, duration);
+  }
+
+  const sidebar = document.getElementById('sidebar');
+  const mobileMenuButton = document.getElementById('mobile-menu-button');
+  const sidebarCloseButton = document.getElementById('sidebar-close-button'); 
+  const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+  function openMobileMenu() { 
+      if (sidebar && sidebarOverlay) { 
+          sidebar.classList.remove('-translate-x-full'); 
+          sidebar.classList.add('translate-x-0'); 
+          sidebarOverlay.classList.remove('hidden'); 
+          document.body.classList.add('overflow-hidden', 'md:overflow-auto'); 
+      } 
+  }
+  function closeMobileMenu() { 
+      if (sidebar && sidebarOverlay) { 
+          sidebar.classList.add('-translate-x-full'); 
+          sidebar.classList.remove('translate-x-0'); 
+          sidebarOverlay.classList.add('hidden'); 
+          document.body.classList.remove('overflow-hidden'); 
+      } 
+  }
+  
+  const themeToggleButtonHeader = document.getElementById('theme-toggle-header'); 
+  function setInitialThemeIcon() {
+    if (themeToggleButtonHeader) { 
+        if (document.documentElement.classList.contains('dark')) {
+            themeToggleButtonHeader.innerHTML = '<i data-lucide="sun" class="w-5 h-5"></i>';
+        } else {
+            themeToggleButtonHeader.innerHTML = '<i data-lucide="moon" class="w-5 h-5"></i>';
+        }
+        lucide.createIcons();
+    }
+  }
+
+  function updateUserInfoDisplay() {
+    const userNameHeader = document.getElementById('userDisplayNameHeader');
+    const storedUsername = localStorage.getItem('username'); 
+    console.log("Stored username for display (from updateUserInfoDisplay):", storedUsername);
+
+    if (userNameHeader) userNameHeader.textContent = storedUsername || "User"; 
+  }
+
+  let currentExpenseData = { fuel: { total: 0, trend: [] }, reparation: { total: 0, trend: [] }, maintenance: { total: 0, trend: [] }, purchases: { total: 0, trend: [] } };
+  let monthlyExpenseChartInstance = null;
+  let expenseDistributionChartInstance = null;
+
+  async function fetchPerformanceInsights() {
+    const authToken = localStorage.getItem('accessToken');
+    if (!authToken) { 
+        console.error("Auth token not found for insights"); 
+        const insightsList = document.getElementById('keyPerformanceInsightsList');
+        if (insightsList) insightsList.innerHTML = '<li class="text-xs text-danger-dark dark:text-danger-light p-2">Please log in to see insights.</li>';
+        return; 
+    }
+
+    try {
+        const response = await fetch('/dashboard-data/performance-insights', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: `Insights HTTP error! Status: ${response.status}` }));
+            throw new Error(errorData.detail || `Insights HTTP error! Status: ${response.status}`);
+        }
+        const data = await response.json();
+        updatePerformanceInsightsUI(data);
+    } catch (error) {
+        console.error("Error fetching performance insights:", error);
+        const insightsList = document.getElementById('keyPerformanceInsightsList');
+        if (insightsList) insightsList.innerHTML = `<li class="text-xs text-danger-dark dark:text-danger-light p-2">Could not load insights: ${error.message}</li>`;
+    }
+  }
+
+  function updatePerformanceInsightsUI(data) {
+    const insightsList = document.getElementById('keyPerformanceInsightsList');
+    if (!insightsList) return;
+    insightsList.innerHTML = ''; 
+
+    let fuelEffHtml = `<li class="flex items-start space-x-2">`;
+    if (data.fuel_efficiency.trend === "up") {
+        fuelEffHtml += `<i data-lucide="trending-up" class="w-4 h-4 text-green-500 mt-0.5 shrink-0"></i>`;
+    } else if (data.fuel_efficiency.trend === "down") {
+        fuelEffHtml += `<i data-lucide="trending-down" class="w-4 h-4 text-red-500 mt-0.5 shrink-0"></i>`;
+    } else {
+        fuelEffHtml += `<i data-lucide="minus" class="w-4 h-4 text-gray-500 mt-0.5 shrink-0"></i>`;
+    }
+    fuelEffHtml += `<span>Fuel Efficiency: <span class="font-medium">`;
+    if (data.fuel_efficiency.percentage_change !== null) {
+        fuelEffHtml += `${data.fuel_efficiency.percentage_change > 0 ? '+' : ''}${data.fuel_efficiency.percentage_change}%`;
+    } else {
+        fuelEffHtml += `N/A`;
+    }
+    fuelEffHtml += `</span> vs. last period.</span></li>`;
+    insightsList.innerHTML += fuelEffHtml;
+
+    insightsList.innerHTML += `
+        <li class="flex items-start space-x-2">
+            <i data-lucide="shield-check" class="w-4 h-4 text-blue-500 mt-0.5 shrink-0"></i>
+            <span>Maintenance Compliance: <span class="font-medium">${data.maintenance_compliance.total_maintenance_records}</span> logged.</span>
+        </li>`;
+    
+    insightsList.innerHTML += `
+        <li class="flex items-start space-x-2">
+            <i data-lucide="activity" class="w-4 h-4 text-yellow-500 mt-0.5 shrink-0"></i>
+            <span>Idle Time: <span class="font-medium">Data N/A</span> (feature pending)</span>
+        </li>`;
+
+    insightsList.innerHTML += `
+        <li class="flex items-start space-x-2">
+            <i data-lucide="dollar-sign" class="w-4 h-4 text-gray-500 mt-0.5 shrink-0"></i>
+            <span>Cost per Mile (Est.): <span class="font-medium" id="insightCostPerMile">$0.00</span></span>
+        </li>`;
+    
+    const insightCostEl = document.getElementById('insightCostPerMile');
+    const mainCostPerMileEl = document.getElementById('quickStatCostPerMile');
+    if(insightCostEl && mainCostPerMileEl && mainCostPerMileEl.textContent) {
+        insightCostEl.textContent = mainCostPerMileEl.textContent;
+    }
+
+    lucide.createIcons();
+  }
+
+  async function fetchAlertsAndNotifications() {
+    const authToken = localStorage.getItem('accessToken');
+    if (!authToken) { 
+        console.error("Auth token not found for alerts"); 
+        const alertsList = document.getElementById('notificationsList');
+        if(alertsList) alertsList.innerHTML = '<div class="text-xs text-danger-dark dark:text-danger-light p-2.5">Please log in to see alerts.</div>';
+        const notificationCountSpan = document.getElementById('notificationCount');
+        if(notificationCountSpan) notificationCountSpan.textContent = '0';
+        return;
+    }
+    try {
+        const response = await fetch('/dashboard-data/alerts', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: `Alerts HTTP error! Status: ${response.status}` }));
+            throw new Error(errorData.detail || `Alerts HTTP error! Status: ${response.status}`);
+        }
+        const data = await response.json();
+        updateAlertsUI(data);
+    } catch (error) {
+        console.error("Error fetching alerts:", error);
+        const alertsList = document.getElementById('notificationsList');
+        if(alertsList) alertsList.innerHTML = `<div class="text-xs text-danger-dark dark:text-danger-light p-2.5">Could not load alerts: ${error.message}</div>`;
+    }
+  }
+
+  function updateAlertsUI(data) {
+    const notificationsList = document.getElementById('notificationsList');
+    const notificationCountSpan = document.getElementById('notificationCount');
+    if (!notificationsList || !notificationCountSpan) return;
+
+    notificationsList.innerHTML = ''; 
+    let alertItemsHtml = '';
+    let displayedAlertCount = 0;
+
+    const createAlertItemHtml = (alert, icon, colorClass, defaultMessagePrefix = "Alert") => {
+        if (!alert) return '';
+        displayedAlertCount++;
+        let entityTypeDisplay = alert.entity_type ? alert.entity_type.charAt(0).toUpperCase() + alert.entity_type.slice(1) : defaultMessagePrefix;
+        
+        return `
+            <div class="flex items-start space-x-2 p-2.5 bg-${colorClass}-light dark:bg-${colorClass}/20 rounded-lg">
+                <i data-lucide="${icon}" class="w-5 h-5 text-${colorClass} dark:text-${colorClass}-light mt-0.5 flex-shrink-0"></i>
+                <p class="text-xs text-gray-700 dark:text-gray-300">
+                    <span class="font-semibold">${entityTypeDisplay}:</span>
+                    Vehicle <span class="font-medium">${alert.plate_number || 'N/A'}</span> - 
+                    ${alert.message || 'No specific message.'} 
+                    ${alert.status ? `<span class="text-xs text-${colorClass}/80 dark:text-${colorClass}-light/70">(${alert.status})</span>` : ''}
+                </p>
+            </div>`;
+    };
+
+    alertItemsHtml += createAlertItemHtml(data.critical_panne, 'alert-octagon', 'danger', 'Critical Panne');
+    alertItemsHtml += createAlertItemHtml(data.maintenance_alert, 'tool', 'warning', 'Maintenance');
+    alertItemsHtml += createAlertItemHtml(data.trip_alert, 'route', 'info', 'Trip');
+
+    if (displayedAlertCount === 0) {
+        alertItemsHtml = '<p class="text-xs text-gray-500 dark:text-gray-400 p-2.5">No new alerts or notifications.</p>';
+    }
+    notificationsList.innerHTML = alertItemsHtml;
+    notificationCountSpan.textContent = data.total_alerts || 0; 
+    lucide.createIcons();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => { 
+      lucide.createIcons(); 
+      updateUserInfoDisplay(); 
+      initializeStatisticsPage(); 
+      fetchPerformanceInsights(); 
+      fetchAlertsAndNotifications(); 
+      
+      themeToggleButtonHeader?.addEventListener('click', () => { 
+          document.documentElement.classList.toggle('dark'); 
+          setInitialThemeIcon(); 
+          const currentLabels = monthlyExpenseChartInstance?.config.data.labels || generateDynamicMonthLabels(12); 
+          initializeStatisticsCharts(currentExpenseData, currentLabels); 
+      });
+      setInitialThemeIcon(); 
+      
+      mobileMenuButton?.addEventListener('click', openMobileMenu);
+      sidebarCloseButton?.addEventListener('click', closeMobileMenu);
+      sidebarOverlay?.addEventListener('click', closeMobileMenu);
+      document.querySelectorAll('#sidebar nav a').forEach(link => {
+          link.addEventListener('click', () => { if (window.innerWidth < 768) { closeMobileMenu(); } });
+      });
+
+      const reportPeriodSelect = document.getElementById('reportPeriod');
+      if(reportPeriodSelect) { 
+          reportPeriodSelect.addEventListener('change', handleReportPeriodChange); 
+          const today = new Date(); 
+          const firstDayOfYear = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0]; 
+          document.getElementById('reportCustomStart').value = firstDayOfYear; 
+          document.getElementById('reportCustomEnd').value = today.toISOString().split('T')[0]; 
+      }
+
+      const applyCustomDateBtn = document.getElementById('applyCustomDateBtn');
+      if(applyCustomDateBtn) applyCustomDateBtn.addEventListener('click', () => fetchAndDisplayDataForPeriod('custom'));
+      
+      window.addEventListener('resize', () => { 
+          if (window.innerWidth >= 768) { 
+              document.body.classList.remove('overflow-hidden'); 
+              if (sidebarOverlay && !sidebarOverlay.classList.contains('hidden')) { 
+                  sidebarOverlay.classList.add('hidden'); 
+              } 
+          } else { 
+              if (sidebar && sidebar.classList.contains('translate-x-0') && !sidebar.classList.contains('-translate-x-full')) { 
+                  if (!document.body.classList.contains('overflow-hidden')) { 
+                      document.body.classList.add('overflow-hidden'); 
+                  }
+              }
+          }
+      });
+
+      document.getElementById('global-logout-btn')?.addEventListener('click', (e) => { 
+          e.preventDefault(); 
+          console.log("Global logout clicked"); 
+          localStorage.removeItem('accessToken'); 
+          localStorage.removeItem('refreshToken'); 
+          localStorage.removeItem('username'); 
+          showToast("Logged out successfully. Redirecting...", 2000, "success"); 
+          setTimeout(() => {
+              window.location.href = "/"; 
+          }, 1500); 
+      });
+  }); 
+
+  function initializeStatisticsPage() {
+      const defaultPeriod = document.getElementById('reportPeriod').value || 'last12months';
+      fetchAndDisplayDataForPeriod(defaultPeriod);
+  }
+  
+  function handleReportPeriodChange(event) { 
+      const period = event.target.value; 
+      const customRangeContainer = document.getElementById('customReportDateContainer'); 
+      if (period === 'custom') { 
+          customRangeContainer.classList.remove('hidden'); 
+          customRangeContainer.classList.add('flex'); 
+      } else { 
+          customRangeContainer.classList.add('hidden'); 
+          customRangeContainer.classList.remove('flex'); 
+          fetchAndDisplayDataForPeriod(period); 
+      } 
+  }
+  
+  function getPeriodDateRange(period) { 
+      const today = new Date(); 
+      let startDate = new Date(); 
+      let endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999); 
+      switch (period) { 
+          case 'last30days': startDate.setDate(today.getDate() - 29); break; 
+          case 'last90days': startDate.setDate(today.getDate() - 89); break; 
+          case 'last6months': startDate = new Date(today.getFullYear(), today.getMonth() - 5, 1); break; 
+          case 'last12months': startDate = new Date(today.getFullYear() -1 , today.getMonth(), today.getDate() - (today.getDate() -1) +1); break; 
+          case 'currentYear': startDate = new Date(today.getFullYear(), 0, 1); break; 
+          case 'custom': 
+              const cS = document.getElementById('reportCustomStart').value;
+              const cE = document.getElementById('reportCustomEnd').value; 
+              if (!cS || !cE) { showToast("Please select custom start and end dates.", 3000, "error"); return null; } 
+              startDate = new Date(cS); 
+              endDate = new Date(cE); 
+              endDate.setHours(23,59,59,999); 
+              if (startDate > endDate) { showToast("Start date cannot be after end date.", 3000, "error"); return null; } 
+              break; 
+          default: startDate.setDate(today.getDate() - 29); 
+      } 
+      startDate.setHours(0,0,0,0); 
+      return { startDate, endDate }; 
+  }
+
+  function generateDynamicMonthLabels(count, refEndDate = new Date()) { 
+      const labels = []; 
+      let currentDate = new Date(refEndDate.getFullYear(), refEndDate.getMonth(), 1); 
+      for (let i = 0; i < count; i++) { 
+          labels.unshift(currentDate.toLocaleString('default', { month: 'short', year: '2-digit' })); 
+          currentDate.setMonth(currentDate.getMonth() - 1); 
+      } 
+      return labels; 
+  }
+
+  async function fetchAndDisplayDataForPeriod(period) { 
+      const range = getPeriodDateRange(period); 
+      if (!range && period === 'custom') return; 
+      const authToken = localStorage.getItem('accessToken'); 
+      if (!authToken) { showToast("Authentication token not found. Please log in.", 5000, "error"); return; } 
+      const startDateString = range.startDate.toISOString().split('T')[0]; 
+      const endDateString = range.endDate.toISOString().split('T')[0]; 
+      showToast("Fetching summary data...", 2000, "info"); 
+      try { 
+          const response = await fetch(`/analytics-data/expense-summary?start_date=${startDateString}&end_date=${endDateString}`, { method: 'GET', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` } }); 
+          if (!response.ok) { 
+              const errorData = await response.json().catch(() => ({ detail: `HTTP error! Status: ${response.status}` })); 
+              throw new Error(errorData.detail || `HTTP error! Status: ${response.status}`); 
+          } 
+          const apiData = await response.json(); 
+          const transformedData = { 
+              fuel: { total: apiData.total_fuel_cost, trend: [] }, 
+              reparation: { total: apiData.total_reparation_cost, trend: [] }, 
+              maintenance: { total: apiData.total_maintenance_cost, trend: [] }, 
+              purchases: { total: apiData.total_vehicle_purchase_cost, trend: [] } 
+          }; 
+          const chartLabels = apiData.monthly_breakdown.map(item => item.month_year); 
+          apiData.monthly_breakdown.forEach(item => { 
+              transformedData.fuel.trend.push(item.fuel_cost); 
+              transformedData.reparation.trend.push(item.reparation_cost); 
+              transformedData.maintenance.trend.push(item.maintenance_cost); 
+              transformedData.purchases.trend.push(item.purchase_cost); 
+          }); 
+          currentExpenseData = transformedData; 
+          updateExpenseKPIs(currentExpenseData); 
+          initializeStatisticsCharts(currentExpenseData, chartLabels); 
+          updateQuickStats(currentExpenseData); 
+          showToast("Data updated successfully.", 2000, "success"); 
+      } catch (error) { 
+          console.error('Error fetching or processing expense summary data:', error); 
+          showToast(`Error: ${error.message}`, 5000, "error"); 
+          const emptyData = { fuel: {total:0,trend:[]}, reparation:{total:0,trend:[]}, maintenance:{total:0,trend:[]}, purchases:{total:0,trend:[]} }; 
+          const emptyLabels = generateDynamicMonthLabels(1); 
+          currentExpenseData = emptyData; 
+          updateExpenseKPIs(emptyData); 
+          initializeStatisticsCharts(emptyData, emptyLabels); 
+          updateQuickStats(emptyData); 
+      } 
+  }
+
+  function updateExpenseKPIs(data) { 
+      document.getElementById('kpiFuelTotal').textContent = `$${data.fuel.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`; 
+      document.getElementById('kpiReparationTotal').textContent = `$${data.reparation.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`; 
+      document.getElementById('kpiMaintenanceTotal').textContent = `$${data.maintenance.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`; 
+      document.getElementById('kpiVehiclePurchaseTotal').textContent = `$${data.purchases.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`; 
+  }
+  
+  function updateQuickStats(data = currentExpenseData) { 
+      const quickStatCostPerMileEl = document.getElementById('quickStatCostPerMile');
+      if (!quickStatCostPerMileEl) {
+          console.warn("Element with ID 'quickStatCostPerMile' not found in updateQuickStats.");
+          return; 
+      }
+
+      const totalFuelCostsForPeriod = data.fuel.total; 
+      const numberOfMonths = data.fuel.trend.length || 1; 
+      const estimatedMilesPerMonthAverage = 1500; 
+      const estimatedTotalMiles = numberOfMonths * estimatedMilesPerMonthAverage; 
+      const costPerMileValue = `$${(estimatedTotalMiles > 0 ? (totalFuelCostsForPeriod / estimatedTotalMiles) : 0).toFixed(2)}`;
+      
+      quickStatCostPerMileEl.textContent = costPerMileValue;
+      
+      const insightCostEl = document.getElementById('insightCostPerMile'); 
+      if (insightCostEl) {
+          insightCostEl.textContent = costPerMileValue;
+      }
+  }
+
+  function initializeStatisticsCharts(data = currentExpenseData, labels = generateDynamicMonthLabels(12)) { 
+      const isDarkMode = document.documentElement.classList.contains('dark'); 
+      const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'; 
+      const labelColor = isDarkMode ? 'rgba(209,213,219,0.8)' : 'rgba(55,65,81,0.8)'; 
+      const fuelColor = tailwind.config.theme.extend.colors.danger.DEFAULT; 
+      const reparationColor = tailwind.config.theme.extend.colors.warning.DEFAULT; 
+      const maintenanceColor = tailwind.config.theme.extend.colors.info.DEFAULT; 
+      const purchaseColor = tailwind.config.theme.extend.colors.secondary.DEFAULT; 
+      const monthlyCtx = document.getElementById('monthlyExpenseChart')?.getContext('2d'); 
+      if (monthlyCtx) { 
+          if (monthlyExpenseChartInstance) monthlyExpenseChartInstance.destroy(); 
+          const trendLabels = labels.length > 0 ? labels : ['No Data']; 
+          const fuelTrend = data.fuel.trend.length === trendLabels.length ? data.fuel.trend : Array(trendLabels.length).fill(0); 
+          const reparationTrend = data.reparation.trend.length === trendLabels.length ? data.reparation.trend : Array(trendLabels.length).fill(0); 
+          const maintenanceTrend = data.maintenance.trend.length === trendLabels.length ? data.maintenance.trend : Array(trendLabels.length).fill(0); 
+          const purchasesTrend = data.purchases.trend.length === trendLabels.length ? data.purchases.trend : Array(trendLabels.length).fill(0); 
+          monthlyExpenseChartInstance = new Chart(monthlyCtx, { 
+              type: 'bar', 
+              data: { 
+                  labels: trendLabels, 
+                  datasets: [ 
+                      { label: 'Fuel', data: fuelTrend, backgroundColor: fuelColor, stack: 'Stack 0', borderRadius: 4 }, 
+                      { label: 'Reparations', data: reparationTrend, backgroundColor: reparationColor, stack: 'Stack 0', borderRadius: 4 },  
+                      { label: 'Maintenance', data: maintenanceTrend, backgroundColor: maintenanceColor, stack: 'Stack 0', borderRadius: 4 }, 
+                      { label: 'Purchases', data: purchasesTrend, backgroundColor: purchaseColor, stack: 'Stack 1', borderRadius: 4 } 
+                  ] 
+              }, 
+              options: { 
+                  responsive: true, 
+                  maintainAspectRatio: false, 
+                  scales: { 
+                      y: { beginAtZero: true, stacked: true, grid: { color: gridColor }, ticks: { color: labelColor, callback: value => `$${value/1000}k` } }, 
+                      x: { stacked: true, grid: { display: false }, ticks: { color: labelColor } } 
+                  }, 
+                  plugins: { 
+                      legend: { position: 'top', labels: { color: labelColor, boxWidth: 12, padding: 15 } }, 
+                      tooltip: { mode: 'index', intersect: false, backgroundColor: isDarkMode ? '#374151' : '#fff', titleColor: isDarkMode ? '#f3f4f6' : '#1f2937', bodyColor: isDarkMode ? '#d1d5db' : '#4b5563', callbacks: { label: ctx => `${ctx.dataset.label}: $${ctx.raw.toLocaleString()}` }} 
+                  } 
+              } 
+          }); 
+      } 
+      const distributionCtx = document.getElementById('expenseDistributionChart')?.getContext('2d'); 
+      if (distributionCtx) { 
+          if (expenseDistributionChartInstance) expenseDistributionChartInstance.destroy(); 
+          const totalExpenses = data.fuel.total + data.reparation.total + data.maintenance.total + data.purchases.total; 
+          const hasData = totalExpenses > 0; 
+          expenseDistributionChartInstance = new Chart(distributionCtx, { 
+              type: 'doughnut', 
+              data: { 
+                  labels: hasData ? ['Fuel','Reparations','Maintenance','Purchases'] : ['No Data'], 
+                  datasets: [{ 
+                      label: 'Expense Distribution', 
+                      data: hasData ? [data.fuel.total, data.reparation.total, data.maintenance.total, data.purchases.total] : [1], 
+                      backgroundColor: hasData ? [fuelColor, reparationColor, maintenanceColor, purchaseColor] : [isDarkMode?'#4b5563':'#e5e7eb'], 
+                      borderColor: isDarkMode?'#1f2937':'#fff', 
+                      borderWidth: 3, 
+                      hoverOffset: 8 
+                  }] 
+              }, 
+              options: { 
+                  responsive: true, 
+                  maintainAspectRatio: false, 
+                  cutout: '60%', 
+                  plugins: { 
+                      legend: { display: hasData, position: 'bottom', labels: { color: labelColor, boxWidth: 12, padding: 15 } }, 
+                      tooltip: { enabled: hasData, backgroundColor: isDarkMode ? '#374151' : '#fff', titleColor: isDarkMode ? '#f3f4f6' : '#1f2937', bodyColor: isDarkMode ? '#d1d5db' : '#4b5563', callbacks: { label: ctx => `${ctx.label}: $${ctx.raw.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} (${totalExpenses > 0 ? ((ctx.raw/totalExpenses)*100).toFixed(1) : 0}%)` }} 
+                  } 
+              } 
+          }); 
+      } 
+      lucide.createIcons();
+  }
+
+  async function generateReport() { 
+      const period = document.getElementById('reportPeriod').value; 
+      const range = getPeriodDateRange(period); 
+      if (!range) return; 
+      const selectedCategoriesInput = []; 
+      const categoryMap = { 
+          fuel: { name: 'Fuel', checked: document.getElementById('reportCatFuel').checked }, 
+          reparation: { name: 'Reparations', checked: document.getElementById('reportCatReparation').checked }, 
+          maintenance: { name: 'Maintenance', checked: document.getElementById('reportCatMaintenance').checked }, 
+          purchases: { name: 'Vehicle Purchases', checked: document.getElementById('reportCatPurchases').checked } 
+      }; 
+      for (const key in categoryMap) { 
+          if (categoryMap[key].checked) { selectedCategoriesInput.push(key); } 
+      } 
+      if (selectedCategoriesInput.length === 0) { 
+          showToast("Please select at least one expense category.", 3000, "error"); return; 
+      } 
+      const format = document.getElementById('reportFormat').value; 
+      const periodString = period === 'custom' ? 
+          `${range.startDate.toLocaleDateString().replace(/\//g, '-')}_to_${range.endDate.toLocaleDateString().replace(/\//g, '-')}` : period; 
+      const fileNameBase = `Detailed_Expense_Report_${periodString}`; 
+      const authToken = localStorage.getItem('accessToken'); 
+      if (!authToken) { 
+          showToast("Authentication token not found. Please log in.", 5000, "error"); return; 
+      } 
+      showToast("Generating detailed report... This may take a moment.", 5000, "info"); 
+      try { 
+          const startDateString = range.startDate.toISOString().split('T')[0]; 
+          const endDateString = range.endDate.toISOString().split('T')[0]; 
+          const categoryParams = selectedCategoriesInput.map(cat => `categories=${encodeURIComponent(cat)}`).join('&'); 
+          const response = await fetch( 
+              `/analytics-data/detailed-expense-records?start_date=${startDateString}&end_date=${endDateString}&${categoryParams}`, 
+              { method: 'GET', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` } } 
+          ); 
+          if (!response.ok) { 
+              const errorData = await response.json().catch(() => ({ detail: `HTTP error! Status: ${response.status}` })); 
+              throw new Error(`Error fetching detailed report: ${errorData.detail || response.statusText}`); 
+          } 
+          const detailedData = await response.json(); 
+          if (format === 'excel') { 
+              const wb = XLSX.utils.book_new(); 
+              let sheetsAdded = 0; 
+              if (categoryMap.fuel.checked && detailedData.fuel_records && detailedData.fuel_records.length > 0) { 
+                  const fuelSheetData = detailedData.fuel_records.map(r => ({ ID: r.id, Vehicle: r.vehicle_plate, Date: new Date(r.date).toLocaleDateString(), Time: new Date(r.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), Quantity: r.quantity, Cost: r.cost, Notes: r.notes })); 
+                  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fuelSheetData), "Fuel Details"); sheetsAdded++; 
+              } 
+              if (categoryMap.reparation.checked && detailedData.reparation_records && detailedData.reparation_records.length > 0) { 
+                  const reparationSheetData = detailedData.reparation_records.map(r => ({ ID: r.id, Vehicle: r.vehicle_plate, Date: r.repair_date ? new Date(r.repair_date).toLocaleDateString() : "N/A", Description: r.description, Provider: r.provider, Cost: r.cost })); 
+                  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reparationSheetData), "Reparation Details"); sheetsAdded++; 
+              } 
+              if (categoryMap.maintenance.checked && detailedData.maintenance_records && detailedData.maintenance_records.length > 0) { 
+                  const maintenanceSheetData = detailedData.maintenance_records.map(r => ({ ID: r.id, Vehicle: r.vehicle_plate, Date: r.maintenance_date ? new Date(r.maintenance_date).toLocaleDateString() : "N/A", Description: r.description, Provider: r.provider, Cost: r.maintenance_cost })); 
+                  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(maintenanceSheetData), "Maintenance Details"); sheetsAdded++; 
+              } 
+              if (categoryMap.purchases.checked && detailedData.purchase_records && detailedData.purchase_records.length > 0) { 
+                  const purchaseSheetData = detailedData.purchase_records.map(r => ({ ID: r.id, 'Plate Number': r.plate_number, Make: r.make, Model: r.model, 'Purchase Date': r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : "N/A", 'Purchase Price': r.purchase_price })); 
+                  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(purchaseSheetData), "Vehicle Purchases"); sheetsAdded++; 
+              } 
+              if (sheetsAdded === 0) { 
+                  showToast("No detailed records found for the selected categories and period.", 3000, "info"); return; 
+              } 
+              XLSX.writeFile(wb, `${fileNameBase}.xlsx`); 
+              showToast("Excel report generated and download started.", 3000, "success"); 
+          } else { 
+              const { jsPDF } = window.jspdf; 
+              const doc = new jsPDF(); 
+              let yPos = 20; 
+              const pageHeight = doc.internal.pageSize.height; 
+              const bottomMargin = 20; 
+              doc.setFontSize(16); 
+              doc.text(`Detailed Expense Report`, 14, yPos); 
+              yPos += 8; 
+              doc.setFontSize(10); 
+              doc.text(`Period: ${period === 'custom' ? `${range.startDate.toLocaleDateString()} to ${range.endDate.toLocaleDateString()}` : period}`, 14, yPos); 
+              yPos += 12; 
+              const addCategoryToPdf = (title, headers, dataRows, grandTotalKey) => { 
+                  if (!dataRows || dataRows.length === 0) return false; 
+                  if (yPos > pageHeight - bottomMargin - 30) { doc.addPage(); yPos = 20; } 
+                  doc.setFontSize(12); 
+                  doc.setFont(undefined, 'bold'); 
+                  doc.text(title, 14, yPos); 
+                  yPos += 6; 
+                  doc.setFont(undefined, 'normal'); 
+                  const tableBody = dataRows.map(row => headers.map(header => { 
+                      const value = row[header.key]; 
+                      return header.format ? header.format(value) : (value !== undefined && value !== null ? value : ''); 
+                  })); 
+                  let footData; 
+                  if (grandTotalKey !== undefined) { 
+                      const totalAmount = dataRows.reduce((sum, row) => sum + (parseFloat(row[grandTotalKey]) || 0), 0); 
+                      const formattedTotal = totalAmount.toLocaleString(undefined, { style:'currency', currency:'USD' }); 
+                      let emptyCells = headers.map(() => ''); 
+                      const totalLabelIndex = Math.max(0, headers.findIndex(h => h.key === grandTotalKey) -1); 
+                      emptyCells[totalLabelIndex] = 'Total:'; 
+                      emptyCells[headers.findIndex(h => h.key === grandTotalKey)] = formattedTotal; 
+                      footData = [emptyCells]; 
+                  } 
+                  doc.autoTable({ 
+                      head: [headers.map(h => h.label)], 
+                      body: tableBody, 
+                      startY: yPos, 
+                      theme: 'grid', 
+                      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8 }, 
+                      bodyStyles: { fontSize: 7 }, 
+                      foot: footData, 
+                      footStyles: { fontStyle: 'bold', fillColor: [230, 230, 230], textColor: 20, fontSize: 8 }, 
+                      didDrawPage: function (data) { yPos = data.cursor.y + 10; }, 
+                  }); 
+                  yPos = doc.autoTable.previous.finalY + 10; 
+                  return true; 
+              }; 
+              let reportHasData = false; 
+              if (categoryMap.fuel.checked && detailedData.fuel_records && detailedData.fuel_records.length > 0) { 
+                  const headers = [ 
+                      {label: 'Vehicle', key: 'vehicle_plate'}, 
+                      {label: 'Date/Time', key: 'date', format: (d) => d ? new Date(d).toLocaleString() : "N/A"},  
+                      {label: 'Qty', key: 'quantity', format: (q) => (q || 0).toFixed(2)}, 
+                      {label: 'Cost ($)', key: 'cost', format: (c) => (c || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}, 
+                      {label: 'Notes', key: 'notes'} 
+                  ]; 
+                  if (addCategoryToPdf('Fuel Records', headers, detailedData.fuel_records, 'cost')) reportHasData = true; 
+              } 
+              if (categoryMap.reparation.checked && detailedData.reparation_records && detailedData.reparation_records.length > 0) { 
+                  const headers = [ 
+                      {label:'Vehicle', key:'vehicle_plate'}, 
+                      {label:'Date', key:'repair_date', format: (d) => d ? new Date(d).toLocaleDateString() : "N/A"}, 
+                      {label:'Description', key:'description'}, 
+                      {label:'Provider', key:'provider'}, 
+                      {label:'Cost ($)', key:'cost', format: (c) => (c || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} 
+                  ]; 
+                  if (addCategoryToPdf('Reparation Records', headers, detailedData.reparation_records, 'cost')) reportHasData = true; 
+              } 
+              if (categoryMap.maintenance.checked && detailedData.maintenance_records && detailedData.maintenance_records.length > 0) { 
+                  const headers = [ 
+                      {label:'Vehicle', key:'vehicle_plate'}, 
+                      {label:'Date', key:'maintenance_date', format: (d) => d ? new Date(d).toLocaleDateString() : "N/A"}, 
+                      {label:'Description', key:'description'}, 
+                      {label:'Provider', key:'provider'}, 
+                      {label:'Cost ($)', key:'maintenance_cost', format: (c) => (c || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} 
+                  ]; 
+                  if (addCategoryToPdf('Maintenance Records', headers, detailedData.maintenance_records, 'maintenance_cost')) reportHasData = true; 
+              } 
+              if (categoryMap.purchases.checked && detailedData.purchase_records && detailedData.purchase_records.length > 0) { 
+                  const headers = [ 
+                      {label:'Plate #', key:'plate_number'}, 
+                      {label:'Make', key:'make'}, 
+                      {label:'Model', key:'model'}, 
+                      {label:'Purchase Date', key:'purchase_date', format: (d) => d ? new Date(d).toLocaleDateString() : "N/A"}, 
+                      {label:'Price ($)', key:'purchase_price', format: (p) => (p || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} 
+                  ]; 
+                  if (addCategoryToPdf('Vehicle Purchases', headers, detailedData.purchase_records, 'purchase_price')) reportHasData = true; 
+              } 
+              if (!reportHasData) { 
+                  showToast("No detailed records found for PDF.", 3000, "info"); return; 
+              } 
+              doc.save(`${fileNameBase}.pdf`); 
+              showToast("PDF report generated and download started.", 3000, "success"); 
+          } 
+      } catch (error) { 
+          console.error('Failed to generate detailed report:', error); 
+          showToast(`Report Generation Error: ${error.message}`, 5000, "error"); 
+      } 
+  }
+</script>
+</body>
+</html>

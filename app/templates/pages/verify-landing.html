@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verifying...</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding-top: 50px; }
+        .message { font-size: 18px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>Account Verification</h2>
+    <p id="msg" class="message">Please wait, verifying your token...</p>
+
+    <script>
+        // Pure JavaScript to read URL and call API
+        window.onload = async function() {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+            const email = params.get('email');
+            const msg = document.getElementById('msg');
+
+            if (!token || !email) {
+                msg.innerText = "Invalid Link.";
+                msg.style.color = "red";
+                return;
+            }
+
+            try {
+                // Call the FastAPI Endpoint
+                const response = await fetch('/api/v1/auth/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token, email: email })
+                });
+
+                if (response.ok) {
+                    msg.innerText = "Success! Your account is active. You can close this window.";
+                    msg.style.color = "green";
+                } else {
+                    const data = await response.json();
+                    msg.innerText = "Error: " + (data.detail || "Verification failed");
+                    msg.style.color = "red";
+                }
+            } catch (error) {
+                msg.innerText = "Network Error.";
+                msg.style.color = "red";
+            }
+        };
+    </script>
+</body>
+</html>

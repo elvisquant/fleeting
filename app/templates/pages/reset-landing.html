@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reset Password</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding-top: 50px; }
+        input { padding: 10px; margin: 10px; width: 200px; display: block; margin: 10px auto; }
+        button { padding: 10px 20px; background: #007BFF; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Set New Password</h2>
+    <input type="password" id="pass" placeholder="New Password">
+    <input type="password" id="confirm" placeholder="Confirm Password">
+    <button onclick="resetPassword()">Update Password</button>
+    <p id="msg"></p>
+
+    <script>
+        async function resetPassword() {
+            const params = new URLSearchParams(window.location.search);
+            const p1 = document.getElementById('pass').value;
+            const p2 = document.getElementById('confirm').value;
+            const msg = document.getElementById('msg');
+
+            if (p1 !== p2) {
+                msg.innerText = "Passwords do not match";
+                msg.style.color = "red";
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/v1/auth/reset-password', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        token: params.get('token'), 
+                        email: params.get('email'), 
+                        new_password: p1,
+                        confirm_password: p2
+                    })
+                });
+
+                if (response.ok) {
+                    msg.innerText = "Password Updated! You can now login.";
+                    msg.style.color = "green";
+                    document.getElementById('pass').style.display = 'none';
+                    document.getElementById('confirm').style.display = 'none';
+                } else {
+                    const data = await response.json();
+                    msg.innerText = "Error: " + data.detail;
+                    msg.style.color = "red";
+                }
+            } catch (error) {
+                msg.innerText = "Network Error";
+            }
+        }
+    </script>
+</body>
+</html>
