@@ -6,10 +6,10 @@
             <p class="text-slate-400 text-sm mt-1">Track fuel consumption and costs.</p>
         </div>
         
-        <!-- BULK ACTION BUTTON (Hidden by default) -->
-        <button id="btnBulkVerify" onclick="executeBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
+        <!-- BULK VERIFY BUTTON -->
+        <button id="btnFuelBulkVerify" onclick="executeFuelBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
             <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-            <span>Verify Selected (<span id="selectedCount">0</span>)</span>
+            <span>Verify Selected (<span id="fuelSelectedCount">0</span>)</span>
         </button>
     </div>
 
@@ -70,8 +70,7 @@
     </div>
 </div>
 
-<!-- (Keep your existing AddFuelModal, ViewFuelModal, and ConfirmModal codes here exactly as they were) -->
-<!-- ... Paste previous modals code here ... -->
+<!-- ADD/EDIT FUEL MODAL -->
 <div id="addFuelModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
         
@@ -130,7 +129,7 @@
     </div>
 </div>
 
-<!-- 2. VIEW DETAILS MODAL -->
+<!-- VIEW DETAILS MODAL -->
 <div id="viewFuelModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
@@ -146,17 +145,28 @@
     </div>
 </div>
 
-<!-- 3. CUSTOM CONFIRM MODAL -->
-<div id="confirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+<!-- CONFIRM MODAL (UNIQUE ID: fuelConfirmModal) -->
+<div id="fuelConfirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
-        <div class="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4 text-blue-500" id="confirmIcon">
+        <div class="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4 text-blue-500" id="fuelConfirmIcon">
             <i data-lucide="alert-circle" class="w-6 h-6"></i>
         </div>
-        <h3 class="text-lg font-bold text-white mb-2" id="confirmTitle">Confirm Action</h3>
-        <p class="text-slate-400 text-sm mb-6" id="confirmMessage">Are you sure?</p>
+        <h3 class="text-lg font-bold text-white mb-2" id="fuelConfirmTitle">Confirm Action</h3>
+        <p class="text-slate-400 text-sm mb-6" id="fuelConfirmMessage">Are you sure?</p>
         <div class="flex gap-3 justify-center">
-            <button onclick="closeModal('confirmModal')" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full">Cancel</button>
-            <button id="btnConfirmAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm w-full font-medium">Confirm</button>
+            <button onclick="closeModal('fuelConfirmModal')" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full">Cancel</button>
+            <!-- BUTTON ID matches JS listener -->
+            <button id="btnFuelConfirmAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm w-full font-medium">Confirm</button>
         </div>
+    </div>
+</div>
+
+<!-- ALERT MODAL -->
+<div id="fuelAlertModal" class="fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" id="fuelAlertIcon"></div>
+        <h3 class="text-lg font-bold text-white mb-2" id="fuelAlertTitle"></h3>
+        <p class="text-slate-400 text-sm mb-6" id="fuelAlertMessage"></p>
+        <button onclick="closeModal('fuelAlertModal')" class="btn-primary w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2">OK</button>
     </div>
 </div>

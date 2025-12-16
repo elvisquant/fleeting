@@ -1,8 +1,8 @@
-# Vehicle, Types, Fuel
+# app/models/vehicles.py
 
 from sqlalchemy import Column, Boolean, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import func
 from app.database import Base
 
 class VehicleType(Base):
@@ -34,14 +34,12 @@ class Vehicle(Base):
     __tablename__ = "vehicle"
     id = Column(Integer, primary_key=True, index=True)
     
-    # Specs FKs
     make = Column(Integer, ForeignKey("vehicle_make.id"), index=True)
     model = Column(Integer, ForeignKey("vehicle_model.id"), index=True)
     vehicle_type = Column(Integer, ForeignKey("vehicle_type.id"), index=True)
     vehicle_transmission = Column(Integer, ForeignKey("vehicle_transmission.id"), index=True)
     vehicle_fuel_type = Column(Integer, ForeignKey("fuel_type.id"), index=True)
     
-    # Specs Data
     year = Column(Integer)
     plate_number = Column(String, unique=True, nullable=False, index=True)
     mileage = Column(Float, default=0.0)
@@ -51,13 +49,21 @@ class Vehicle(Base):
     purchase_price = Column(Float, default=0.0)
     status = Column(String, default="available", index=True)
     
-    # Metadata
     purchase_date = Column(DateTime(timezone=True), nullable=True, index=True)
     registration_date = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
     
+    is_verified = Column(Boolean, default=False, index=True)
+    verified_at = Column(DateTime, nullable=True)
+
     # Relationships
     make_ref = relationship("VehicleMake")
     model_ref = relationship("VehicleModel")
+    
+    # FIX: Back-populates for other modules
+    requests = relationship("VehicleRequest", back_populates="vehicle")
+    fuel_logs = relationship("Fuel", back_populates="vehicle")
+    maintenances = relationship("Maintenance", back_populates="vehicle")
+    repairs = relationship("Reparation", back_populates="vehicle")
 
 class Fuel(Base):
     __tablename__ = "fuel"
@@ -73,4 +79,4 @@ class Fuel(Base):
     is_verified = Column(Boolean, default=False, index=True)
     verified_at = Column(DateTime(timezone=True), nullable=True, default=None, index=True)
     
-    vehicle = relationship("Vehicle")
+    vehicle = relationship("Vehicle", back_populates="fuel_logs")

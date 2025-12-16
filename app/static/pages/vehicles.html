@@ -1,199 +1,190 @@
-<!-- ======================= -->
-<!-- VEHICLE MODULE PARTIAL  -->
-<!-- ======================= -->
-
-<!-- 1. PAGE HEADER & ACTIONS -->
+<!-- HEADER -->
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
-    <div>
-        <h2 class="text-2xl font-bold text-white">Vehicle Management</h2>
-        <p class="text-slate-400 text-sm mt-1">Manage fleet inventory, details, and status.</p>
-    </div>
-    <div class="flex items-center gap-3">
-        <!-- Export Buttons -->
-        <div class="flex bg-slate-800/50 rounded-lg p-1 border border-white/5">
-            <button onclick="exportVehiclesExcel()" class="p-2 hover:bg-white/10 rounded-md text-green-400 transition" title="Export Excel">
-                <i data-lucide="sheet" class="w-4 h-4"></i>
-            </button>
-            <button onclick="exportVehiclesPDF()" class="p-2 hover:bg-white/10 rounded-md text-red-400 transition" title="Export PDF">
-                <i data-lucide="file-text" class="w-4 h-4"></i>
-            </button>
+    <div class="flex items-center gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-white tracking-tight">Vehicle Management</h2>
+            <p class="text-slate-400 text-sm mt-1">Manage fleet inventory, details, and status.</p>
         </div>
         
-        <!-- Add Button -->
-        <button onclick="openAddVehicleModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
-            <i data-lucide="plus" class="w-4 h-4"></i> Add Vehicle
+        <!-- BULK VERIFY BUTTON -->
+        <button id="btnVehicleBulkVerify" onclick="reqVehicleBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+            <span>Verify Selected (<span id="vehicleSelectedCount">0</span>)</span>
+        </button>
+    </div>
+    
+    <div class="flex items-center gap-3">
+        <div class="flex bg-slate-800/50 rounded-lg p-1 border border-white/5">
+            <button onclick="exportVehiclesExcel()" class="p-2 hover:bg-white/10 rounded-md text-green-400 transition" title="Export Excel"><i data-lucide="sheet" class="w-4 h-4"></i></button>
+            <button onclick="exportVehiclesPDF()" class="p-2 hover:bg-white/10 rounded-md text-red-400 transition" title="Export PDF"><i data-lucide="file-text" class="w-4 h-4"></i></button>
+        </div>
+        
+        <button onclick="openAddVehicleModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Add Vehicle</span>
         </button>
     </div>
 </div>
 
-<!-- 2. FILTERS BAR -->
+<!-- FILTERS -->
 <div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
-    <!-- Search Input -->
     <div class="relative w-full md:w-96">
         <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
         <input type="text" id="vehicleSearch" placeholder="Search plate, VIN, make..." 
             class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition placeholder-slate-500">
     </div>
 
-    <!-- Date Filters (Visual Only for now, logic can be added to JS) -->
-    <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-        <button class="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 transition">All Time</button>
-        <button class="px-3 py-1.5 text-xs font-medium rounded-lg hover:bg-white/5 text-slate-400 border border-transparent hover:border-white/10 transition">Last 30 Days</button>
+    <div class="flex items-center gap-2">
+        <select id="vehicleStatusFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
+            <option value="all">All Status</option>
+            <option value="verified">Verified</option>
+            <option value="pending">Pending</option>
+        </select>
     </div>
 </div>
 
-<!-- 3. DATA TABLE -->
-<div class="glass-panel overflow-hidden animate-up delay-2">
+<!-- TABLE -->
+<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/20">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
-                <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/30">
-                    <th class="p-4 font-medium">Vehicle Info</th>
-                    <th class="p-4 font-medium">Plate / VIN</th>
-                    <th class="p-4 font-medium">Year</th>
-                    <th class="p-4 font-medium">Mileage</th>
-                    <th class="p-4 font-medium">Status</th>
-                    <th class="p-4 font-medium">Purchase Date</th>
-                    <th class="p-4 font-medium text-right">Actions</th>
+                <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/40">
+                    <!-- Checkbox Header -->
+                    <th class="p-4 w-10">
+                        <input type="checkbox" id="selectAllVehicles" class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">
+                    </th>
+                    <th class="p-4 font-semibold">Vehicle Info</th>
+                    <th class="p-4 font-semibold">Plate / VIN</th>
+                    <th class="p-4 font-semibold">Year</th>
+                    <th class="p-4 font-semibold">Status</th>
+                    <th class="p-4 font-semibold">Verified?</th>
+                    <th class="p-4 font-semibold text-right">Actions</th>
                 </tr>
             </thead>
-            <tbody id="vehiclesBody" class="text-sm divide-y divide-slate-700/30">
-                <!-- Rows injected by JS -->
-                <tr><td colspan="7" class="p-8 text-center text-slate-500">Loading vehicles...</td></tr>
+            <tbody id="vehiclesBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
+                <tr><td colspan="7" class="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> Loading vehicles...
+                </td></tr>
             </tbody>
         </table>
     </div>
-    
-    <!-- Footer / Count -->
-    <div class="p-4 border-t border-slate-700/30 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-800/20">
-        <span class="text-xs text-slate-500" id="vehiclesCount">Showing 0 records</span>
-        <!-- Pagination controls can go here -->
+    <div class="p-4 border-t border-slate-700/30 bg-slate-800/20 flex justify-between items-center">
+        <span class="text-xs text-slate-500" id="vehiclesCount">0 vehicles found</span>
     </div>
 </div>
 
-<!-- ======================= -->
-<!-- MODALS (Hidden by default) -->
-<!-- ======================= -->
+<!-- ================= MODALS ================= -->
 
-<!-- A. ADD/EDIT MODAL -->
-<div id="vehicleModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+<!-- ADD/EDIT MODAL -->
+<div id="addVehicleModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-up">
-        <!-- Header -->
-        <div class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-            <div>
-                <h3 class="text-xl font-bold text-white" id="vehicleModalTitle">Add New Vehicle</h3>
-                <p class="text-xs text-slate-400">Fill in the technical details below.</p>
-            </div>
-            <button onclick="closeVehicleModal()" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
-        </div>
         
-        <!-- Form Scrollable Area -->
-        <div class="p-6 overflow-y-auto custom-scrollbar">
-            <form id="vehicleForm" class="space-y-6">
-                <!-- ID Hidden Field -->
-                <input type="hidden" id="vehicleId_form">
-                
-                <!-- Section 1: Identification -->
-                <div>
-                    <h4 class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">Identification</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Make</label>
-                            <select id="vehicle_make_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none"></select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Model</label>
-                            <select id="vehicle_model_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none"></select>
-                        </div>
-                         <div>
-                            <label class="block text-xs text-slate-400 mb-1">Year</label>
-                            <input type="number" id="vehicle_year_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="e.g. 2022">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Plate Number</label>
-                            <input type="text" id="vehicle_plate_number_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none font-mono uppercase" placeholder="ABC-123">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">VIN</label>
-                            <input type="text" id="vehicle_vin_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none font-mono uppercase">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Color</label>
-                            <input type="text" id="vehicle_color_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 2: Specs -->
-                <div class="border-t border-slate-800 pt-4">
-                    <h4 class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">Technical Specs</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                         <div>
-                            <label class="block text-xs text-slate-400 mb-1">Type</label>
-                            <select id="vehicle_type_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none"></select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Mileage (km)</label>
-                            <input type="number" step="0.1" id="vehicle_mileage_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Engine Size (L)</label>
-                            <input type="number" step="0.1" id="vehicle_engine_size_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Transmission</label>
-                            <select id="vehicle_transmission_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none"></select>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Fuel Type</label>
-                            <select id="vehicle_fuel_type_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none"></select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 3: Financial -->
-                <div class="border-t border-slate-800 pt-4">
-                    <h4 class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">Acquisition</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Purchase Price ($)</label>
-                            <input type="number" step="0.01" id="vehicle_purchase_price_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Purchase Date</label>
-                            <input type="date" id="vehicle_purchase_date_form" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none dark-date-input">
-                        </div>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <!-- Footer -->
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeVehicleModal()" class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition">Cancel</button>
-            <button onclick="submitVehicleForm()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
-                <i data-lucide="check" class="w-4 h-4"></i> Save Vehicle
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+            <div>
+                <h3 class="text-lg font-bold text-white" id="vehicleModalTitle">Add Vehicle</h3>
+                <p class="text-xs text-slate-400">Enter technical specifications.</p>
+            </div>
+            <button onclick="closeModal('addVehicleModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
+        
+        <div class="p-6 overflow-y-auto custom-scrollbar space-y-6">
+            <input type="hidden" id="vehicleEditId">
+
+            <!-- Section 1 -->
+            <div>
+                <h4 class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">Identification</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><label class="label-text">Make</label><select id="vehicleMake" class="input-field"></select></div>
+                    <div><label class="label-text">Model</label><select id="vehicleModel" class="input-field"></select></div>
+                    <div><label class="label-text">Year</label><input type="number" id="vehicleYear" class="input-field" placeholder="2023"></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div><label class="label-text">Plate Number</label><input type="text" id="vehiclePlate" class="input-field font-mono uppercase" placeholder="ABC-123"></div>
+                    <div><label class="label-text">VIN</label><input type="text" id="vehicleVin" class="input-field font-mono uppercase"></div>
+                    <div><label class="label-text">Color</label><input type="text" id="vehicleColor" class="input-field"></div>
+                </div>
+            </div>
+
+            <!-- Section 2 -->
+            <div>
+                <h4 class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">Specs</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><label class="label-text">Type</label><select id="vehicleType" class="input-field"></select></div>
+                    <div><label class="label-text">Mileage (km)</label><input type="number" step="0.1" id="vehicleMileage" class="input-field"></div>
+                    <div><label class="label-text">Engine (L)</label><input type="number" step="0.1" id="vehicleEngine" class="input-field"></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div><label class="label-text">Transmission</label><select id="vehicleTrans" class="input-field"></select></div>
+                    <div><label class="label-text">Fuel Type</label><select id="vehicleFuel" class="input-field"></select></div>
+                </div>
+            </div>
+
+            <!-- Section 3 -->
+            <div>
+                <h4 class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-1">Acquisition</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="label-text">Purchase Price ($)</label><input type="number" step="0.01" id="vehiclePrice" class="input-field"></div>
+                    <div><label class="label-text">Purchase Date</label><input type="date" id="vehicleDate" class="input-field dark-date-input"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+            <button onclick="closeModal('addVehicleModal')" class="btn-secondary">Cancel</button>
+            <button id="btnSaveVehicle" onclick="saveVehicle()" class="btn-primary"><i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Vehicle</button>
+        </div>
     </div>
 </div>
 
-<!-- B. VIEW DETAILS MODAL -->
-<div id="viewVehicleModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-up">
-        <div class="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-            <h3 class="text-xl font-bold text-white">Vehicle Details</h3>
-            <button onclick="document.getElementById('viewVehicleModal').classList.add('hidden')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+<!-- VIEW DETAILS MODAL -->
+<div id="viewVehicleModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+            <h3 class="text-lg font-bold text-white">Vehicle Details</h3>
+            <button onclick="closeModal('viewVehicleModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
-        <div class="p-6 overflow-y-auto" id="viewVehicleContent">
-            <!-- Content Populated by JS -->
-        </div>
-        <div class="p-4 border-t border-white/10 flex justify-end">
-             <button onclick="document.getElementById('viewVehicleModal').classList.add('hidden')" class="px-4 py-2 text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition">Close</button>
+        <div class="p-6 overflow-y-auto" id="viewVehicleContent"></div>
+        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
+             <button onclick="closeModal('viewVehicleModal')" class="btn-secondary">Close</button>
         </div>
     </div>
 </div>
+
+<!-- CONFIRM MODAL (CUSTOM) -->
+<div id="vehicleConfirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
+        <div class="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4 text-blue-500" id="vehicleConfirmIcon">
+            <i data-lucide="alert-circle" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2" id="vehicleConfirmTitle">Confirm Action</h3>
+        <p class="text-slate-400 text-sm mb-6" id="vehicleConfirmMessage">Are you sure?</p>
+        <div class="flex gap-3 justify-center">
+            <button onclick="closeModal('vehicleConfirmModal')" class="btn-secondary w-full">Cancel</button>
+            <button id="btnVehicleConfirmAction" class="btn-danger w-full">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- ALERT MODAL (CUSTOM) -->
+<div id="vehicleAlertModal" class="fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" id="vehicleAlertIcon"></div>
+        <h3 class="text-lg font-bold text-white mb-2" id="vehicleAlertTitle"></h3>
+        <p class="text-slate-400 text-sm mb-6" id="vehicleAlertMessage"></p>
+        <button onclick="closeModal('vehicleAlertModal')" class="btn-primary w-full">OK</button>
+    </div>
+</div>
+
+<style>
+    .label-text { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 0.25rem; }
+    .input-field { width: 100%; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; outline: none; }
+    .input-field:focus { border-color: #3b82f6; }
+    .btn-primary { background: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: all 0.2s; }
+    .btn-secondary:hover { border-color: #94a3b8; color: white; }
+    .btn-danger { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: background 0.2s; }
+    .btn-danger:hover { background: #dc2626; }
+</style>

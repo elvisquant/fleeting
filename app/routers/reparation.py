@@ -14,6 +14,34 @@ router = APIRouter(
 )
 
 # ============================================================
+# BULK VERIFY (MUST BE BEFORE /{id})
+# ============================================================
+@router.put("/verify-bulk", status_code=status.HTTP_200_OK)
+def verify_reparation_bulk(
+    payload: schemas.ReparationBulkVerify,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(oauth2.require_charoi_role) # Admin/Charoi
+):
+    """
+    Verify multiple reparation records at once.
+    """
+    records = db.query(models.Reparation).filter(
+        models.Reparation.id.in_(payload.ids),
+        models.Reparation.is_verified == False
+    ).all()
+
+    if not records:
+        # Return success with message to prevent frontend error
+        return {"message": "No applicable unverified records found."}
+
+    for rec in records:
+        rec.is_verified = True
+        rec.verified_at = datetime.utcnow()
+    
+    db.commit()
+    return {"message": f"Successfully verified {len(records)} records."}
+
+# ============================================================
 # CREATE (Authenticated) - Default Unverified
 # ============================================================
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.ReparationResponse)

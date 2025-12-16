@@ -1,4 +1,4 @@
- # Garage, Maintenance, Panne, Reparation
+# app/models/maintenance.py
 
 from sqlalchemy import Boolean, Column, DateTime, Float,Integer, String, ForeignKey, func
 from sqlalchemy.orm import relationship
@@ -31,7 +31,7 @@ class Maintenance(Base):
     is_verified = Column(Boolean, default=False, index=True)
     verified_at = Column(DateTime(timezone=True), nullable=True, default=None, index=True)
     
-    vehicle = relationship("Vehicle") 
+    vehicle = relationship("Vehicle", back_populates="maintenances") 
     category_maintenance = relationship("CategoryMaintenance")
     garage = relationship("Garage")
 
@@ -62,6 +62,7 @@ class Reparation(Base):
     id = Column(Integer, primary_key=True, index=True)
     panne_id = Column(Integer, ForeignKey("panne.id"), index=True)
     garage_id = Column(Integer, ForeignKey("garage.id"), index=True)
+    vehicle_id = Column(Integer, ForeignKey("vehicle.id"), nullable=True) # Added for back-populates
     
     cost = Column(Float, default=0.0)
     receipt = Column(String, nullable=False)
@@ -73,3 +74,4 @@ class Reparation(Base):
     
     panne = relationship("Panne")
     garage = relationship("Garage")
+    vehicle = relationship("Vehicle", back_populates="repairs")

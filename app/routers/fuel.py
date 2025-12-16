@@ -14,18 +14,42 @@ router = APIRouter(
 )
 
 # =================================================================================
-# CREATE (Authenticated) - Default Unverified
+# BULK VERIFY (MUST BE DEFINED BEFORE /{fuel_id})
+# =================================================================================
+@router.put("/verify-bulk", status_code=status.HTTP_200_OK)
+def verify_fuel_records_bulk(
+    payload: schemas.FuelBulkVerify,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(oauth2.require_charoi_role)
+):
+    """
+    Verify multiple fuel records at once.
+    """
+    records = db.query(models.Fuel).filter(
+        models.Fuel.id.in_(payload.ids),
+        models.Fuel.is_verified == False
+    ).all()
+
+    if not records:
+        # It's better to return success with a message than 404 for bulk actions on empty selection
+        return {"message": "No applicable unverified records found."}
+
+    for rec in records:
+        rec.is_verified = True
+        rec.verified_at = datetime.utcnow()
+    
+    db.commit()
+    return {"message": f"Successfully verified {len(records)} records."}
+
+# =================================================================================
+# CREATE (Authenticated)
 # =================================================================================
 @router.post("/", response_model=schemas.FuelOut, status_code=status.HTTP_201_CREATED)
 def create_new_fuel_record(
     fuel_payload: schemas.FuelCreatePayload,
     db: Session = Depends(get_db),
-    # Any authenticated user can potentially log fuel (e.g. Driver), but verify permissions as needed
     current_user: models.User = Depends(oauth2.get_current_user_from_header)
 ):
-    """
-    Create a new fuel record. Auto-calculates cost. Default status is Unverified.
-    """
     # 1. Verify Vehicle
     vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == fuel_payload.vehicle_id).first()
     if not vehicle:
@@ -43,7 +67,7 @@ def create_new_fuel_record(
     # 4. Calculate Cost
     calculated_cost = round(fuel_payload.quantity * fuel_payload.price_little, 2)
 
-    # 5. Save (Verified = False by default)
+    # 5. Save
     db_fuel_record = models.Fuel(
         vehicle_id=fuel_payload.vehicle_id,
         fuel_type_id=fuel_payload.fuel_type_id,
@@ -57,21 +81,6 @@ def create_new_fuel_record(
     db.add(db_fuel_record)
     db.commit()
     db.refresh(db_fuel_record)
-    return db_fuel_record
-
-
-# =================================================================================
-# READ ONE (Authenticated)
-# =================================================================================
-@router.get("/{fuel_id}", response_model=schemas.FuelOut)
-def read_fuel_record_by_id(
-    fuel_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.get_current_user_from_header)
-):
-    db_fuel_record = db.query(models.Fuel).filter(models.Fuel.id == fuel_id).first()
-    if not db_fuel_record:
-        raise HTTPException(status_code=404, detail="Fuel record not found")
     return db_fuel_record
 
 
@@ -102,44 +111,47 @@ def read_all_fuel_records(
 
 
 # =================================================================================
-# UPDATE (Admin / Charoi Only) - LOCKED IF VERIFIED
+# READ ONE (Authenticated)
+# =================================================================================
+@router.get("/{fuel_id}", response_model=schemas.FuelOut)
+def read_fuel_record_by_id(
+    fuel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(oauth2.get_current_user_from_header)
+):
+    db_fuel_record = db.query(models.Fuel).filter(models.Fuel.id == fuel_id).first()
+    if not db_fuel_record:
+        raise HTTPException(status_code=404, detail="Fuel record not found")
+    return db_fuel_record
+
+
+# =================================================================================
+# UPDATE (Admin / Charoi Only)
 # =================================================================================
 @router.put("/{fuel_id}", response_model=schemas.FuelOut)
 def update_existing_fuel_record(
     fuel_id: int,
     fuel_payload: schemas.FuelUpdatePayload,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.require_charoi_role) # Use charoi dependency (includes admin)
+    current_user: models.User = Depends(oauth2.require_charoi_role)
 ):
-    """
-    Update fuel record. Only allowed if NOT verified yet.
-    Only Admin/Charoi can verify.
-    """
     db_fuel_record = db.query(models.Fuel).filter(models.Fuel.id == fuel_id).first()
     if not db_fuel_record:
         raise HTTPException(status_code=404, detail="Fuel record not found")
 
-    # LOCK CHECK: If already verified, nobody can edit (except maybe superadmin, but standard logic says lock)
     if db_fuel_record.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="This record is verified and cannot be modified."
-        )
+        raise HTTPException(status_code=403, detail="This record is verified and cannot be modified.")
 
     update_data = fuel_payload.model_dump(exclude_unset=True)
 
-    # 1. Handle Verification Logic
+    # Verification Logic
     if "is_verified" in update_data:
-        # Check permissions specifically for verifying (Charoi/Admin)
-        if current_user.role.name.lower() not in ["admin", "superadmin", "charoi"]:
-             raise HTTPException(status_code=403, detail="Not authorized to verify records.")
-        
         if update_data["is_verified"] is True:
             db_fuel_record.verified_at = datetime.utcnow()
         else:
             db_fuel_record.verified_at = None
 
-    # 2. Recalculate Cost if needed
+    # Recalculate Cost
     qty = update_data.get("quantity", db_fuel_record.quantity)
     price = update_data.get("price_little", db_fuel_record.price_little)
 
@@ -148,7 +160,6 @@ def update_existing_fuel_record(
             raise HTTPException(status_code=400, detail="Values must be positive.")
         update_data['cost'] = round(qty * price, 2)
 
-    # 3. Apply updates
     for key, value in update_data.items():
         setattr(db_fuel_record, key, value)
 
@@ -158,7 +169,7 @@ def update_existing_fuel_record(
 
 
 # =================================================================================
-# DELETE (Admin / Charoi Only) - LOCKED IF VERIFIED
+# DELETE (Admin / Charoi Only)
 # =================================================================================
 @router.delete("/{fuel_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_existing_fuel_record(
@@ -170,12 +181,8 @@ def delete_existing_fuel_record(
     if not db_fuel_record:
         raise HTTPException(status_code=404, detail="Fuel record not found")
 
-    # LOCK CHECK
     if db_fuel_record.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="This record is verified and cannot be deleted."
-        )
+        raise HTTPException(status_code=403, detail="Verified records cannot be deleted.")
 
     db.delete(db_fuel_record)
     db.commit()
@@ -183,7 +190,7 @@ def delete_existing_fuel_record(
 
 
 # =================================================================================
-# BUSINESS LOGIC (Check Eligibility)
+# ELIGIBILITY CHECK
 # =================================================================================
 @router.get("/check-eligibility/{vehicle_id}", response_model=schemas.EligibilityResponse)
 def check_fuel_eligibility(
@@ -196,59 +203,19 @@ def check_fuel_eligibility(
         raise HTTPException(status_code=404, detail="Vehicle not found.")
 
     if vehicle.status != 'available':
-        return schemas.EligibilityResponse(
-            eligible=False,
-            message=f"Vehicle is not eligible. Status: '{vehicle.status}'."
-        )
+        return schemas.EligibilityResponse(eligible=False, message=f"Vehicle is not available.")
 
     last_fuel = db.query(models.Fuel).filter(models.Fuel.vehicle_id == vehicle_id).order_by(desc(models.Fuel.created_at)).first()
     
     if last_fuel:
-        # Check for completed REQUEST since last fuel (Trips removed)
+        # Check for completed request
         completed_req = db.query(models.VehicleRequest).filter(
             models.VehicleRequest.vehicle_id == vehicle_id,
             models.VehicleRequest.status == 'completed',
-            models.VehicleRequest.return_time > last_fuel.created_at # Using return_time (end_time equivalent)
+            models.VehicleRequest.return_time > last_fuel.created_at
         ).first()
         
-        # If no completed request found after last fueling, warn user (but maybe allow override)
         if not completed_req:
-            # We return False, frontend can show warning or block
-            return schemas.EligibilityResponse(
-                eligible=False,
-                message="No completed mission recorded since last refueling."
-            )
+            return schemas.EligibilityResponse(eligible=False, message="No completed mission since last refueling.")
 
-    return schemas.EligibilityResponse(eligible=True, message="Vehicle is eligible.")
-
-
-# Add this to app/routers/fuel.py
-
-@router.put("/verify-bulk", status_code=status.HTTP_200_OK)
-def verify_fuel_records_bulk(
-    payload: schemas.FuelBulkVerify,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.require_charoi_role) # Admin/Charoi only
-):
-    """
-    Verify multiple fuel records at once.
-    """
-    # 1. Fetch records that are in the list AND are currently unverified
-    records = db.query(models.Fuel).filter(
-        models.Fuel.id.in_(payload.ids),
-        models.Fuel.is_verified == False
-    ).all()
-
-    if not records:
-        raise HTTPException(status_code=404, detail="No unverified records found with provided IDs.")
-
-    # 2. Update them
-    now = datetime.utcnow()
-    count = 0
-    for record in records:
-        record.is_verified = True
-        record.verified_at = now
-        count += 1
-
-    db.commit()
-    return {"message": f"Successfully verified {count} records."}
+    return schemas.EligibilityResponse(eligible=True, message="Eligible.")

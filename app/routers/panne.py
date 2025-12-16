@@ -14,13 +14,40 @@ router = APIRouter(
 )
 
 # =================================================================================
+# BULK VERIFY (MUST BE BEFORE /{id})
+# =================================================================================
+@router.put("/verify-bulk", status_code=status.HTTP_200_OK)
+def verify_panne_bulk(
+    payload: schemas.PanneBulkVerify,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(oauth2.require_charoi_role) # Admin/Charoi only
+):
+    """
+    Verify multiple panne reports at once.
+    """
+    records = db.query(models.Panne).filter(
+        models.Panne.id.in_(payload.ids),
+        models.Panne.is_verified == False
+    ).all()
+
+    if not records:
+        # Return success with message even if 0 to prevent frontend error
+        return {"message": "No applicable unverified records found."}
+
+    for rec in records:
+        rec.is_verified = True
+        rec.verified_at = datetime.utcnow()
+    
+    db.commit()
+    return {"message": f"Successfully verified {len(records)} reports."}
+
+# =================================================================================
 # CREATE (Authenticated) - Default Unverified
 # =================================================================================
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.PanneOut)
 def create_panne(
     panne_data: schemas.PanneCreate,
     db: Session = Depends(get_db),
-    # Allow authenticated users (e.g. drivers) to report pannes
     current_user: models.User = Depends(oauth2.get_current_user_from_header)
 ):
     vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne_data.vehicle_id).first()
@@ -87,24 +114,21 @@ def update_panne(
     id: int,
     panne_data: schemas.PanneUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.require_charoi_role) # Admin/Charoi
+    current_user: models.User = Depends(oauth2.require_charoi_role) 
 ):
     panne = db.query(models.Panne).filter(models.Panne.id == id).first()
     if not panne:
         raise HTTPException(status_code=404, detail="Panne not found.")
 
-    # LOCK CHECK
     if panne.is_verified:
         raise HTTPException(status_code=403, detail="This record is verified and cannot be modified.")
 
     update_data = panne_data.model_dump(exclude_unset=True)
 
-    # Validation
     if "vehicle_id" in update_data:
         if not db.query(models.Vehicle).filter(models.Vehicle.id == update_data["vehicle_id"]).first():
             raise HTTPException(status_code=404, detail="Vehicle not found.")
 
-    # Verification Logic
     if "is_verified" in update_data:
         if update_data["is_verified"] is True:
             panne.verified_at = datetime.utcnow()
@@ -131,7 +155,6 @@ def delete_panne(
     if not panne:
         raise HTTPException(status_code=404, detail="Panne not found.")
 
-    # LOCK CHECK
     if panne.is_verified:
         raise HTTPException(status_code=403, detail="This record is verified and cannot be deleted.")
 

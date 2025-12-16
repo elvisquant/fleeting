@@ -10,6 +10,7 @@ const routes = {
     'maintenance': { file: '/static/pages/maintenance.html', init: initMaintenance },
     'panne': { file: '/static/pages/panne.html', init: initPanne },
     'reparations': { file: '/static/pages/reparation.html', init: initReparation },
+    'requests': { file: '/static/pages/requests.html', init: initRequests },
     
 };
 

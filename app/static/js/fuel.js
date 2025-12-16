@@ -3,11 +3,12 @@
 let allFuelLogs = [];
 let fuelOptions = { vehicles: [], fuelTypes: [] };
 let currentUserRole = 'user';
-let selectedFuelIds = new Set(); // Stores IDs for bulk action
+let selectedFuelIds = new Set(); 
 
-// Confirm Action State
-let pendingActionType = null;
-let pendingActionId = null;
+// --- ACTION STATE VARIABLES ---
+// These store the ID of the item you want to verify/delete
+let fuelActionType = null; 
+let fuelActionId = null;
 
 async function initFuel() {
     console.log("Fuel Module: Init");
@@ -22,18 +23,25 @@ async function initFuel() {
     if(searchInput) searchInput.addEventListener('input', renderFuelTable);
     if(vehicleFilter) vehicleFilter.addEventListener('change', renderFuelTable);
     if(statusFilter) statusFilter.addEventListener('change', renderFuelTable);
-    if(selectAllCheckbox) selectAllCheckbox.addEventListener('change', toggleSelectAll);
+    if(selectAllCheckbox) selectAllCheckbox.addEventListener('change', toggleFuelSelectAll);
 
     // Modal listeners
     const qtyInput = document.getElementById('fuelQuantity');
     const priceInput = document.getElementById('fuelPrice');
     const vehicleSelect = document.getElementById('fuelVehicleSelect');
-    const confirmBtn = document.getElementById('btnConfirmAction');
+    
+    // Confirm Button Listener
+    const confirmBtn = document.getElementById('btnFuelConfirmAction');
 
     if(qtyInput) qtyInput.addEventListener('input', updateCostPreview);
     if(priceInput) priceInput.addEventListener('input', updateCostPreview);
     if(vehicleSelect) vehicleSelect.addEventListener('change', autoSelectFuelType);
-    if(confirmBtn) confirmBtn.addEventListener('click', executeConfirmAction);
+    
+    if(confirmBtn) {
+        confirmBtn.addEventListener('click', executeFuelConfirmAction);
+    } else {
+        console.error("Critical: btnFuelConfirmAction not found in HTML");
+    }
 
     await Promise.all([loadFuelData(), fetchFuelDropdowns()]);
 }
@@ -49,8 +57,8 @@ async function loadFuelData() {
     
     if (Array.isArray(data)) {
         allFuelLogs = data;
-        selectedFuelIds.clear(); // Reset selection on reload
-        updateBulkUI();
+        selectedFuelIds.clear(); 
+        updateFuelBulkUI();
         renderFuelTable();
     } else {
         const msg = data && data.detail ? data.detail : "Failed to load logs.";
@@ -81,11 +89,13 @@ function renderFuelTable() {
     let filtered = allFuelLogs.filter(log => {
         const vehicle = fuelOptions.vehicles.find(v => v.id === log.vehicle_id);
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
+        
         const matchesSearch = plate.includes(search);
         const matchesVehicle = vFilter === "" || log.vehicle_id == vFilter;
         let matchesStatus = true;
         if (sFilter === 'verified') matchesStatus = log.is_verified === true;
         if (sFilter === 'pending') matchesStatus = log.is_verified !== true;
+
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
@@ -109,11 +119,10 @@ function renderFuelTable() {
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
 
-        // Checkbox logic: Only show if user can manage AND it's not yet verified
         let checkboxHtml = '';
         if (canManage && !log.is_verified) {
             const isChecked = selectedFuelIds.has(log.id) ? 'checked' : '';
-            checkboxHtml = `<input type="checkbox" onchange="toggleRowSelection(${log.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`;
+            checkboxHtml = `<input type="checkbox" onchange="toggleFuelRow(${log.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`;
         } else {
             checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30 cursor-not-allowed">`;
         }
@@ -127,16 +136,16 @@ function renderFuelTable() {
             actionButtons = `
                 <div class="flex items-center justify-end gap-2">
                     ${viewBtn}
-                    <button onclick="requestVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                    <button onclick="reqFuelVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
                     <button onclick="openEditFuelModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                    <button onclick="requestDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="reqFuelDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
         } else {
             actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
         }
 
         return `
-            <tr class="hover:bg-white/5 transition border-b border-slate-700/30 group">
+            <tr class="hover:bg-white/5 transition group border-b border-slate-700/30">
                 <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4 font-mono text-white">${plate}</td>
                 <td class="p-4 text-slate-400">${typeName}</td>
@@ -152,46 +161,35 @@ function renderFuelTable() {
     if(window.lucide) window.lucide.createIcons();
 }
 
-// === SELECTION LOGIC ===
+// === BULK LOGIC ===
 
-window.toggleRowSelection = function(id) {
+window.toggleFuelRow = function(id) {
     if (selectedFuelIds.has(id)) {
         selectedFuelIds.delete(id);
     } else {
         selectedFuelIds.add(id);
     }
-    updateBulkUI();
+    updateFuelBulkUI();
 }
 
-window.toggleSelectAll = function() {
-    const checkboxes = document.querySelectorAll('#fuelLogsBody input[type="checkbox"]:not(:disabled)');
+window.toggleFuelSelectAll = function() {
     const mainCheck = document.getElementById('selectAllFuel');
     const isChecked = mainCheck.checked;
-
-    checkboxes.forEach(cb => {
-        cb.checked = isChecked;
-        // Extract ID from the onclick attribute or parent row
-        // Since I bound onclick="toggleRowSelection(ID)", let's rely on the Set logic manually here
-        // to be cleaner, let's reset the Set and fill it if checked
-    });
-
     selectedFuelIds.clear();
+    
     if (isChecked) {
-        // Find all selectable IDs in current view
         const canManage = ['admin', 'superadmin', 'charoi'].includes(currentUserRole);
         allFuelLogs.forEach(log => {
-             // Respect current filters if you want, but for simplicity, let's select visible unverified ones
              if(canManage && !log.is_verified) selectedFuelIds.add(log.id);
         });
     }
-    // Re-render to sync visual state properly
     renderFuelTable();
-    updateBulkUI();
+    updateFuelBulkUI();
 }
 
-function updateBulkUI() {
-    const btn = document.getElementById('btnBulkVerify');
-    const countSpan = document.getElementById('selectedCount');
+function updateFuelBulkUI() {
+    const btn = document.getElementById('btnFuelBulkVerify');
+    const countSpan = document.getElementById('fuelSelectedCount');
     if (!btn) return;
 
     countSpan.innerText = selectedFuelIds.size;
@@ -202,95 +200,75 @@ function updateBulkUI() {
     }
 }
 
-// === BULK ACTION ===
-
-window.executeBulkVerify = async function() {
+window.executeFuelBulkVerify = async function() {
     if (selectedFuelIds.size === 0) return;
     
-    if(!confirm(`Verify ${selectedFuelIds.size} records? This cannot be undone.`)) return;
-
-    const btn = document.getElementById('btnBulkVerify');
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
-    btn.disabled = true;
-    if(window.lucide) window.lucide.createIcons();
-
-    try {
-        const payload = { ids: Array.from(selectedFuelIds) };
-        const result = await window.fetchWithAuth('/fuel/verify-bulk', 'PUT', payload);
-        
-        if (result && !result.detail) {
-            selectedFuelIds.clear();
-            await loadFuelData();
-            // alert("Batch verification successful.");
-        } else {
-            alert("Error: " + (result?.detail || "Unknown"));
-        }
-    } catch (e) {
-        alert("System Error: " + e.message);
-    }
+    fuelActionType = 'bulk-verify';
+    fuelActionId = null;
+    showFuelConfirmModal("Verify Selected?", `Verify ${selectedFuelIds.size} records? This cannot be undone.`, "check-circle", "bg-emerald-600");
 }
 
-// === EXISTING ACTIONS (Verify, Edit, Delete) ===
+// === ACTIONS (Single) ===
 
-window.requestVerify = function(id) {
-    pendingActionType = 'verify';
-    pendingActionId = id;
-    showConfirmModal('Verify Record?', 'Once verified, this record cannot be edited or deleted.', 'check-circle', 'bg-green-600');
+window.reqFuelVerify = function(id) {
+    fuelActionType = 'verify';
+    fuelActionId = id; // CORRECTED: Now storing the ID in fuelActionId
+    showFuelConfirmModal('Verify Record?', 'Once verified, this record cannot be edited or deleted.', 'check-circle', 'bg-green-600');
 }
 
-window.requestDelete = function(id) {
-    pendingActionType = 'delete';
-    pendingActionId = id;
-    showConfirmModal('Delete Record?', 'This action is permanent.', 'trash-2', 'bg-red-600');
+window.reqFuelDelete = function(id) {
+    fuelActionType = 'delete';
+    fuelActionId = id; // CORRECTED: Now storing the ID in fuelActionId
+    showFuelConfirmModal('Delete Record?', 'This action is permanent.', 'trash-2', 'bg-red-600');
 }
 
-function showConfirmModal(title, msg, icon, btnClass) {
-    document.getElementById('confirmTitle').innerText = title;
-    document.getElementById('confirmMessage').innerText = msg;
-    
-    const iconDiv = document.getElementById('confirmIcon');
-    iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${btnClass.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
-    iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
-    
-    const btn = document.getElementById('btnConfirmAction');
-    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${btnClass} hover:opacity-90`;
-    
-    document.getElementById('confirmModal').classList.remove('hidden');
-    if(window.lucide) window.lucide.createIcons();
-}
+// === EXECUTE CONFIRM ===
+async function executeFuelConfirmAction() {
+    // FIX: Check fuelActionType AND fuelActionId (for single) or selectedFuelIds (for bulk)
+    if (!fuelActionType) return;
+    if (fuelActionType !== 'bulk-verify' && !fuelActionId) return;
 
-async function executeConfirmAction() {
-    if(!pendingActionId) return;
-    const btn = document.getElementById('btnConfirmAction');
-    btn.disabled = true;
-    btn.innerText = "Processing...";
+    const btn = document.getElementById('btnFuelConfirmAction');
+    btn.disabled = true; btn.innerText = "Processing...";
 
     try {
         let result;
-        if (pendingActionType === 'delete') {
-            result = await window.fetchWithAuth(`/fuel/${pendingActionId}`, 'DELETE');
-        } else if (pendingActionType === 'verify') {
-            result = await window.fetchWithAuth(`/fuel/${pendingActionId}`, 'PUT', { is_verified: true });
+        
+        if (fuelActionType === 'delete') {
+            result = await window.fetchWithAuth(`/fuel/${fuelActionId}`, 'DELETE');
+        } 
+        else if (fuelActionType === 'verify') {
+            // NOTE: Reusing bulk endpoint for single verification as it's cleaner
+            // Ensure backend expects { ids: [123] }
+            const payload = { ids: [parseInt(fuelActionId)] }; 
+            result = await window.fetchWithAuth(`/fuel/verify-bulk`, 'PUT', payload);
+        }
+        else if (fuelActionType === 'bulk-verify') {
+            const idList = Array.from(selectedFuelIds).map(id => parseInt(id));
+            const payload = { ids: idList };
+            result = await window.fetchWithAuth(`/fuel/verify-bulk`, 'PUT', payload);
         }
 
-        window.closeModal('confirmModal');
-        if (result !== null || pendingActionType === 'delete') {
-            await loadFuelData(); 
+        window.closeModal('fuelConfirmModal');
+        
+        // Handle result (DELETE returns 204/true, PUT returns json)
+        if (result !== null) {
+            if (fuelActionType === 'bulk-verify') selectedFuelIds.clear();
+            await loadFuelData();
+            showFuelAlert("Success", "Action completed successfully.", true);
         } else {
-            alert("Action failed.");
+            showFuelAlert("Failed", "Action could not be completed.", false);
         }
     } catch(e) {
-        window.closeModal('confirmModal');
-        alert("Error: " + e.message);
+        window.closeModal('fuelConfirmModal');
+        showFuelAlert("Error", e.message, false);
     }
-    btn.disabled = false;
-    btn.innerText = "Confirm";
-    pendingActionId = null;
+    
+    btn.disabled = false; btn.innerText = "Confirm"; 
+    fuelActionId = null; fuelActionType = null;
 }
 
 // === ADD/EDIT/VIEW MODALS ===
-// (Same as before, ensure openAddFuelModal, openEditFuelModal, saveFuelLog, closeFuelModal, openViewFuelModal exist here)
-// ... [Paste the remaining functions from previous working version here] ...
 
 window.openAddFuelModal = function() {
     document.getElementById('fuelEditId').value = ""; 
@@ -311,11 +289,14 @@ window.openEditFuelModal = function(id) {
     document.getElementById('fuelEditId').value = log.id; 
     document.getElementById('fuelModalTitle').innerText = "Edit Fuel Log";
     document.getElementById('btnSaveFuel').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Save Changes`;
+
     populateSelect('fuelVehicleSelect', fuelOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     document.getElementById('fuelQuantity').value = log.quantity;
     document.getElementById('fuelPrice').value = log.price_little;
+    
     autoSelectFuelType();
     updateCostPreview();
+
     document.getElementById('addFuelModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
@@ -351,11 +332,12 @@ window.saveFuelLog = async function() {
         if(result && !result.detail) {
             window.closeModal('addFuelModal');
             await loadFuelData();
+            showFuelAlert("Success", "Saved successfully.", true);
         } else {
-            alert("Error: " + (result?.detail || "Failed"));
+            showFuelAlert("Error", result?.detail || "Failed", false);
         }
     } catch(e) {
-        alert("System Error: " + e.message);
+        showFuelAlert("System Error", e.message, false);
     }
     btn.disabled = false;
 }
@@ -382,7 +364,37 @@ window.openViewFuelModal = function(id) {
     document.getElementById('viewFuelModal').classList.remove('hidden');
 }
 
+// Helpers
 window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+
+function showFuelConfirmModal(title, msg, icon, btnClass) {
+    document.getElementById('fuelConfirmTitle').innerText = title;
+    document.getElementById('fuelConfirmMessage').innerText = msg;
+    const iconDiv = document.getElementById('fuelConfirmIcon');
+    iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${btnClass.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
+    iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
+    const btn = document.getElementById('btnFuelConfirmAction');
+    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${btnClass} hover:opacity-90`;
+    document.getElementById('fuelConfirmModal').classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
+}
+
+function showFuelAlert(title, message, isSuccess) {
+    const modal = document.getElementById('fuelAlertModal');
+    if(!modal) { alert(message); return; }
+    document.getElementById('fuelAlertTitle').innerText = title;
+    document.getElementById('fuelAlertMessage').innerText = message;
+    const iconDiv = document.getElementById('fuelAlertIcon');
+    if(isSuccess) {
+        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
+        iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
+    } else {
+        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
+        iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+    }
+    modal.classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
+}
 
 function autoSelectFuelType() {
     const vId = document.getElementById('fuelVehicleSelect').value;

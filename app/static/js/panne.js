@@ -5,6 +5,7 @@ let panneOptions = { vehicles: [], cats: [] };
 let panneUserRole = 'user';
 let panneActionType = null;
 let panneActionId = null;
+let selectedPanneIds = new Set(); 
 
 async function initPanne() {
     console.log("Panne Module: Init");
@@ -13,13 +14,14 @@ async function initPanne() {
     const search = document.getElementById('panneSearch');
     const vFilter = document.getElementById('panneVehicleFilter');
     const sFilter = document.getElementById('panneStatusFilter');
+    const selectAll = document.getElementById('selectAllPanne');
     
     if(search) search.addEventListener('input', renderPanneTable);
     if(vFilter) vFilter.addEventListener('change', renderPanneTable);
     if(sFilter) sFilter.addEventListener('change', renderPanneTable);
+    if(selectAll) selectAll.addEventListener('change', togglePanneSelectAll);
     
-    const confirmBtn = document.getElementById('btnPanneConfirmAction');
-    if(confirmBtn) confirmBtn.addEventListener('click', executePanneConfirmAction);
+    document.getElementById('btnPanneConfirmAction').addEventListener('click', executePanneConfirmAction);
     
     await Promise.all([loadPanneData(), fetchPanneDropdowns()]);
 }
@@ -27,7 +29,7 @@ async function initPanne() {
 async function loadPanneData() {
     const tbody = document.getElementById('panneLogsBody');
     if(!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading reports...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading reports...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
     const data = await window.fetchWithAuth('/panne'); 
@@ -35,16 +37,17 @@ async function loadPanneData() {
     
     if (Array.isArray(items)) {
         allPannes = items;
+        selectedPanneIds.clear(); 
+        updatePanneBulkUI();
         renderPanneTable();
     } else {
         const msg = data && data.detail ? data.detail : "Failed to load data.";
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
     }
 }
 
 async function fetchPanneDropdowns() {
     try {
-        // FIX: Removed '/api/v1' prefix
         const [vehicles, cats] = await Promise.all([
             window.fetchWithAuth('/vehicles?limit=1000'),
             window.fetchWithAuth('/category_panne') 
@@ -68,18 +71,20 @@ function renderPanneTable() {
         const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
         const desc = log.description ? log.description.toLowerCase() : "";
+        
         const matchesSearch = plate.includes(search) || desc.includes(search);
         const matchesVehicle = vFilter === "" || log.vehicle_id == vFilter;
         let matchesStatus = true;
         if (sFilter === 'verified') matchesStatus = log.is_verified === true;
         if (sFilter === 'pending') matchesStatus = log.is_verified !== true;
+
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
     document.getElementById('panneCount').innerText = `${filtered.length} records found`;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No records found.</td></tr>`;
         return;
     }
 
@@ -88,12 +93,21 @@ function renderPanneTable() {
     tbody.innerHTML = filtered.map(log => {
         const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
         const cat = panneOptions.cats.find(c => c.id === log.category_panne_id);
-        const plate = vehicle ? vehicle.plate_number : log.vehicle_id;
-        const catName = cat ? cat.panne_name : '-';
+        const plate = vehicle ? vehicle.plate_number : `ID ${log.vehicle_id}`;
+        const catName = cat ? cat.panne_name : `Cat ${log.category_panne_id}`;
         const date = new Date(log.panne_date).toLocaleDateString();
+        
         const statusBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
+
+        let checkboxHtml = '';
+        if (canManage && !log.is_verified) {
+            const isChecked = selectedPanneIds.has(log.id) ? 'checked' : '';
+            checkboxHtml = `<input type="checkbox" onchange="togglePanneRow(${log.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`;
+        } else {
+            checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30 cursor-not-allowed">`;
+        }
 
         let actions = '';
         const viewBtn = `<button onclick="openViewPanneModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
@@ -113,7 +127,8 @@ function renderPanneTable() {
         }
 
         return `
-            <tr class="hover:bg-white/5 border-b border-slate-700/30">
+            <tr class="hover:bg-white/5 border-b border-slate-700/30 group">
+                <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4 font-mono text-white">${plate}</td>
                 <td class="p-4 text-slate-400">${catName}</td>
                 <td class="p-4 text-slate-300 text-xs truncate max-w-[200px]">${log.description}</td>
@@ -125,34 +140,99 @@ function renderPanneTable() {
     if(window.lucide) window.lucide.createIcons();
 }
 
+// === BULK LOGIC ===
+
+window.togglePanneRow = function(id) {
+    if (selectedPanneIds.has(id)) selectedPanneIds.delete(id);
+    else selectedPanneIds.add(id);
+    updatePanneBulkUI();
+}
+
+window.togglePanneSelectAll = function() {
+    const mainCheck = document.getElementById('selectAllPanne');
+    const isChecked = mainCheck.checked;
+    selectedPanneIds.clear();
+    
+    if (isChecked) {
+        const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
+        allPannes.forEach(log => {
+             if(canManage && !log.is_verified) selectedPanneIds.add(log.id);
+        });
+    }
+    renderPanneTable();
+    updatePanneBulkUI();
+}
+
+function updatePanneBulkUI() {
+    const btn = document.getElementById('btnPanneBulkVerify');
+    const countSpan = document.getElementById('panneSelectedCount');
+    if (!btn) return;
+    countSpan.innerText = selectedPanneIds.size;
+    if (selectedPanneIds.size > 0) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
+}
+
+// Renamed trigger function to match HTML
+window.triggerPanneBulkVerify = function() {
+    if (selectedPanneIds.size === 0) return;
+    
+    panneActionType = 'bulk-verify';
+    panneActionId = null;
+    showPanneConfirmModal("Verify Selected?", `Verify ${selectedPanneIds.size} reports? This cannot be undone.`, "check-circle", "bg-emerald-600");
+}
+
+// === ACTIONS ===
+
 window.reqPanneVerify = function(id) {
     panneActionType = 'verify'; panneActionId = id;
-    showPanneConfirmModal("Verify?", "Lock this report?", "check-circle", "bg-green-600");
+    showPanneConfirmModal("Verify Report?", "Lock this report permanently?", "check-circle", "bg-green-600");
 }
 window.reqPanneDelete = function(id) {
     panneActionType = 'delete'; panneActionId = id;
-    showPanneConfirmModal("Delete?", "Permanently remove?", "trash-2", "bg-red-600");
+    showPanneConfirmModal("Delete Report?", "Permanently remove?", "trash-2", "bg-red-600");
 }
 
 async function executePanneConfirmAction() {
-    if(!panneActionId) return;
     const btn = document.getElementById('btnPanneConfirmAction');
     btn.disabled = true; btn.innerText = "Processing...";
 
     try {
         let result;
-        if (panneActionType === 'delete') result = await window.fetchWithAuth(`/panne/${panneActionId}`, 'DELETE');
-        if (panneActionType === 'verify') result = await window.fetchWithAuth(`/panne/${panneActionId}`, 'PUT', { is_verified: true });
+        
+        // SINGLE DELETE
+        if (panneActionType === 'delete') {
+            result = await window.fetchWithAuth(`/panne/${panneActionId}`, 'DELETE');
+        } 
+        // SINGLE VERIFY (Uses bulk endpoint for consistency)
+        else if (panneActionType === 'verify') {
+            const payload = { ids: [parseInt(panneActionId)] };
+            result = await window.fetchWithAuth(`/panne/verify-bulk`, 'PUT', payload);
+        }
+        // BULK VERIFY
+        else if (panneActionType === 'bulk-verify') {
+            const idList = Array.from(selectedPanneIds).map(id => parseInt(id));
+            const payload = { ids: idList };
+            result = await window.fetchWithAuth('/panne/verify-bulk', 'PUT', payload);
+        }
 
         window.closeModal('panneConfirmModal');
-        if (result !== null) await loadPanneData();
-        else alert("Action failed.");
+        
+        if (result !== null) { // Success
+            if (panneActionType === 'bulk-verify') selectedPanneIds.clear();
+            await loadPanneData();
+            showPanneAlert("Success", "Action completed.", true);
+        } else {
+            showPanneAlert("Failed", "Action could not be completed.", false);
+        }
     } catch(e) {
         window.closeModal('panneConfirmModal');
-        alert("Error: " + e.message);
+        showPanneAlert("Error", e.message, false);
     }
-    btn.disabled = false; btn.innerText = "Confirm"; panneActionId = null;
+    btn.disabled = false; btn.innerText = "Confirm"; 
+    panneActionId = null; panneActionType = null;
 }
+
+// === MODALS ===
 
 window.openAddPanneModal = function() {
     document.getElementById('panneEditId').value = "";
@@ -186,7 +266,8 @@ window.savePanne = async function() {
     const catId = document.getElementById('panneCatSelect').value;
     const desc = document.getElementById('panneDesc').value;
     const date = document.getElementById('panneDate').value;
-    if(!vId || !catId || !date) { alert("Please fill required fields."); return; }
+    if(!vId || !catId || !date) { showPanneAlert("Validation", "Please fill required fields.", false); return; }
+
     const payload = {
         vehicle_id: parseInt(vId),
         category_panne_id: parseInt(catId),
@@ -202,8 +283,11 @@ window.savePanne = async function() {
         if(result && !result.detail) {
             window.closeModal('addPanneModal');
             await loadPanneData();
-        } else { alert("Error: " + (result?.detail || "Failed")); }
-    } catch(e) { alert("System Error: " + e.message); }
+            showPanneAlert("Success", "Saved successfully.", true);
+        } else { 
+            showPanneAlert("Error", result?.detail || "Failed", false); 
+        }
+    } catch(e) { showPanneAlert("System Error", e.message, false); }
     btn.disabled = false;
 }
 
@@ -229,7 +313,9 @@ window.openViewPanneModal = function(id) {
     document.getElementById('viewPanneModal').classList.remove('hidden');
 }
 
+// Helpers
 window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+
 function showPanneConfirmModal(t, m, i, c) {
     const modal = document.getElementById('panneConfirmModal');
     if(!modal) return;
@@ -237,9 +323,37 @@ function showPanneConfirmModal(t, m, i, c) {
     document.getElementById('panneConfirmMessage').innerText = m;
     const btn = document.getElementById('btnPanneConfirmAction');
     btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${c}`;
+    
+    // Update icon color and icon
+    const iconDiv = document.getElementById('panneConfirmIcon');
+    if(iconDiv) {
+        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${c.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
+        iconDiv.innerHTML = `<i data-lucide="${i}" class="w-6 h-6"></i>`;
+    }
+
     modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
+
+function showPanneAlert(title, message, isSuccess) {
+    const modal = document.getElementById('panneAlertModal');
+    if(!modal) { alert(message); return; }
+    document.getElementById('panneAlertTitle').innerText = title;
+    document.getElementById('panneAlertMessage').innerText = message;
+    
+    const iconDiv = document.getElementById('panneAlertIcon');
+    if(isSuccess) {
+        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
+        iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
+    } else {
+        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
+        iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+    }
+    
+    modal.classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
+}
+
 function populateSelect(id, list, sel, label, def) {
     const el = document.getElementById(id);
     if(!el) return;

@@ -1,7 +1,7 @@
-# User, Role, Agency, Service, Tokens
+# app/models/users.py
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, func
-from sqlalchemy.orm import relationship, mapped_column
+from sqlalchemy.orm import relationship
 from app.database import Base
 from datetime import datetime
 
@@ -49,6 +49,10 @@ class User(Base):
     service = relationship("Service")
     role = relationship("Role", back_populates="users")
     tokens = relationship("UserToken", back_populates="user")
+    
+    # FIX: String references to operations.py models
+    requests = relationship("VehicleRequest", back_populates="requester", foreign_keys="VehicleRequest.requester_id")
+    driver_requests = relationship("VehicleRequest", back_populates="driver", foreign_keys="VehicleRequest.driver_id")
 
     def get_context_string(self, context: str):
         timestamp = self.updated_at.strftime('%m%d%Y%H%M%S') if self.updated_at else ""
@@ -58,15 +62,11 @@ class UserToken(Base):
     __tablename__ = "user_tokens"
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('user.id'))
-    
-    # Context columns
     agency_id = Column(Integer, ForeignKey('agency.id'))
     service_id = Column(Integer, ForeignKey('service.id'))
     role_id = Column(Integer, ForeignKey('roles.id'))
-    
     access_key = Column(String(250), nullable=True, index=True, default=None)
     refresh_key = Column(String(250), nullable=True, index=True, default=None)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     expires_at = Column(DateTime, nullable=False)
-    
     user = relationship("User", back_populates="tokens")

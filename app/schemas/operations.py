@@ -1,16 +1,57 @@
-# app/schemas/operations.py (or wherever you keep this schema)
-
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
-# Assuming these imports exist in your project structure
-from .users import UserResponse, UserSimpleOut 
-from .vehicles import VehicleOut
+
+from .users import UserResponse, UserSimpleOut, UserOut
+from .vehicles import VehicleOut, VehicleNestedInTrip
+
+# --- HELPER SCHEMAS ---
+
+class DriverNestedInRequest(BaseModel):
+    id: int
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+    class Config: 
+        from_attributes = True
+
+# --- VEHICLE REQUESTS ---
+
+class VehicleRequestBase(BaseModel):
+    destination: str
+    description: Optional[str] = None
+    
+    # Matching the new Model fields
+    departure_time: datetime 
+    return_time: datetime
+    
+    passengers: List[str] = [] 
+
+class VehicleRequestCreate(VehicleRequestBase):
+    # Optional fields for assignment during creation if needed
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+
+class VehicleRequestUpdate(BaseModel):
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    status: Optional[str] = None
+    class Config: 
+        from_attributes = True
+
+class VehicleRequestAssignmentUpdate(BaseModel):
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    status: Optional[str] = None
+
+class VehicleRequestReject(BaseModel):
+    rejection_reason: str
+
+# --- APPROVALS ---
 
 class RequestApprovalUpdate(BaseModel):
-    status: str
+    status: str # "approved" or "denied"
     comments: Optional[str] = None
-    class Config: from_attributes = True
 
 class RequestApprovalOut(BaseModel):
     id: int
@@ -19,62 +60,32 @@ class RequestApprovalOut(BaseModel):
     comments: Optional[str] = None
     approver: Optional[UserSimpleOut] = None
     updated_at: Optional[datetime] = None
-    class Config: from_attributes = True
+    class Config: 
+        from_attributes = True
 
-class RequestBase(BaseModel):
-    purpose: str
-    from_location: str
-    to_location: str
-    departure_time: datetime
-    return_time: datetime
-    
-    # --- NEW FIELD ---
-    # List of people (matricules or names)
-    passengers: List[str] = [] 
+# --- OUTPUT SCHEMAS ---
 
-class VehicleRequestCreate(RequestBase):
-    vehicle_id: Optional[int] = None
-    driver_id: Optional[int] = None
-    class Config: from_attributes = True
-
-class RequestCreate(VehicleRequestCreate): 
-    pass
-
-class VehicleRequestUpdate(BaseModel):
-    vehicle_id: Optional[int] = None
-    driver_id: Optional[int] = None
-    class Config: from_attributes = True
-
-
-
-class VehicleRequestReject(BaseModel):
-    rejection_reason: str
-
-class VehicleRequestAssignmentUpdate(BaseModel):
-    vehicle_id: Optional[int] = None
-    driver_id: Optional[int] = None
-
-# --- NEW SCHEMA FOR REJECTION ---
-class VehicleRequestReject(BaseModel):
-    rejection_reason: str
-
-class VehicleRequestOut(RequestBase):
+class VehicleRequestOut(VehicleRequestBase):
     id: int
-    roadmap: Optional[str] = None
     status: str
+    requester_id: int
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
     created_at: datetime
-    
-    # --- NEW FIELD ---
     rejection_reason: Optional[str] = None
-
-    requester: Optional[UserResponse] = None
-    vehicle: Optional[VehicleOut] = None
-    driver: Optional[UserResponse] = None
+    roadmap: Optional[str] = None
+    
+    # Relationships
+    requester: Optional[UserOut] = None
+    vehicle: Optional[VehicleNestedInTrip] = None
+    driver: Optional[DriverNestedInRequest] = None
     approvals: List[RequestApprovalOut] = []
     
-    class Config: from_attributes = True
+    class Config: 
+        from_attributes = True
 
 class RequestOut(VehicleRequestOut):
+    # Alias for specific use cases if needed
     user: Optional[UserResponse] = Field(None, alias="requester")
 
 class PendingRequestsCount(BaseModel):

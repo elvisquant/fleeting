@@ -5,20 +5,24 @@ let maintOptions = { vehicles: [], cats: [], garages: [] };
 let maintUserRole = 'user';
 let maintActionType = null;
 let maintActionId = null;
+let selectedMaintIds = new Set(); // Stores IDs for bulk
 
 async function initMaintenance() {
     console.log("Maintenance: Init");
     maintUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
+    // Elements
     const search = document.getElementById('maintSearch');
     const vFilter = document.getElementById('maintVehicleFilter');
     const sFilter = document.getElementById('maintStatusFilter');
+    const selectAll = document.getElementById('selectAllMaint');
+    const confirmBtn = document.getElementById('btnMaintConfirmAction');
     
+    // Listeners
     if(search) search.addEventListener('input', renderMaintTable);
     if(vFilter) vFilter.addEventListener('change', renderMaintTable);
     if(sFilter) sFilter.addEventListener('change', renderMaintTable);
-    
-    const confirmBtn = document.getElementById('btnMaintConfirmAction');
+    if(selectAll) selectAll.addEventListener('change', toggleMaintSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executeMaintConfirmAction);
 
     await Promise.all([loadMaintData(), fetchMaintDropdowns()]);
@@ -27,22 +31,24 @@ async function initMaintenance() {
 async function loadMaintData() {
     const tbody = document.getElementById('maintLogsBody');
     if(!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
+    // Use plural endpoint "/maintenances" as per router
     const data = await window.fetchWithAuth('/maintenances');
     if (Array.isArray(data)) {
         allMaintLogs = data;
+        selectedMaintIds.clear();
+        updateMaintBulkUI();
         renderMaintTable();
     } else {
         const msg = data && data.detail ? data.detail : "Failed to load logs.";
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
     }
 }
 
 async function fetchMaintDropdowns() {
     try {
-        // FIX: Removed '/api/v1' prefix because fetchWithAuth adds it automatically
         const [vehicles, cats, garages] = await Promise.all([
             window.fetchWithAuth('/vehicles?limit=1000'),
             window.fetchWithAuth('/category_maintenance'), 
@@ -51,7 +57,6 @@ async function fetchMaintDropdowns() {
         if(Array.isArray(vehicles)) maintOptions.vehicles = vehicles;
         if(Array.isArray(cats)) maintOptions.cats = cats;
         if(Array.isArray(garages)) maintOptions.garages = garages;
-        
         populateSelect('maintVehicleFilter', maintOptions.vehicles, '', 'plate_number', 'All Vehicles');
     } catch(e) { console.warn("Maint Dropdown Error", e); }
 }
@@ -78,7 +83,7 @@ function renderMaintTable() {
     document.getElementById('maintLogsCount').innerText = `${filtered.length} logs found`;
 
     if(filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No records found.</td></tr>`;
         return;
     }
 
@@ -94,6 +99,15 @@ function renderMaintTable() {
         const statusBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
+
+        // Checkbox Logic
+        let checkboxHtml = '';
+        if (canManage && !log.is_verified) {
+            const isChecked = selectedMaintIds.has(log.id) ? 'checked' : '';
+            checkboxHtml = `<input type="checkbox" onchange="toggleMaintRow(${log.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`;
+        } else {
+            checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30 cursor-not-allowed">`;
+        }
 
         let actions = '';
         const viewBtn = `<button onclick="openViewMaintModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
@@ -114,6 +128,7 @@ function renderMaintTable() {
 
         return `
             <tr class="hover:bg-white/5 border-b border-slate-700/30">
+                <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4 font-mono text-white">${plate}</td>
                 <td class="p-4 text-slate-400">${catName}</td>
                 <td class="p-4 text-right font-bold text-emerald-400">${log.maintenance_cost.toFixed(2)}</td>
@@ -126,6 +141,48 @@ function renderMaintTable() {
     if(window.lucide) window.lucide.createIcons();
 }
 
+// === BULK SELECTION ===
+
+window.toggleMaintRow = function(id) {
+    if (selectedMaintIds.has(id)) selectedMaintIds.delete(id);
+    else selectedMaintIds.add(id);
+    updateMaintBulkUI();
+}
+
+window.toggleMaintSelectAll = function() {
+    const mainCheck = document.getElementById('selectAllMaint');
+    const isChecked = mainCheck.checked;
+    selectedMaintIds.clear();
+    
+    if (isChecked) {
+        const canManage = ['admin', 'superadmin', 'charoi'].includes(maintUserRole);
+        allMaintLogs.forEach(log => {
+             if(canManage && !log.is_verified) selectedMaintIds.add(log.id);
+        });
+    }
+    renderMaintTable();
+    updateMaintBulkUI();
+}
+
+function updateMaintBulkUI() {
+    const btn = document.getElementById('btnMaintBulkVerify');
+    const countSpan = document.getElementById('maintSelectedCount');
+    if (!btn) return;
+
+    countSpan.innerText = selectedMaintIds.size;
+    if (selectedMaintIds.size > 0) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
+}
+
+window.executeMaintBulkVerify = async function() {
+    if (selectedMaintIds.size === 0) return;
+    maintActionType = 'bulk-verify';
+    maintActionId = null;
+    showMaintConfirmModal("Verify Selected?", `Verify ${selectedMaintIds.size} records?`, "check-circle", "bg-emerald-600");
+}
+
+// === ACTIONS ===
+
 window.reqMaintVerify = function(id) {
     maintActionType = 'verify'; maintActionId = id;
     showMaintConfirmModal("Verify?", "This action locks the record.", "check-circle", "bg-green-600");
@@ -136,24 +193,45 @@ window.reqMaintDelete = function(id) {
 }
 
 async function executeMaintConfirmAction() {
-    if(!maintActionId) return;
+    // Check if valid action
+    if (!maintActionType) return;
+    if (maintActionType !== 'bulk-verify' && !maintActionId) return;
+
     const btn = document.getElementById('btnMaintConfirmAction');
     btn.disabled = true; btn.innerText = "Processing...";
 
     try {
         let result;
-        if (maintActionType === 'delete') result = await window.fetchWithAuth(`/maintenances/${maintActionId}`, 'DELETE');
-        if (maintActionType === 'verify') result = await window.fetchWithAuth(`/maintenances/${maintActionId}`, 'PUT', { is_verified: true });
+        if (maintActionType === 'delete') {
+            result = await window.fetchWithAuth(`/maintenances/${maintActionId}`, 'DELETE');
+        } 
+        else if (maintActionType === 'verify') {
+             // Reuse bulk endpoint for single verify to avoid 422 mismatch
+            const payload = { ids: [parseInt(maintActionId)] };
+            result = await window.fetchWithAuth(`/maintenances/verify-bulk`, 'PUT', payload);
+        }
+        else if (maintActionType === 'bulk-verify') {
+             const idList = Array.from(selectedMaintIds).map(id => parseInt(id));
+             const payload = { ids: idList };
+             result = await window.fetchWithAuth('/maintenances/verify-bulk', 'PUT', payload);
+        }
         
         window.closeModal('maintConfirmModal');
-        if(result !== null) await loadMaintData();
-        else alert("Action failed.");
+        if(result !== null) {
+            if (maintActionType === 'bulk-verify') selectedMaintIds.clear();
+            await loadMaintData();
+        } else {
+            alert("Action failed.");
+        }
     } catch(e) {
         window.closeModal('maintConfirmModal');
         alert("Error: " + e.message);
     }
-    btn.disabled = false; btn.innerText = "Confirm"; maintActionId = null;
+    btn.disabled = false; btn.innerText = "Confirm"; 
+    maintActionId = null; maintActionType = null;
 }
+
+// === ADD/EDIT/VIEW ===
 
 window.openAddMaintModal = function() {
     document.getElementById('maintEditId').value = "";
@@ -161,7 +239,7 @@ window.openAddMaintModal = function() {
     document.getElementById('btnSaveMaint').innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
     populateSelect('maintVehicleSelect', maintOptions.vehicles, '', 'plate_number', 'Select Vehicle');
     populateSelect('maintCatSelect', maintOptions.cats, '', 'cat_maintenance', 'Select Category');
-    populateSelect('maintGarageSelect', maintOptions.garages, '', 'nom_garage', 'Select Garage');
+    populateSelect('maintGarageSelect', maintOptions.garages, '', 'garage_name', 'Select Garage');
     document.getElementById('maintCost').value = "";
     document.getElementById('maintDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('maintReceipt').value = "";
@@ -175,12 +253,15 @@ window.openEditMaintModal = function(id) {
     document.getElementById('maintEditId').value = log.id;
     document.getElementById('maintModalTitle').innerText = "Edit Record";
     document.getElementById('btnSaveMaint').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
+    
     populateSelect('maintVehicleSelect', maintOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('maintCatSelect', maintOptions.cats, log.cat_maintenance_id, 'cat_maintenance', 'Category');
-    populateSelect('maintGarageSelect', maintOptions.garages, log.garage_id, 'nom_garage', 'Garage');
+    populateSelect('maintGarageSelect', maintOptions.garages, log.garage_id, 'garage_name', 'Garage');
+    
     document.getElementById('maintCost').value = log.maintenance_cost;
     document.getElementById('maintDate').value = log.maintenance_date.split('T')[0];
     document.getElementById('maintReceipt').value = log.receipt;
+    
     document.getElementById('addMaintModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
@@ -195,6 +276,7 @@ window.saveMaintenance = async function() {
         maintenance_date: new Date(document.getElementById('maintDate').value).toISOString(),
         receipt: document.getElementById('maintReceipt').value
     };
+    
     if(!payload.vehicle_id || isNaN(payload.maintenance_cost)) { alert("Please fill required fields"); return; }
     
     let result;
@@ -215,22 +297,27 @@ window.openViewMaintModal = function(id) {
     const vehicle = maintOptions.vehicles.find(v => v.id === log.vehicle_id);
     const cat = maintOptions.cats.find(c => c.id === log.cat_maintenance_id);
     const garage = maintOptions.garages.find(g => g.id === log.garage_id);
+
     const content = `
         <div class="grid grid-cols-2 gap-y-4">
             <div><span class="text-slate-500 text-xs uppercase block">Vehicle</span><span class="text-white font-mono">${vehicle ? vehicle.plate_number : log.vehicle_id}</span></div>
             <div><span class="text-slate-500 text-xs uppercase block">Category</span><span class="text-white">${cat ? cat.cat_maintenance : '-'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Garage</span><span class="text-white">${garage ? garage.nom_garage : '-'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Garage</span><span class="text-white">${garage ? garage.garage_name : '-'}</span></div>
             <div><span class="text-slate-500 text-xs uppercase block">Receipt</span><span class="text-white font-mono">${log.receipt}</span></div>
             <div class="col-span-2 border-t border-slate-700 pt-2 flex justify-between items-center">
                 <span class="text-slate-500 text-xs uppercase">Total Cost</span>
                 <span class="text-emerald-400 font-bold text-lg">BIF ${log.maintenance_cost.toFixed(2)}</span>
             </div>
-            <div class="col-span-2 text-xs text-slate-600 text-center">Date: ${new Date(log.maintenance_date).toLocaleDateString()}</div>
-        </div>`;
+             <div class="col-span-2 text-xs text-slate-600 text-center">
+                Date: ${new Date(log.maintenance_date).toLocaleDateString()}
+            </div>
+        </div>
+    `;
     document.getElementById('viewMaintContent').innerHTML = content;
     document.getElementById('viewMaintModal').classList.remove('hidden');
 }
 
+// Helpers
 window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
 function showMaintConfirmModal(t, m, i, c) {
     document.getElementById('maintConfirmTitle').innerText = t;

@@ -1,7 +1,5 @@
-# app/routers/maintenance.py
-
 from fastapi import APIRouter, Depends, status, HTTPException, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from datetime import datetime
 
@@ -14,13 +12,40 @@ router = APIRouter(
 )
 
 # =================================================================================
-# CREATE (Authenticated) - Default Unverified
+# BULK VERIFY (CRITICAL: Must be defined BEFORE /{id} endpoints)
+# =================================================================================
+@router.put("/verify-bulk", status_code=status.HTTP_200_OK)
+def verify_maintenance_bulk(
+    payload: schemas.MaintenanceBulkVerify,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(oauth2.require_charoi_role)
+):
+    """
+    Verify multiple maintenance records at once.
+    """
+    records = db.query(models.Maintenance).filter(
+        models.Maintenance.id.in_(payload.ids),
+        models.Maintenance.is_verified == False
+    ).all()
+
+    if not records:
+        return {"message": "No applicable unverified records found."}
+
+    for rec in records:
+        rec.is_verified = True
+        rec.verified_at = datetime.utcnow()
+    
+    db.commit()
+    return {"message": f"Successfully verified {len(records)} records."}
+
+
+# =================================================================================
+# CREATE (Authenticated)
 # =================================================================================
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.MaintenanceOut)
 def create_maintenance(
     maintenance_data: schemas.MaintenanceCreate,
     db: Session = Depends(get_db),
-    # Allow drivers/staff to report maintenance, verified by Admin later
     current_user: models.User = Depends(oauth2.get_current_user_from_header)
 ):
     # Validate vehicle
@@ -87,7 +112,7 @@ def update_maintenance(
 
     update_data = maintenance_data.model_dump(exclude_unset=True)
 
-    # 1. Handle Verification Logic
+    # Verification Logic (Single)
     if "is_verified" in update_data:
         if update_data["is_verified"] is True:
             db_maintenance.verified_at = datetime.utcnow()

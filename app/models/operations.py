@@ -1,9 +1,10 @@
-# app/models/operations.py (or wherever you keep this model)
+# app/models/operations.py
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum, func
 from sqlalchemy.orm import relationship
-from sqlalchemy.types import JSON # <--- Added for passengers list
+from sqlalchemy.types import JSON 
 from app.database import Base
+from datetime import datetime
 import enum
 
 class RequestStatus(str, enum.Enum):
@@ -21,34 +22,31 @@ class ApprovalStatus(str, enum.Enum):
     DENIED = 'denied'
 
 class VehicleRequest(Base):
-    __tablename__ = 'vehicle_requests'
+    __tablename__ = "vehicle_requests"
+
     id = Column(Integer, primary_key=True, index=True)
     
-    purpose = Column(String, nullable=False)
-    from_location = Column(String, nullable=False)
-    to_location = Column(String, nullable=False)
-    roadmap = Column(Text, nullable=True) 
-    departure_time = Column(DateTime(timezone=True), nullable=False, index=True)
-    return_time = Column(DateTime(timezone=True), nullable=False)
+    # FIX: Point to 'user.id' (singular table name from users.py)
+    requester_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
+    vehicle_id = Column(Integer, ForeignKey("vehicle.id", ondelete="SET NULL"), nullable=True, index=True)
+    driver_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
     
-    # --- NEW FIELDS ---
-    # Stores list of matricules: ["12345", "67890"]
-    passengers = Column(JSON, default=[]) 
-    # Stores why it was denied
-    rejection_reason = Column(Text, nullable=True) 
-    # ------------------
-
+    destination = Column(String)
+    description = Column(Text, nullable=True)
+    
+    start_time = Column(DateTime) 
+    end_time = Column(DateTime)
+    
     status = Column(Enum(RequestStatus, name='request_status_enum'), nullable=False, default=RequestStatus.PENDING, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
-    
-    # Note: Ensure these table names ('user', 'vehicle') match your actual DB table names
-    requester_id = Column(Integer, ForeignKey('user.id', ondelete="SET NULL"), nullable=True, index=True)
-    vehicle_id = Column(Integer, ForeignKey('vehicle.id', ondelete="SET NULL"), nullable=True, index=True)
-    driver_id = Column(Integer, ForeignKey('user.id', ondelete="SET NULL"), nullable=True, index=True)
-    
-    requester = relationship("User", foreign_keys=[requester_id])
-    vehicle = relationship("Vehicle")
-    driver = relationship("User", foreign_keys=[driver_id])
+    passengers = Column(JSON, default=[]) 
+    rejection_reason = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    requester = relationship("User", foreign_keys=[requester_id], back_populates="requests")
+    vehicle = relationship("Vehicle", back_populates="requests")
+    driver = relationship("User", foreign_keys=[driver_id], back_populates="driver_requests")
     approvals = relationship("RequestApproval", back_populates="request", cascade="all, delete-orphan")
 
 class RequestApproval(Base):

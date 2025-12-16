@@ -1,4 +1,4 @@
-from .users import (
+""" from .users import (
     Token, TokenData, LoginRequest, UserLogin,
     VerifyUserRequest, EmailRequest, ResetRequest,
     ForgotPasswordRequest, ResetPasswordRequest, PasswordChange,
@@ -12,17 +12,16 @@ from .vehicles import (
     VehicleTypeBase, VehicleTypeCreate, VehicleTypeOut,
     VehicleMakeBase, VehicleMakeCreate, VehicleMakeOut,
     VehicleModelBase, VehicleModelCreate, VehicleModelOut,
-    VehicleTransmissionBase, VehicleTransmissionCreate, VehicleTransmissionOut,
+    VehicleTransmissionBase, VehicleTransmissionCreate, VehicleTransmissionOut,VehicleBulkVerify,
     FuelTypeBase, FuelTypeCreate, FuelTypeOut,
-    VehicleBase, VehicleCreate, VehicleStatusUpdate, VehicleOut, VehicleSimpleOut, VehicleNestedInTrip,
+    VehicleBase, VehicleCreate, VehicleUpdate, VehicleOut, VehicleNestedInTrip,
     FuelBase, FuelCreatePayload, FuelUpdatePayload, FuelOut,
     CategoryFuelBase, CategoryFuelCreate, CategoryFuelOut,
     EligibilityResponse,FuelBulkVerify  
 )
 from .operations import (
-    RequestApprovalUpdate, RequestApprovalOut,
-    RequestBase, VehicleRequestCreate, RequestCreate, VehicleRequestUpdate,
-    VehicleRequestAssignmentUpdate, VehicleRequestOut, RequestOut, PendingRequestsCount,VehicleRequestReject
+    VehicleRequestBase, VehicleRequestCreate,RequestApprovalUpdate, RequestApprovalOut,VehicleRequestReject,
+    DriverNestedInRequest, VehicleRequestOut,PendingRequestsCount
 )
 from .maintenance import (
     GarageBase, GarageCreate, GarageOut, GarageOutForReparation,
@@ -38,4 +37,9 @@ from .dashboard import (
     TopDriver, DriverNestedInTrip, MonthlyExpenseItem, AnalyticsExpenseSummaryResponse,
     FuelRecordDetail, ReparationRecordDetail, MaintenanceRecordDetail, PurchaseRecordDetail, DetailedReportDataResponse,
     TripCreate, TripUpdate, TripResponse
-)
+) """
+from .dashboard import *
+from .maintenance import *
+from .operations import *
+from .users import *
+from .vehicles import *

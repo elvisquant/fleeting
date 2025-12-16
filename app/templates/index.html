@@ -58,7 +58,7 @@
         <aside class="hidden md:flex w-64 flex-col glass-panel m-3 ml-0 md:ml-3 h-[calc(100vh-24px)]">
             <!-- Brand -->
             <div class="p-6 flex items-center gap-3 border-b border-white/5">
-                <!-- LOGO IMAGE (Updated) -->
+                <!-- Desktop Logo -->
                 <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white">
                 <h1 class="font-bold text-lg tracking-tight">FleetDash</h1>
             </div>
@@ -126,7 +126,8 @@
             <!-- Mobile Header -->
             <header class="flex md:hidden items-center justify-between mb-6">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center"><i data-lucide="command" class="text-white w-5 h-5"></i></div>
+                    <!-- Mobile Logo (UPDATED HERE) -->
+                    <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white">
                     <h1 class="font-bold text-lg">FleetDash</h1>
                 </div>
                 <button onclick="logout()" class="p-2 text-slate-400"><i data-lucide="log-out" class="w-6 h-6"></i></button>
@@ -234,6 +235,7 @@
     <script src="/static/js/maintenance.js"></script>
     <script src="/static/js/panne.js"></script>
     <script src="/static/js/reparation.js"></script>
+    <script src="/static/js/requests.js"></script>
 
     <!-- Load Router LAST -->
     <script src="/static/js/router.js"></script>

@@ -39,37 +39,58 @@ class FuelTypeOut(FuelTypeBase):
     id: int
     class Config: from_attributes = True
 
-# --- VEHICLE ---
+# =================================================================
+# VEHICLES
+# =================================================================
 class VehicleBase(BaseModel):
+    plate_number: str
     make: int
     model: int
     year: int
-    plate_number: str
-    mileage: float = 0.0
+    vin: str
+    color: str
+    mileage: float
     engine_size: float
     vehicle_type: int
     vehicle_transmission: int
     vehicle_fuel_type: int
-    vin: str
-    color: str
     purchase_price: float
+    purchase_date: datetime
+
+class VehicleCreate(VehicleBase):
+    pass
+
+class VehicleUpdate(BaseModel):
+    plate_number: Optional[str] = None
+    make: Optional[int] = None
+    model: Optional[int] = None
+    year: Optional[int] = None
+    vin: Optional[str] = None
+    color: Optional[str] = None
+    mileage: Optional[float] = None
+    engine_size: Optional[float] = None
+    vehicle_type: Optional[int] = None
+    vehicle_transmission: Optional[int] = None
+    vehicle_fuel_type: Optional[int] = None
+    purchase_price: Optional[float] = None
     purchase_date: Optional[datetime] = None
-    status: str = "available"
-
-class VehicleCreate(VehicleBase): pass
-
-class VehicleStatusUpdate(BaseModel):
-    status: str
+    status: Optional[str] = None
+    # Verification
+    is_verified: Optional[bool] = None
+    verified_at: Optional[datetime] = None
 
 class VehicleOut(VehicleBase):
     id: int
+    status: str
     registration_date: datetime
-    class Config: from_attributes = True
+    is_verified: bool = False
+    verified_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
 
-class VehicleSimpleOut(BaseModel):
-    id: int
-    plate_number: str
-    class Config: from_attributes = True
+class VehicleBulkVerify(BaseModel):
+    ids: List[int]
+
 
 class VehicleNestedInTrip(BaseModel):
     id: int
@@ -116,6 +137,9 @@ class FuelOut(FuelBase):
     is_verified:bool
     class Config: from_attributes = True
 
+class FuelBulkVerify(BaseModel):
+    ids: List[int]
+
 class CategoryFuelBase(BaseModel):
     fuel_name: str
 class CategoryFuelCreate(CategoryFuelBase): pass
@@ -130,7 +154,3 @@ class EligibilityResponse(BaseModel):
     message: str
 
 
-# Add this near your Fuel schemas in app/schemas.py
-
-class FuelBulkVerify(BaseModel):
-    ids: List[int]
