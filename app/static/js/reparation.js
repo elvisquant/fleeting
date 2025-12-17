@@ -284,13 +284,13 @@ async function executeRepConfirmAction() {
         if (result !== null && result !== false) {
             if (repActionType === 'bulk-verify') selectedRepIds.clear();
             await loadRepData();
-            showRepSuccessAlert("Success", "Action completed successfully.");
+            showRepAlert("Success", "Action completed successfully.", true);
         } else {
-            showRepErrorAlert("Failed", "Action could not be completed.");
+            showRepAlert("Failed", "Action could not be completed.", false);
         }
     } catch(e) {
         window.closeModal('repConfirmModal');
-        showRepErrorAlert("Error", e.message || "An unexpected error occurred.");
+        showRepAlert("Error", e.message || "An unexpected error occurred.", false);
     }
     
     btn.disabled = false; 
@@ -353,23 +353,23 @@ window.saveReparation = async function() {
 
     // VALIDATION
     if(!panneId) { 
-        showRepErrorAlert("Validation", "Please select a Panne."); 
+        showRepAlert("Validation", "Please select a Panne.", false); 
         return; 
     }
     if(!garageId) { 
-        showRepErrorAlert("Validation", "Please select a Garage."); 
+        showRepAlert("Validation", "Please select a Garage.", false); 
         return; 
     }
     if(!cost || isNaN(cost) || parseFloat(cost) <= 0) { 
-        showRepErrorAlert("Validation", "Please enter a valid cost."); 
+        showRepAlert("Validation", "Please enter a valid cost.", false); 
         return; 
     }
     if(!dateVal) { 
-        showRepErrorAlert("Validation", "Please select a date."); 
+        showRepAlert("Validation", "Please select a date.", false); 
         return; 
     }
     if(!receipt.trim()) { 
-        showRepErrorAlert("Validation", "Please enter receipt reference."); 
+        showRepAlert("Validation", "Please enter receipt reference.", false); 
         return; 
     }
 
@@ -399,14 +399,14 @@ window.saveReparation = async function() {
         if(result && !result.detail) {
             window.closeModal('addRepModal');
             await loadRepData();
-            showRepSuccessAlert("Success", "Saved successfully.");
+            showRepAlert("Success", "Saved successfully.", true);
         } else {
             // Handle Pydantic Error Details
             const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save reparation.";
-            showRepErrorAlert("Error", msg);
+            showRepAlert("Error", msg, false);
         }
     } catch(e) { 
-        showRepErrorAlert("System Error", e.message || "Failed to save reparation."); 
+        showRepAlert("System Error", e.message || "Failed to save reparation.", false); 
     }
     
     btn.disabled = false; 
@@ -468,46 +468,36 @@ function showRepConfirmModal(title, message, icon, color) {
     if(window.lucide) window.lucide.createIcons();
 }
 
-// NEW: Custom success alert modal
-function showRepSuccessAlert(title, message) {
-    const modal = document.getElementById('repSuccessAlertModal');
-    if(!modal) {
+// FIXED: Use the existing repAlertModal with isSuccess parameter
+function showRepAlert(title, message, isSuccess) {
+    const modal = document.getElementById('repAlertModal');
+    if(!modal) { 
         // Fallback to browser alert if modal doesn't exist
         alert(`${title}: ${message}`);
-        return;
+        return; 
     }
     
-    document.getElementById('repSuccessAlertTitle').innerText = title;
-    document.getElementById('repSuccessAlertMessage').innerText = message;
+    document.getElementById('repAlertTitle').innerText = title;
+    document.getElementById('repAlertMessage').innerText = message;
+    
+    const iconDiv = document.getElementById('repAlertIcon');
+    if(iconDiv) {
+        if(isSuccess) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
+            iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
+        } else {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
+            iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+        }
+    }
     
     modal.classList.remove('hidden');
     
-    // Auto close after 3 seconds
+    // Auto close after appropriate time
+    const closeTime = isSuccess ? 3000 : 5000; // 3 seconds for success, 5 for errors
     setTimeout(() => {
         modal.classList.add('hidden');
-    }, 3000);
-    
-    if(window.lucide) window.lucide.createIcons();
-}
-
-// NEW: Custom error alert modal
-function showRepErrorAlert(title, message) {
-    const modal = document.getElementById('repErrorAlertModal');
-    if(!modal) {
-        // Fallback to browser alert if modal doesn't exist
-        alert(`${title}: ${message}`);
-        return;
-    }
-    
-    document.getElementById('repErrorAlertTitle').innerText = title;
-    document.getElementById('repErrorAlertMessage').innerText = message;
-    
-    modal.classList.remove('hidden');
-    
-    // Auto close after 5 seconds for errors
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 5000);
+    }, closeTime);
     
     if(window.lucide) window.lucide.createIcons();
 }
