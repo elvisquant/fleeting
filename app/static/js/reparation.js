@@ -74,11 +74,11 @@ async function fetchRepDropdowns() {
         if(Array.isArray(garages)) repOptions.garages = garages;
 
         // Populate Filter Dropdowns
-        populateSelect('repGarageFilter', repOptions.garages, '', 'garage_name', 'All Garages');
+        populateSelect('repGarageFilter', repOptions.garages, '', 'nom_garage', 'All Garages');
         
         // Populate Modal Dropdowns (Pannes need special formatting)
         populatePanneSelect('repPanneSelect', repOptions.pannes);
-        populateSelect('repGarageSelect', repOptions.garages, '', 'garage_name', 'Select Garage');
+        populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', 'Select Garage');
 
     } catch (e) { 
         console.warn("Rep Dropdown Error:", e); 
@@ -174,7 +174,7 @@ function renderRepTable() {
                     <div class="text-white font-mono text-xs">Ref #${log.panne_id}</div>
                     <div class="text-xs text-slate-500 truncate max-w-[150px]">${panne ? panne.description : 'Unknown Panne'}</div>
                 </td>
-                <td class="p-4 text-slate-300 text-sm">${garage ? garage.garage_name : log.garage_id}</td>
+                <td class="p-4 text-slate-300 text-sm">${garage ? garage.nom_garage : log.garage_id}</td>
                 <td class="p-4 text-right font-bold text-emerald-400">${log.cost.toFixed(2)}</td>
                 <td class="p-4">${progressBadge}</td>
                 <td class="p-4">${verifyBadge}</td>
@@ -271,13 +271,13 @@ async function executeRepConfirmAction() {
             const payload = { ids: [parseInt(repActionId)] };
             // FIX: Slash before verify-bulk is implicit from previous router config but let's be safe
             // Assuming /api/v1/reparation/verify-bulk
-            result = await window.fetchWithAuth(`/reparation/verify-bulk`, 'PUT', payload);
+            result = await window.fetchWithAuth(`/reparation/verify-bulk/`, 'PUT', payload);
         }
         // --- VERIFY (Bulk) ---
         else if (repActionType === 'bulk-verify') {
             const idList = Array.from(selectedRepIds).map(id => parseInt(id));
             const payload = { ids: idList };
-            result = await window.fetchWithAuth('/reparation/verify-bulk', 'PUT', payload);
+            result = await window.fetchWithAuth('/reparation/verify-bulk/', 'PUT', payload);
         }
 
         window.closeModal('repConfirmModal');
@@ -309,7 +309,7 @@ window.openAddReparationModal = function() {
     document.getElementById('btnSaveRep').innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
     
     populatePanneSelect('repPanneSelect', repOptions.pannes);
-    populateSelect('repGarageSelect', repOptions.garages, '', 'garage_name', 'Select Garage');
+    populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', 'Select Garage');
     
     document.getElementById('repCost').value = "";
     document.getElementById('repDate').value = new Date().toISOString().split('T')[0];
@@ -329,7 +329,7 @@ window.openEditRepModal = function(id) {
     document.getElementById('btnSaveRep').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
 
     populatePanneSelect('repPanneSelect', repOptions.pannes, log.panne_id);
-    populateSelect('repGarageSelect', repOptions.garages, log.garage_id, 'garage_name', 'Select Garage');
+    populateSelect('repGarageSelect', repOptions.garages, log.garage_id, 'nom_garage', 'Select Garage');
     
     document.getElementById('repCost').value = log.cost;
     document.getElementById('repDate').value = new Date(log.repair_date).toISOString().split('T')[0];
@@ -409,7 +409,7 @@ window.openViewRepModal = function(id) {
                 <span class="text-slate-500 text-xs uppercase block">Panne Description</span>
                 <span class="text-white bg-slate-800 p-2 rounded block mt-1 text-sm">${panne ? panne.description : 'ID '+log.panne_id}</span>
             </div>
-            <div><span class="text-slate-500 text-xs uppercase block">Garage</span><span class="text-white">${garage ? garage.garage_name : log.garage_id}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Garage</span><span class="text-white">${garage ? garage.nom_garage : log.garage_id}</span></div>
             <div><span class="text-slate-500 text-xs uppercase block">Status</span><span class="text-blue-400 font-bold">${log.status}</span></div>
             <div><span class="text-slate-500 text-xs uppercase block">Receipt</span><span class="text-white font-mono">${log.receipt}</span></div>
             <div><span class="text-slate-500 text-xs uppercase block">Date</span><span class="text-white">${new Date(log.repair_date).toLocaleDateString()}</span></div>
