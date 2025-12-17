@@ -294,10 +294,7 @@ window.saveVehicle = async function() {
         purchase_date: new Date(getVal('vehicleDate')).toISOString()
     };
 
-    if(!payload.make || !payload.model || !payload.plate_number) { 
-        showVehicleAlert("Validation", "Please fill required fields.", false); 
-        return; 
-    }
+    if(!payload.make || !payload.model || !payload.plate_number) { alert("Please fill required fields."); return; }
 
     const btn = document.getElementById('btnSaveVehicle');
     btn.disabled = true; btn.innerHTML = "Saving...";
@@ -314,7 +311,7 @@ window.saveVehicle = async function() {
         } else {
             showVehicleAlert("Error", result?.detail || "Failed", false);
         }
-    } catch(e) { showVehicleAlert("System Error", e.message, false); }
+    } catch(e) { showVehicleAlert("Error", e.message, false); }
     btn.disabled = false;
 }
 
@@ -348,7 +345,6 @@ window.viewVehicle = function(id) {
 
 // Helpers
 window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
-
 function showVehicleConfirmModal(t, m, i, c) {
     document.getElementById('vehicleConfirmTitle').innerText = t;
     document.getElementById('vehicleConfirmMessage').innerText = m;
@@ -357,10 +353,9 @@ function showVehicleConfirmModal(t, m, i, c) {
     document.getElementById('vehicleConfirmModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
-
 function showVehicleAlert(title, message, isSuccess) {
     const modal = document.getElementById('vehicleAlertModal');
-    if(!modal) { alert(message); return; }
+    if(!modal) { alert(message); return; } // Fallback
     document.getElementById('vehicleAlertTitle').innerText = title;
     document.getElementById('vehicleAlertMessage').innerText = message;
     

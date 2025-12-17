@@ -1,38 +1,54 @@
 // app/static/js/panne.js
 
+// --- GLOBAL STATE ---
 let allPannes = [];
 let panneOptions = { vehicles: [], cats: [] };
 let panneUserRole = 'user';
-let panneActionType = null;
+
+// --- ACTION STATE ---
+let panneActionType = null; // 'delete', 'verify', 'bulk-verify'
 let panneActionId = null;
 let selectedPanneIds = new Set(); 
 
+// =================================================================
+// 1. INITIALIZATION
+// =================================================================
 async function initPanne() {
     console.log("Panne Module: Init");
     panneUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
     
+    // DOM Elements
     const search = document.getElementById('panneSearch');
     const vFilter = document.getElementById('panneVehicleFilter');
     const sFilter = document.getElementById('panneStatusFilter');
     const selectAll = document.getElementById('selectAllPanne');
+    const confirmBtn = document.getElementById('btnPanneConfirmAction');
     
+    // Attach Listeners
     if(search) search.addEventListener('input', renderPanneTable);
     if(vFilter) vFilter.addEventListener('change', renderPanneTable);
     if(sFilter) sFilter.addEventListener('change', renderPanneTable);
     if(selectAll) selectAll.addEventListener('change', togglePanneSelectAll);
-    
-    document.getElementById('btnPanneConfirmAction').addEventListener('click', executePanneConfirmAction);
+    if(confirmBtn) confirmBtn.addEventListener('click', executePanneConfirmAction);
     
     await Promise.all([loadPanneData(), fetchPanneDropdowns()]);
 }
 
+// =================================================================
+// 2. DATA LOADING
+// =================================================================
 async function loadPanneData() {
     const tbody = document.getElementById('panneLogsBody');
     if(!tbody) return;
+    
+    // Loading State
     tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading reports...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
-    const data = await window.fetchWithAuth('/panne'); 
+    // FIX: Added trailing slash
+    const data = await window.fetchWithAuth('/panne/'); 
+    
+    // Handle pagination or list response
     const items = data.items || data; 
     
     if (Array.isArray(items)) {
@@ -48,25 +64,37 @@ async function loadPanneData() {
 
 async function fetchPanneDropdowns() {
     try {
+        // FIX: Added trailing slashes
         const [vehicles, cats] = await Promise.all([
-            window.fetchWithAuth('/vehicles?limit=1000'),
-            window.fetchWithAuth('/category_panne') 
+            window.fetchWithAuth('/vehicles/?limit=1000'),
+            window.fetchWithAuth('/category_panne/') 
         ]);
-        panneOptions.vehicles = Array.isArray(vehicles) ? vehicles : [];
-        panneOptions.cats = Array.isArray(cats) ? cats : [];
+
+        panneOptions.vehicles = Array.isArray(vehicles) ? vehicles : (vehicles.items || []);
+        panneOptions.cats = Array.isArray(cats) ? cats : (cats.items || []);
         
         populateSelect('panneVehicleFilter', panneOptions.vehicles, '', 'plate_number', 'All Vehicles');
-    } catch(e) { console.warn("Panne Dropdown Error:", e); }
+        populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', 'Select Vehicle');
+        populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', 'Select Category');
+
+    } catch(e) { 
+        console.warn("Panne Dropdown Error:", e); 
+    }
 }
 
+// =================================================================
+// 3. TABLE RENDERING
+// =================================================================
 function renderPanneTable() {
     const tbody = document.getElementById('panneLogsBody');
     if(!tbody) return;
 
+    // Get Filter Values
     const search = document.getElementById('panneSearch').value.toLowerCase();
     const vFilter = document.getElementById('panneVehicleFilter').value;
     const sFilter = document.getElementById('panneStatusFilter').value;
 
+    // Filter Data
     let filtered = allPannes.filter(log => {
         const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
@@ -74,6 +102,7 @@ function renderPanneTable() {
         
         const matchesSearch = plate.includes(search) || desc.includes(search);
         const matchesVehicle = vFilter === "" || log.vehicle_id == vFilter;
+        
         let matchesStatus = true;
         if (sFilter === 'verified') matchesStatus = log.is_verified === true;
         if (sFilter === 'pending') matchesStatus = log.is_verified !== true;
@@ -81,15 +110,19 @@ function renderPanneTable() {
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
+    // Update Counts
     document.getElementById('panneCount').innerText = `${filtered.length} records found`;
 
+    // Empty State
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No records found.</td></tr>`;
         return;
     }
 
+    // Role Check
     const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
 
+    // Generate Rows
     tbody.innerHTML = filtered.map(log => {
         const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
         const cat = panneOptions.cats.find(c => c.id === log.category_panne_id);
@@ -97,10 +130,12 @@ function renderPanneTable() {
         const catName = cat ? cat.panne_name : `Cat ${log.category_panne_id}`;
         const date = new Date(log.panne_date).toLocaleDateString();
         
-        const statusBadge = log.is_verified 
+        // Status Badges
+        const verifyBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
 
+        // Checkbox Logic
         let checkboxHtml = '';
         if (canManage && !log.is_verified) {
             const isChecked = selectedPanneIds.has(log.id) ? 'checked' : '';
@@ -109,6 +144,7 @@ function renderPanneTable() {
             checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30 cursor-not-allowed">`;
         }
 
+        // Action Buttons Logic
         let actions = '';
         const viewBtn = `<button onclick="openViewPanneModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
@@ -118,9 +154,9 @@ function renderPanneTable() {
              actions = `
                 <div class="flex items-center justify-end gap-2">
                     ${viewBtn}
-                    <button onclick="reqPanneVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
-                    <button onclick="openEditPanneModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                    <button onclick="reqPanneDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="reqPanneVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                    <button onclick="openEditPanneModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                    <button onclick="reqPanneDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
         } else {
              actions = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
@@ -132,15 +168,18 @@ function renderPanneTable() {
                 <td class="p-4 font-mono text-white">${plate}</td>
                 <td class="p-4 text-slate-400">${catName}</td>
                 <td class="p-4 text-slate-300 text-xs truncate max-w-[200px]">${log.description}</td>
-                <td class="p-4">${statusBadge}</td>
+                <td class="p-4">${verifyBadge}</td>
                 <td class="p-4 text-slate-500 text-xs">${date}</td>
                 <td class="p-4 text-right flex justify-end gap-2">${actions}</td>
             </tr>`;
     }).join('');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
-// === BULK LOGIC ===
+// =================================================================
+// 4. BULK OPERATIONS
+// =================================================================
 
 window.togglePanneRow = function(id) {
     if (selectedPanneIds.has(id)) selectedPanneIds.delete(id);
@@ -172,25 +211,38 @@ function updatePanneBulkUI() {
     else btn.classList.add('hidden');
 }
 
-// Renamed trigger function to match HTML
-window.triggerPanneBulkVerify = function() {
+window.executePanneBulkVerify = function() {
     if (selectedPanneIds.size === 0) return;
     
     panneActionType = 'bulk-verify';
     panneActionId = null;
-    showPanneConfirmModal("Verify Selected?", `Verify ${selectedPanneIds.size} reports? This cannot be undone.`, "check-circle", "bg-emerald-600");
+    showPanneConfirmModal(
+        "Verify Selected?", 
+        `Verify ${selectedPanneIds.size} reports? This cannot be undone.`, 
+        "check-circle", 
+        "bg-emerald-600"
+    );
 }
 
-// === ACTIONS ===
+// =================================================================
+// 5. SINGLE ACTIONS (Trigger Modal)
+// =================================================================
 
 window.reqPanneVerify = function(id) {
-    panneActionType = 'verify'; panneActionId = id;
-    showPanneConfirmModal("Verify Report?", "Lock this report permanently?", "check-circle", "bg-green-600");
+    panneActionType = 'verify'; 
+    panneActionId = id;
+    showPanneConfirmModal("Verify Report?", "This locks the report permanently.", "check-circle", "bg-green-600");
 }
+
 window.reqPanneDelete = function(id) {
-    panneActionType = 'delete'; panneActionId = id;
-    showPanneConfirmModal("Delete Report?", "Permanently remove?", "trash-2", "bg-red-600");
+    panneActionType = 'delete'; 
+    panneActionId = id;
+    showPanneConfirmModal("Delete Report?", "Permanently remove this report?", "trash-2", "bg-red-600");
 }
+
+// =================================================================
+// 6. EXECUTE ACTION (Confirm Modal Click)
+// =================================================================
 
 async function executePanneConfirmAction() {
     const btn = document.getElementById('btnPanneConfirmAction');
@@ -199,16 +251,17 @@ async function executePanneConfirmAction() {
     try {
         let result;
         
-        // SINGLE DELETE
+        // --- DELETE ---
         if (panneActionType === 'delete') {
             result = await window.fetchWithAuth(`/panne/${panneActionId}`, 'DELETE');
         } 
-        // SINGLE VERIFY (Uses bulk endpoint for consistency)
+        // --- VERIFY (Single) ---
         else if (panneActionType === 'verify') {
+            // FIX: Use bulk endpoint for consistency with backend
             const payload = { ids: [parseInt(panneActionId)] };
             result = await window.fetchWithAuth(`/panne/verify-bulk`, 'PUT', payload);
         }
-        // BULK VERIFY
+        // --- VERIFY (Bulk) ---
         else if (panneActionType === 'bulk-verify') {
             const idList = Array.from(selectedPanneIds).map(id => parseInt(id));
             const payload = { ids: idList };
@@ -217,7 +270,7 @@ async function executePanneConfirmAction() {
 
         window.closeModal('panneConfirmModal');
         
-        if (result !== null) { // Success
+        if (result !== null) { 
             if (panneActionType === 'bulk-verify') selectedPanneIds.clear();
             await loadPanneData();
             showPanneAlert("Success", "Action completed.", true);
@@ -228,20 +281,26 @@ async function executePanneConfirmAction() {
         window.closeModal('panneConfirmModal');
         showPanneAlert("Error", e.message, false);
     }
+    
     btn.disabled = false; btn.innerText = "Confirm"; 
     panneActionId = null; panneActionType = null;
 }
 
-// === MODALS ===
+// =================================================================
+// 7. ADD / EDIT / VIEW LOGIC
+// =================================================================
 
 window.openAddPanneModal = function() {
     document.getElementById('panneEditId').value = "";
     document.getElementById('panneModalTitle').innerText = "Report Breakdown";
     document.getElementById('btnSavePanne').innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
+    
     populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', 'Select Vehicle');
     populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', 'Select Category');
+    
     document.getElementById('panneDesc').value = "";
     document.getElementById('panneDate').value = new Date().toISOString().split('T')[0];
+    
     document.getElementById('addPanneModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
@@ -249,13 +308,17 @@ window.openAddPanneModal = function() {
 window.openEditPanneModal = function(id) {
     const log = allPannes.find(l => l.id === id);
     if(!log) return;
+
     document.getElementById('panneEditId').value = log.id;
     document.getElementById('panneModalTitle').innerText = "Edit Report";
     document.getElementById('btnSavePanne').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
+
     populateSelect('panneVehicleSelect', panneOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('panneCatSelect', panneOptions.cats, log.category_panne_id, 'panne_name', 'Category');
+    
     document.getElementById('panneDesc').value = log.description;
     document.getElementById('panneDate').value = log.panne_date.split('T')[0];
+
     document.getElementById('addPanneModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
@@ -266,6 +329,7 @@ window.savePanne = async function() {
     const catId = document.getElementById('panneCatSelect').value;
     const desc = document.getElementById('panneDesc').value;
     const date = document.getElementById('panneDate').value;
+
     if(!vId || !catId || !date) { showPanneAlert("Validation", "Please fill required fields.", false); return; }
 
     const payload = {
@@ -274,21 +338,34 @@ window.savePanne = async function() {
         description: desc,
         panne_date: new Date(date).toISOString()
     };
+
     const btn = document.getElementById('btnSavePanne');
     btn.disabled = true; btn.innerHTML = "Saving...";
+    
     try {
         let result;
-        if(id) result = await window.fetchWithAuth(`/panne/${id}`, 'PUT', payload);
-        else result = await window.fetchWithAuth('/panne', 'POST', payload);
+        if(id) {
+            // PUT (Update) - No slash for ID
+            result = await window.fetchWithAuth(`/panne/${id}`, 'PUT', payload);
+        } else {
+            // POST (Create) - FIX: Added trailing slash
+            result = await window.fetchWithAuth('/panne/', 'POST', payload);
+        }
+        
         if(result && !result.detail) {
             window.closeModal('addPanneModal');
             await loadPanneData();
             showPanneAlert("Success", "Saved successfully.", true);
         } else { 
-            showPanneAlert("Error", result?.detail || "Failed", false); 
+            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed";
+            showPanneAlert("Error", msg, false); 
         }
-    } catch(e) { showPanneAlert("System Error", e.message, false); }
-    btn.disabled = false;
+    } catch(e) { 
+        showPanneAlert("System Error", e.message, false); 
+    }
+    
+    btn.disabled = false; btn.innerHTML = id ? `<i data-lucide="save"></i> Update` : `<i data-lucide="plus"></i> Save`;
+    if(window.lucide) window.lucide.createIcons();
 }
 
 window.openViewPanneModal = function(id) {
@@ -296,13 +373,14 @@ window.openViewPanneModal = function(id) {
     if (!log) return;
     const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
     const cat = panneOptions.cats.find(c => c.id === log.category_panne_id);
+    
     const content = `
         <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
                 <div><span class="text-slate-500 text-xs uppercase block">Vehicle</span><span class="text-white font-mono">${vehicle ? vehicle.plate_number : log.vehicle_id}</span></div>
                 <div><span class="text-slate-500 text-xs uppercase block">Category</span><span class="text-white">${cat ? cat.panne_name : '-'}</span></div>
                 <div><span class="text-slate-500 text-xs uppercase block">Date</span><span class="text-white">${new Date(log.panne_date).toLocaleDateString()}</span></div>
-                <div><span class="text-slate-500 text-xs uppercase block">Status</span><span class="text-blue-400 uppercase font-bold text-xs">${log.status}</span></div>
+                <div><span class="text-slate-500 text-xs uppercase block">Status</span><span class="text-blue-400 uppercase font-bold text-xs">${log.is_verified ? "Verified" : "Pending"}</span></div>
             </div>
             <div class="border-t border-slate-700 pt-3">
                 <span class="text-slate-500 text-xs uppercase block mb-1">Description</span>
@@ -313,7 +391,10 @@ window.openViewPanneModal = function(id) {
     document.getElementById('viewPanneModal').classList.remove('hidden');
 }
 
-// Helpers
+// =================================================================
+// 8. HELPERS
+// =================================================================
+
 window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
 
 function showPanneConfirmModal(t, m, i, c) {
