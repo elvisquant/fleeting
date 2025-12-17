@@ -6,7 +6,6 @@ let currentUserRole = 'user';
 let selectedFuelIds = new Set(); 
 
 // --- ACTION STATE VARIABLES ---
-// These store the ID of the item you want to verify/delete
 let fuelActionType = null; 
 let fuelActionId = null;
 
@@ -212,22 +211,17 @@ window.executeFuelBulkVerify = async function() {
 
 window.reqFuelVerify = function(id) {
     fuelActionType = 'verify';
-    fuelActionId = id; // CORRECTED: Now storing the ID in fuelActionId
+    fuelActionId = id;
     showFuelConfirmModal('Verify Record?', 'Once verified, this record cannot be edited or deleted.', 'check-circle', 'bg-green-600');
 }
 
 window.reqFuelDelete = function(id) {
     fuelActionType = 'delete';
-    fuelActionId = id; // CORRECTED: Now storing the ID in fuelActionId
+    fuelActionId = id;
     showFuelConfirmModal('Delete Record?', 'This action is permanent.', 'trash-2', 'bg-red-600');
 }
 
-// === EXECUTE CONFIRM ===
 async function executeFuelConfirmAction() {
-    // FIX: Check fuelActionType AND fuelActionId (for single) or selectedFuelIds (for bulk)
-    if (!fuelActionType) return;
-    if (fuelActionType !== 'bulk-verify' && !fuelActionId) return;
-
     const btn = document.getElementById('btnFuelConfirmAction');
     btn.disabled = true; btn.innerText = "Processing...";
 
@@ -238,8 +232,6 @@ async function executeFuelConfirmAction() {
             result = await window.fetchWithAuth(`/fuel/${fuelActionId}`, 'DELETE');
         } 
         else if (fuelActionType === 'verify') {
-            // NOTE: Reusing bulk endpoint for single verification as it's cleaner
-            // Ensure backend expects { ids: [123] }
             const payload = { ids: [parseInt(fuelActionId)] }; 
             result = await window.fetchWithAuth(`/fuel/verify-bulk`, 'PUT', payload);
         }
@@ -251,7 +243,6 @@ async function executeFuelConfirmAction() {
 
         window.closeModal('fuelConfirmModal');
         
-        // Handle result (DELETE returns 204/true, PUT returns json)
         if (result !== null) {
             if (fuelActionType === 'bulk-verify') selectedFuelIds.clear();
             await loadFuelData();
@@ -308,7 +299,10 @@ window.saveFuelLog = async function() {
     const qty = document.getElementById('fuelQuantity').value;
     const price = document.getElementById('fuelPrice').value;
 
-    if(!vId || !qty || !price) { alert("Please fill all fields."); return; }
+    if(!vId || !qty || !price) { 
+        showFuelAlert("Validation", "Please fill all fields.", false); 
+        return; 
+    }
 
     const payload = {
         vehicle_id: parseInt(vId),
@@ -384,6 +378,7 @@ function showFuelAlert(title, message, isSuccess) {
     if(!modal) { alert(message); return; }
     document.getElementById('fuelAlertTitle').innerText = title;
     document.getElementById('fuelAlertMessage').innerText = message;
+    
     const iconDiv = document.getElementById('fuelAlertIcon');
     if(isSuccess) {
         iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
@@ -392,6 +387,7 @@ function showFuelAlert(title, message, isSuccess) {
         iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
         iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
     }
+    
     modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }

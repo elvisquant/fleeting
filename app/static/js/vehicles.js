@@ -1,10 +1,9 @@
 // app/static/js/vehicles.js
 
+// Global State
 let allVehicles = [];
 let vehicleOptions = { makes: [], models: [], types: [], trans: [], fuels: [] };
 let vehicleUserRole = 'user';
-
-// Action state
 let vehicleActionType = null; 
 let vehicleActionId = null;
 let selectedVehicleIds = new Set();
@@ -13,15 +12,16 @@ async function initVehicles() {
     console.log("Vehicles Module: Init");
     vehicleUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
+    // Attach Listeners
     const searchInput = document.getElementById('vehicleSearch');
     const statusFilter = document.getElementById('vehicleStatusFilter');
     const selectAll = document.getElementById('selectAllVehicles');
+    const confirmBtn = document.getElementById('btnVehicleConfirmAction');
 
     if(searchInput) searchInput.addEventListener('input', renderVehiclesTable);
     if(statusFilter) statusFilter.addEventListener('change', renderVehiclesTable);
     if(selectAll) selectAll.addEventListener('change', toggleVehicleSelectAll);
-    
-    document.getElementById('btnVehicleConfirmAction').addEventListener('click', executeVehicleConfirmAction);
+    if(confirmBtn) confirmBtn.addEventListener('click', executeVehicleConfirmAction);
 
     await Promise.all([loadVehiclesData(), fetchVehicleDropdowns()]);
 }
@@ -32,6 +32,7 @@ async function loadVehiclesData() {
     tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
+    // FIX: Use trailing slash
     const data = await window.fetchWithAuth('/vehicles/?limit=1000');
     
     if (Array.isArray(data)) {
@@ -47,6 +48,7 @@ async function loadVehiclesData() {
 
 async function fetchVehicleDropdowns() {
     try {
+        // FIX: Use trailing slashes to prevent 307 Redirects
         const [makes, models, types, trans, fuels] = await Promise.all([
             window.fetchWithAuth('/vehicle-makes/?limit=200'),
             window.fetchWithAuth('/vehicle-models/?limit=1000'),
@@ -61,7 +63,9 @@ async function fetchVehicleDropdowns() {
             trans: Array.isArray(trans) ? trans : [], 
             fuels: Array.isArray(fuels) ? fuels : [] 
         };
-    } catch (e) { console.warn("Dropdown Error", e); }
+    } catch (e) {
+        console.warn("Dropdown Error", e);
+    }
 }
 
 function renderVehiclesTable() {
@@ -151,23 +155,54 @@ function renderVehiclesTable() {
     if(window.lucide) window.lucide.createIcons();
 }
 
+// === BULK LOGIC ===
+window.toggleVehicleRow = function(id) {
+    if (selectedVehicleIds.has(id)) selectedVehicleIds.delete(id);
+    else selectedVehicleIds.add(id);
+    updateVehicleBulkUI();
+}
+
+window.toggleVehicleSelectAll = function() {
+    const mainCheck = document.getElementById('selectAllVehicles');
+    const isChecked = mainCheck.checked;
+    selectedVehicleIds.clear();
+    
+    if (isChecked) {
+        const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
+        allVehicles.forEach(v => {
+             if(canManage && !v.is_verified) selectedVehicleIds.add(v.id);
+        });
+    }
+    renderVehiclesTable();
+    updateVehicleBulkUI();
+}
+
+function updateVehicleBulkUI() {
+    const btn = document.getElementById('btnVehicleBulkVerify');
+    const countSpan = document.getElementById('vehicleSelectedCount');
+    if (!btn) return;
+
+    countSpan.innerText = selectedVehicleIds.size;
+    if (selectedVehicleIds.size > 0) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
+}
+
+window.executeVehicleBulkVerify = async function() {
+    if (selectedVehicleIds.size === 0) return;
+    
+    vehicleActionType = 'bulk-verify';
+    vehicleActionId = null;
+    showVehicleConfirmModal("Verify Selected?", `Verify ${selectedVehicleIds.size} vehicles? This cannot be undone.`, "check-circle", "bg-emerald-600");
+}
+
 // === ACTIONS ===
 window.reqVehicleVerify = function(id) {
-    vehicleActionType = 'verify'; 
-    vehicleActionId = id;
+    vehicleActionType = 'verify'; vehicleActionId = id;
     showVehicleConfirmModal("Verify Vehicle?", "This action locks the record.", "check-circle", "bg-green-600");
 }
 window.reqVehicleDelete = function(id) {
-    vehicleActionType = 'delete'; 
-    vehicleActionId = id;
+    vehicleActionType = 'delete'; vehicleActionId = id;
     showVehicleConfirmModal("Delete Vehicle?", "This action cannot be undone.", "trash-2", "bg-red-600");
-}
-
-window.reqVehicleBulkVerify = function() {
-    if (selectedVehicleIds.size === 0) return;
-    vehicleActionType = 'bulk-verify';
-    vehicleActionId = null; // Not needed for bulk
-    showVehicleConfirmModal("Verify Selected?", `Verify ${selectedVehicleIds.size} vehicles?`, "check-circle", "bg-emerald-600");
 }
 
 async function executeVehicleConfirmAction() {
@@ -180,8 +215,7 @@ async function executeVehicleConfirmAction() {
             result = await window.fetchWithAuth(`/vehicles/${vehicleActionId}`, 'DELETE');
         } 
         else if (vehicleActionType === 'verify') {
-            // Use bulk verify for single verify to be consistent with API
-            const payload = { ids: [parseInt(vehicleActionId)] };
+            const payload = { ids: [parseInt(vehicleActionId)] }; // Reuse bulk endpoint
             result = await window.fetchWithAuth(`/vehicles/verify-bulk`, 'PUT', payload); 
         }
         else if (vehicleActionType === 'bulk-verify') {
@@ -202,38 +236,7 @@ async function executeVehicleConfirmAction() {
         window.closeModal('vehicleConfirmModal');
         showVehicleAlert("Error", e.message, false);
     }
-    btn.disabled = false; btn.innerText = "Confirm"; 
-    vehicleActionId = null; vehicleActionType = null;
-}
-
-// === BULK UI ===
-window.toggleVehicleRow = function(id) {
-    if (selectedVehicleIds.has(id)) selectedVehicleIds.delete(id);
-    else selectedVehicleIds.add(id);
-    updateVehicleBulkUI();
-}
-
-window.toggleVehicleSelectAll = function() {
-    const mainCheck = document.getElementById('selectAllVehicles');
-    const isChecked = mainCheck.checked;
-    selectedVehicleIds.clear();
-    if (isChecked) {
-        const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
-        allVehicles.forEach(v => {
-             if(canManage && !v.is_verified) selectedVehicleIds.add(v.id);
-        });
-    }
-    renderVehiclesTable();
-    updateVehicleBulkUI();
-}
-
-function updateVehicleBulkUI() {
-    const btn = document.getElementById('btnVehicleBulkVerify');
-    const countSpan = document.getElementById('vehicleSelectedCount');
-    if (!btn) return;
-    countSpan.innerText = selectedVehicleIds.size;
-    if (selectedVehicleIds.size > 0) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
+    btn.disabled = false; btn.innerText = "Confirm"; vehicleActionId = null; vehicleActionType = null;
 }
 
 // === MODALS ===
@@ -291,7 +294,10 @@ window.saveVehicle = async function() {
         purchase_date: new Date(getVal('vehicleDate')).toISOString()
     };
 
-    if(!payload.make || !payload.model || !payload.plate_number) { alert("Please fill required fields."); return; }
+    if(!payload.make || !payload.model || !payload.plate_number) { 
+        showVehicleAlert("Validation", "Please fill required fields.", false); 
+        return; 
+    }
 
     const btn = document.getElementById('btnSaveVehicle');
     btn.disabled = true; btn.innerHTML = "Saving...";
@@ -308,7 +314,7 @@ window.saveVehicle = async function() {
         } else {
             showVehicleAlert("Error", result?.detail || "Failed", false);
         }
-    } catch(e) { showVehicleAlert("Error", e.message, false); }
+    } catch(e) { showVehicleAlert("System Error", e.message, false); }
     btn.disabled = false;
 }
 
@@ -342,6 +348,7 @@ window.viewVehicle = function(id) {
 
 // Helpers
 window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+
 function showVehicleConfirmModal(t, m, i, c) {
     document.getElementById('vehicleConfirmTitle').innerText = t;
     document.getElementById('vehicleConfirmMessage').innerText = m;
@@ -350,9 +357,10 @@ function showVehicleConfirmModal(t, m, i, c) {
     document.getElementById('vehicleConfirmModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
+
 function showVehicleAlert(title, message, isSuccess) {
     const modal = document.getElementById('vehicleAlertModal');
-    if(!modal) { alert(message); return; } // Fallback
+    if(!modal) { alert(message); return; }
     document.getElementById('vehicleAlertTitle').innerText = title;
     document.getElementById('vehicleAlertMessage').innerText = message;
     
