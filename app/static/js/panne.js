@@ -167,7 +167,7 @@ function renderPanneTable() {
                 <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4 font-mono text-white">${plate}</td>
                 <td class="p-4 text-slate-400">${catName}</td>
-                <td class="p-4 text-slate-300 text-xs truncate max-w-[200px]">${log.description}</td>
+                <td class="p-4 text-slate-300 text-xs truncate max-w-[200px]">${log.description || 'No description'}</td>
                 <td class="p-4">${verifyBadge}</td>
                 <td class="p-4 text-slate-500 text-xs">${date}</td>
                 <td class="p-4 text-right flex justify-end gap-2">${actions}</td>
@@ -257,7 +257,7 @@ async function executePanneConfirmAction() {
         } 
         // --- VERIFY (Single) ---
         else if (panneActionType === 'verify') {
-            // FIX: Use bulk endpoint for consistency with backend
+            // Use bulk endpoint for consistency with backend
             const payload = { ids: [parseInt(panneActionId)] };
             result = await window.fetchWithAuth(`/panne/verify-bulk`, 'PUT', payload);
         }
@@ -265,21 +265,24 @@ async function executePanneConfirmAction() {
         else if (panneActionType === 'bulk-verify') {
             const idList = Array.from(selectedPanneIds).map(id => parseInt(id));
             const payload = { ids: idList };
+            // FIX: Ensure we're using the correct endpoint and method
             result = await window.fetchWithAuth('/panne/verify-bulk', 'PUT', payload);
         }
 
         window.closeModal('panneConfirmModal');
         
-        if (result !== null) { 
-            if (panneActionType === 'bulk-verify') selectedPanneIds.clear();
+        if (result !== null && result !== false) { 
+            if (panneActionType === 'bulk-verify') {
+                selectedPanneIds.clear();
+            }
             await loadPanneData();
-            showPanneAlert("Success", "Action completed.", true);
+            showPanneSuccessAlert("Success", "Action completed successfully.");
         } else {
-            showPanneAlert("Failed", "Action could not be completed.", false);
+            showPanneErrorAlert("Failed", "Action could not be completed.");
         }
     } catch(e) {
         window.closeModal('panneConfirmModal');
-        showPanneAlert("Error", e.message, false);
+        showPanneErrorAlert("Error", e.message || "An unexpected error occurred.");
     }
     
     btn.disabled = false; btn.innerText = "Confirm"; 
@@ -316,7 +319,7 @@ window.openEditPanneModal = function(id) {
     populateSelect('panneVehicleSelect', panneOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('panneCatSelect', panneOptions.cats, log.category_panne_id, 'panne_name', 'Category');
     
-    document.getElementById('panneDesc').value = log.description;
+    document.getElementById('panneDesc').value = log.description || '';
     document.getElementById('panneDate').value = log.panne_date.split('T')[0];
 
     document.getElementById('addPanneModal').classList.remove('hidden');
@@ -330,7 +333,10 @@ window.savePanne = async function() {
     const desc = document.getElementById('panneDesc').value;
     const date = document.getElementById('panneDate').value;
 
-    if(!vId || !catId || !date) { showPanneAlert("Validation", "Please fill required fields.", false); return; }
+    if(!vId || !catId || !date) { 
+        showPanneErrorAlert("Validation", "Please fill required fields (Vehicle, Category, Date)."); 
+        return; 
+    }
 
     const payload = {
         vehicle_id: parseInt(vId),
@@ -355,16 +361,17 @@ window.savePanne = async function() {
         if(result && !result.detail) {
             window.closeModal('addPanneModal');
             await loadPanneData();
-            showPanneAlert("Success", "Saved successfully.", true);
+            showPanneSuccessAlert("Success", "Saved successfully.");
         } else { 
-            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed";
-            showPanneAlert("Error", msg, false); 
+            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save.";
+            showPanneErrorAlert("Error", msg); 
         }
     } catch(e) { 
-        showPanneAlert("System Error", e.message, false); 
+        showPanneErrorAlert("System Error", e.message || "Failed to save panne report."); 
     }
     
-    btn.disabled = false; btn.innerHTML = id ? `<i data-lucide="save"></i> Update` : `<i data-lucide="plus"></i> Save`;
+    btn.disabled = false; 
+    btn.innerHTML = id ? `<i data-lucide="save"></i> Update` : `<i data-lucide="plus"></i> Save`;
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -392,51 +399,99 @@ window.openViewPanneModal = function(id) {
 }
 
 // =================================================================
-// 8. HELPERS
+// 8. HELPER FUNCTIONS
 // =================================================================
 
-window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+window.closeModal = function(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+}
 
-function showPanneConfirmModal(t, m, i, c) {
+function showPanneConfirmModal(title, message, icon, color) {
     const modal = document.getElementById('panneConfirmModal');
     if(!modal) return;
-    document.getElementById('panneConfirmTitle').innerText = t;
-    document.getElementById('panneConfirmMessage').innerText = m;
+    
+    document.getElementById('panneConfirmTitle').innerText = title;
+    document.getElementById('panneConfirmMessage').innerText = message;
+    
     const btn = document.getElementById('btnPanneConfirmAction');
-    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${c}`;
+    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
     
     // Update icon color and icon
     const iconDiv = document.getElementById('panneConfirmIcon');
     if(iconDiv) {
-        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${c.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
-        iconDiv.innerHTML = `<i data-lucide="${i}" class="w-6 h-6"></i>`;
+        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${color.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
+        iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
     }
 
     modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
-function showPanneAlert(title, message, isSuccess) {
-    const modal = document.getElementById('panneAlertModal');
-    if(!modal) { alert(message); return; }
-    document.getElementById('panneAlertTitle').innerText = title;
-    document.getElementById('panneAlertMessage').innerText = message;
-    
-    const iconDiv = document.getElementById('panneAlertIcon');
-    if(isSuccess) {
-        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
-        iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
-    } else {
-        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
-        iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+// NEW: Custom success alert modal
+function showPanneSuccessAlert(title, message) {
+    const modal = document.getElementById('panneSuccessAlertModal');
+    if(!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(`${title}: ${message}`);
+        return;
     }
     
+    document.getElementById('panneSuccessAlertTitle').innerText = title;
+    document.getElementById('panneSuccessAlertMessage').innerText = message;
+    
     modal.classList.remove('hidden');
+    
+    // Auto close after 3 seconds
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 3000);
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
-function populateSelect(id, list, sel, label, def) {
+// NEW: Custom error alert modal
+function showPanneErrorAlert(title, message) {
+    const modal = document.getElementById('panneErrorAlertModal');
+    if(!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(`${title}: ${message}`);
+        return;
+    }
+    
+    document.getElementById('panneErrorAlertTitle').innerText = title;
+    document.getElementById('panneErrorAlertMessage').innerText = message;
+    
+    modal.classList.remove('hidden');
+    
+    // Auto close after 5 seconds for errors
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 5000);
+    
+    if(window.lucide) window.lucide.createIcons();
+}
+
+function populateSelect(id, list, selectedValue, labelKey, defaultText) {
     const el = document.getElementById(id);
     if(!el) return;
-    el.innerHTML = `<option value="">${def}</option>` + list.map(i => `<option value="${i.id}" ${i.id==sel?'selected':''}>${i[label]||i.name}</option>`).join('');
+    
+    let options = `<option value="">${defaultText}</option>`;
+    
+    if (Array.isArray(list)) {
+        options += list.map(item => {
+            const value = item.id;
+            const label = item[labelKey] || item.name || `ID ${value}`;
+            const selected = value == selectedValue ? 'selected' : '';
+            return `<option value="${value}" ${selected}>${label}</option>`;
+        }).join('');
+    }
+    
+    el.innerHTML = options;
+}
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPanne);
+} else {
+    initPanne();
 }

@@ -78,7 +78,8 @@ async function fetchMaintDropdowns() {
         populateSelect('maintVehicleFilter', maintOptions.vehicles, '', 'plate_number', 'All Vehicles');
         populateSelect('maintVehicleSelect', maintOptions.vehicles, '', 'plate_number', 'Select Vehicle');
         populateSelect('maintCatSelect', maintOptions.cats, '', 'cat_maintenance', 'Select Category');
-        populateSelect('maintGarageSelect', maintOptions.garages, '', 'garage_name', 'Select Garage');
+        // FIX: Changed from 'garage_name' to 'nom_garage'
+        populateSelect('maintGarageSelect', maintOptions.garages, '', 'nom_garage', 'Select Garage');
 
     } catch(e) { 
         console.warn("Maint Dropdown Error", e); 
@@ -129,8 +130,10 @@ function renderMaintTable() {
     tbody.innerHTML = filtered.map(log => {
         const vehicle = maintOptions.vehicles.find(v => v.id === log.vehicle_id);
         const cat = maintOptions.cats.find(c => c.id === log.cat_maintenance_id);
+        const garage = maintOptions.garages.find(g => g.id === log.garage_id);
         const plate = vehicle ? vehicle.plate_number : `ID ${log.vehicle_id}`;
         const catName = cat ? cat.cat_maintenance : '-';
+        const garageName = garage ? garage.nom_garage : '-'; // FIX: Changed from garage.garage_name
         const date = new Date(log.maintenance_date).toLocaleDateString();
 
         // Status Badges
@@ -170,6 +173,7 @@ function renderMaintTable() {
                 <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4 font-mono text-white">${plate}</td>
                 <td class="p-4 text-slate-400">${catName}</td>
+                <td class="p-4 text-slate-400">${garageName}</td>
                 <td class="p-4 text-right font-bold text-emerald-400">${log.maintenance_cost.toFixed(2)}</td>
                 <td class="p-4">${verifyBadge}</td>
                 <td class="p-4 text-slate-500 text-xs">${date}</td>
@@ -262,7 +266,7 @@ async function executeMaintConfirmAction() {
         } 
         // --- VERIFY (Single) ---
         else if (maintActionType === 'verify') {
-            // FIX: Use bulk endpoint for consistency (expecting List[int])
+            // Use bulk endpoint for consistency (expecting List[int])
             const payload = { ids: [parseInt(maintActionId)] };
             result = await window.fetchWithAuth(`/maintenances/verify-bulk`, 'PUT', payload);
         }
@@ -278,13 +282,13 @@ async function executeMaintConfirmAction() {
         if(result !== null) {
             if (maintActionType === 'bulk-verify') selectedMaintIds.clear();
             await loadMaintData();
-            showMaintAlert("Success", "Action completed.", true);
+            showMaintSuccessAlert("Success", "Action completed successfully.");
         } else {
-            showMaintAlert("Failed", "Action could not be completed.", false);
+            showMaintErrorAlert("Failed", "Action could not be completed.");
         }
     } catch(e) {
         window.closeModal('maintConfirmModal');
-        showMaintAlert("Error", e.message, false);
+        showMaintErrorAlert("Error", e.message || "An unexpected error occurred.");
     }
     
     btn.disabled = false; btn.innerText = "Confirm"; 
@@ -302,7 +306,8 @@ window.openAddMaintModal = function() {
     
     populateSelect('maintVehicleSelect', maintOptions.vehicles, '', 'plate_number', 'Select Vehicle');
     populateSelect('maintCatSelect', maintOptions.cats, '', 'cat_maintenance', 'Select Category');
-    populateSelect('maintGarageSelect', maintOptions.garages, '', 'garage_name', 'Select Garage');
+    // FIX: Changed from 'garage_name' to 'nom_garage'
+    populateSelect('maintGarageSelect', maintOptions.garages, '', 'nom_garage', 'Select Garage');
     
     document.getElementById('maintCost').value = "";
     document.getElementById('maintDate').value = new Date().toISOString().split('T')[0];
@@ -322,7 +327,8 @@ window.openEditMaintModal = function(id) {
     
     populateSelect('maintVehicleSelect', maintOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('maintCatSelect', maintOptions.cats, log.cat_maintenance_id, 'cat_maintenance', 'Category');
-    populateSelect('maintGarageSelect', maintOptions.garages, log.garage_id, 'garage_name', 'Garage');
+    // FIX: Changed from 'garage_name' to 'nom_garage'
+    populateSelect('maintGarageSelect', maintOptions.garages, log.garage_id, 'nom_garage', 'Garage');
     
     document.getElementById('maintCost').value = log.maintenance_cost;
     document.getElementById('maintDate').value = log.maintenance_date.split('T')[0];
@@ -342,12 +348,15 @@ window.saveMaintenance = async function() {
     const date = document.getElementById('maintDate').value;
     const receipt = document.getElementById('maintReceipt').value;
 
-    if(!vId || isNaN(cost) || !date) { showMaintAlert("Validation", "Please fill required fields.", false); return; }
+    if(!vId || isNaN(cost) || !date) { 
+        showMaintErrorAlert("Validation", "Please fill required fields (Vehicle, Cost, Date)."); 
+        return; 
+    }
 
     const payload = {
         vehicle_id: parseInt(vId),
-        cat_maintenance_id: parseInt(catId) || null,
-        garage_id: parseInt(garageId) || null,
+        cat_maintenance_id: catId ? parseInt(catId) : null,
+        garage_id: garageId ? parseInt(garageId) : null,
         maintenance_cost: parseFloat(cost),
         maintenance_date: new Date(date).toISOString(),
         receipt: receipt
@@ -369,16 +378,17 @@ window.saveMaintenance = async function() {
         if(result && !result.detail) {
             window.closeModal('addMaintModal');
             await loadMaintData();
-            showMaintAlert("Success", "Saved successfully.", true);
+            showMaintSuccessAlert("Success", "Saved successfully.");
         } else {
-            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed";
-            showMaintAlert("Error", msg, false);
+            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save.";
+            showMaintErrorAlert("Error", msg);
         }
     } catch(e) {
-        showMaintAlert("System Error", e.message, false);
+        showMaintErrorAlert("System Error", e.message || "Failed to save maintenance record.");
     }
     
-    btn.disabled = false; btn.innerHTML = id ? `<i data-lucide="save"></i> Update` : `<i data-lucide="plus"></i> Save`;
+    btn.disabled = false; 
+    btn.innerHTML = id ? `<i data-lucide="save"></i> Update` : `<i data-lucide="plus"></i> Save`;
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -393,8 +403,8 @@ window.openViewMaintModal = function(id) {
         <div class="grid grid-cols-2 gap-y-4">
             <div><span class="text-slate-500 text-xs uppercase block">Vehicle</span><span class="text-white font-mono">${vehicle ? vehicle.plate_number : log.vehicle_id}</span></div>
             <div><span class="text-slate-500 text-xs uppercase block">Category</span><span class="text-white">${cat ? cat.cat_maintenance : '-'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Garage</span><span class="text-white">${garage ? garage.garage_name : '-'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Receipt</span><span class="text-white font-mono">${log.receipt}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Garage</span><span class="text-white">${garage ? garage.nom_garage : '-'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Receipt</span><span class="text-white font-mono">${log.receipt || '-'}</span></div>
             <div class="col-span-2 border-t border-slate-700 pt-2 flex justify-between items-center">
                 <span class="text-slate-500 text-xs uppercase">Total Cost</span>
                 <span class="text-emerald-400 font-bold text-lg">BIF ${log.maintenance_cost.toFixed(2)}</span>
@@ -409,51 +419,99 @@ window.openViewMaintModal = function(id) {
 }
 
 // =================================================================
-// 8. HELPERS
+// 8. HELPER FUNCTIONS
 // =================================================================
 
-window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+window.closeModal = function(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+}
 
-function showMaintConfirmModal(t, m, i, c) {
+function showMaintConfirmModal(title, message, icon, color) {
     const modal = document.getElementById('maintConfirmModal');
     if(!modal) return;
-    document.getElementById('maintConfirmTitle').innerText = t;
-    document.getElementById('maintConfirmMessage').innerText = m;
+    
+    document.getElementById('maintConfirmTitle').innerText = title;
+    document.getElementById('maintConfirmMessage').innerText = message;
+    
     const btn = document.getElementById('btnMaintConfirmAction');
-    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${c}`;
+    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
     
     // Icon Logic
     const iconDiv = document.getElementById('maintConfirmIcon');
     if(iconDiv) {
-        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${c.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
-        iconDiv.innerHTML = `<i data-lucide="${i}" class="w-6 h-6"></i>`;
+        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${color.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
+        iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
     }
 
     modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
-function showMaintAlert(title, message, isSuccess) {
-    const modal = document.getElementById('maintAlertModal');
-    if(!modal) { alert(message); return; }
-    document.getElementById('maintAlertTitle').innerText = title;
-    document.getElementById('maintAlertMessage').innerText = message;
-    
-    const iconDiv = document.getElementById('maintAlertIcon');
-    if(isSuccess) {
-        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
-        iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
-    } else {
-        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
-        iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+// NEW: Custom success alert modal
+function showMaintSuccessAlert(title, message) {
+    const modal = document.getElementById('maintSuccessAlertModal');
+    if(!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(`${title}: ${message}`);
+        return;
     }
     
+    document.getElementById('maintSuccessAlertTitle').innerText = title;
+    document.getElementById('maintSuccessAlertMessage').innerText = message;
+    
     modal.classList.remove('hidden');
+    
+    // Auto close after 3 seconds
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 3000);
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
-function populateSelect(id, list, sel, label, def) {
+// NEW: Custom error alert modal
+function showMaintErrorAlert(title, message) {
+    const modal = document.getElementById('maintErrorAlertModal');
+    if(!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(`${title}: ${message}`);
+        return;
+    }
+    
+    document.getElementById('maintErrorAlertTitle').innerText = title;
+    document.getElementById('maintErrorAlertMessage').innerText = message;
+    
+    modal.classList.remove('hidden');
+    
+    // Auto close after 5 seconds for errors
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 5000);
+    
+    if(window.lucide) window.lucide.createIcons();
+}
+
+function populateSelect(id, list, selectedValue, labelKey, defaultText) {
     const el = document.getElementById(id);
     if(!el) return;
-    el.innerHTML = `<option value="">${def}</option>` + list.map(i => `<option value="${i.id}" ${i.id==sel?'selected':''}>${i[label]||i.name}</option>`).join('');
+    
+    let options = `<option value="">${defaultText}</option>`;
+    
+    if (Array.isArray(list)) {
+        options += list.map(item => {
+            const value = item.id;
+            const label = item[labelKey] || item.name || `ID ${value}`;
+            const selected = value == selectedValue ? 'selected' : '';
+            return `<option value="${value}" ${selected}>${label}</option>`;
+        }).join('');
+    }
+    
+    el.innerHTML = options;
+}
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMaintenance);
+} else {
+    initMaintenance();
 }

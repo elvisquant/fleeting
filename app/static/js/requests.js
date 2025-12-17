@@ -24,14 +24,18 @@ async function initRequests() {
 async function loadRequestsData() {
     const tbody = document.getElementById('reqLogsBody');
     if(!tbody) return;
+    
     tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
-    // Fetch /requests
-    const data = await window.fetchWithAuth('/requests'); 
+    // FIX: Added trailing slash to prevent 307 Redirect
+    const data = await window.fetchWithAuth('/requests/'); 
 
-    if (Array.isArray(data)) {
-        allRequests = data;
+    // Handle pagination or list response
+    const items = data.items || data;
+    
+    if (Array.isArray(items)) {
+        allRequests = items;
         renderReqTable();
     } else {
         const msg = data && data.detail ? data.detail : "Failed to load requests.";
@@ -48,14 +52,14 @@ function renderReqTable() {
 
     let filtered = allRequests.filter(r => {
         const requesterName = r.requester ? r.requester.full_name.toLowerCase() : "";
-        const dest = r.destination.toLowerCase();
+        const dest = r.destination ? r.destination.toLowerCase() : "";
         const matchSearch = requesterName.includes(search) || dest.includes(search);
         
         let matchFilter = true;
         if (filter === 'pending') matchFilter = r.status === 'pending';
         if (filter === 'step1') matchFilter = r.status === 'approved_by_chef';
         if (filter === 'step2') matchFilter = r.status === 'approved_by_logistic';
-        if (filter === 'completed') matchFilter = r.status === 'fully_approved';
+        if (filter === 'completed') matchFilter = r.status === 'fully_approved' || r.status === 'in_progress' || r.status === 'completed';
         if (filter === 'denied') matchFilter = r.status === 'denied';
 
         return matchSearch && matchFilter;
@@ -79,19 +83,34 @@ function renderReqTable() {
         // --- NUMERICAL APPROVAL STATUS ---
         let statusHtml = '';
         if (r.status === 'denied') {
-            statusHtml = `<span class="px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold uppercase">Denied</span>`;
+            statusHtml = `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-red-500/10 text-red-400 border border-red-500/20">Denied</span>`;
         } else {
             let step = 0; 
             let text = "0/3 Pending";
             let width = "5%";
             let color = "bg-slate-600";
             
-            if (r.status === 'approved_by_chef') { step = 1; text = "1/3 Chef Appr."; width = "33%"; color = "bg-blue-500"; }
-            else if (r.status === 'approved_by_logistic') { step = 2; text = "2/3 Logistic Appr."; width = "66%"; color = "bg-purple-500"; }
-            else if (['fully_approved', 'in_progress', 'completed'].includes(r.status)) { step = 3; text = "3/3 Fully Approved"; width = "100%"; color = "bg-emerald-500"; }
+            if (r.status === 'approved_by_chef') { 
+                step = 1; 
+                text = "1/3 Chef Approved"; 
+                width = "33%"; 
+                color = "bg-blue-500"; 
+            }
+            else if (r.status === 'approved_by_logistic') { 
+                step = 2; 
+                text = "2/3 Logistic Approved"; 
+                width = "66%"; 
+                color = "bg-purple-500"; 
+            }
+            else if (['fully_approved', 'in_progress', 'completed'].includes(r.status)) { 
+                step = 3; 
+                text = "3/3 Fully Approved"; 
+                width = "100%"; 
+                color = "bg-emerald-500"; 
+            }
 
             statusHtml = `
-                <div class="w-32">
+                <div class="w-36">
                     <div class="flex justify-between text-[10px] uppercase font-bold text-slate-400 mb-1"><span>${text}</span></div>
                     <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                         <div class="${color} h-1.5 rounded-full" style="width: ${width}"></div>
@@ -105,12 +124,12 @@ function renderReqTable() {
                     <div class="text-white font-medium">${requester}</div>
                     <div class="text-xs text-slate-500">${service}</div>
                 </td>
-                <td class="p-4 text-slate-300 font-mono text-xs">${r.destination}</td>
+                <td class="p-4 text-slate-300 font-mono text-xs">${r.destination || 'N/A'}</td>
                 <td class="p-4 text-slate-400 text-xs">${dep}</td>
                 <td class="p-4 text-slate-400 text-xs">${ret}</td>
                 <td class="p-4">${statusHtml}</td>
                 <td class="p-4 text-right">
-                    <button onclick="openViewRequestModal(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                    <button onclick="openViewRequestModal(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
                 </td>
             </tr>`;
     }).join('');
@@ -122,8 +141,14 @@ function renderReqTable() {
 
 window.openAddRequestModal = function() {
     document.getElementById('reqDestination').value = "";
-    document.getElementById('reqDeparture').value = "";
-    document.getElementById('reqReturn').value = "";
+    
+    // Set default dates (now for departure, +3 hours for return)
+    const now = new Date();
+    const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // 3 hours later
+    
+    document.getElementById('reqDeparture').value = now.toISOString().slice(0, 16);
+    document.getElementById('reqReturn').value = later.toISOString().slice(0, 16);
+    
     document.getElementById('reqDesc').value = "";
     document.getElementById('reqPassengers').value = "";
     
@@ -132,43 +157,62 @@ window.openAddRequestModal = function() {
 }
 
 window.saveRequest = async function() {
-    const dest = document.getElementById('reqDestination').value;
+    const dest = document.getElementById('reqDestination').value.trim();
     const dep = document.getElementById('reqDeparture').value;
     const ret = document.getElementById('reqReturn').value;
-    const desc = document.getElementById('reqDesc').value;
+    const desc = document.getElementById('reqDesc').value.trim();
     const passStr = document.getElementById('reqPassengers').value;
 
-    if(!dest || !dep || !ret) { 
-        showReqAlert("Validation", "Please fill destination and dates.", false); 
+    if(!dest) { 
+        showReqErrorAlert("Validation", "Please enter destination."); 
+        return; 
+    }
+    
+    if(!dep || !ret) { 
+        showReqErrorAlert("Validation", "Please fill both departure and return dates."); 
         return; 
     }
 
+    const departureDate = new Date(dep);
+    const returnDate = new Date(ret);
+    
+    if(returnDate <= departureDate) {
+        showReqErrorAlert("Validation", "Return date must be after departure date.");
+        return;
+    }
+
     // Convert comma string to array
-    const passengers = passStr.split(',').map(s => s.trim()).filter(s => s);
+    const passengers = passStr ? passStr.split(',').map(s => s.trim()).filter(s => s) : [];
 
     const payload = {
         destination: dest,
-        departure_time: new Date(dep).toISOString(),
-        return_time: new Date(ret).toISOString(),
+        departure_time: departureDate.toISOString(),
+        return_time: returnDate.toISOString(),
         description: desc,
         passengers: passengers
     };
 
     const btn = document.getElementById('btnSaveReq');
-    btn.disabled = true; btn.innerText = "Sending...";
+    btn.disabled = true; 
+    btn.innerText = "Sending...";
 
     try {
-        const result = await window.fetchWithAuth('/requests', 'POST', payload);
+        // FIX: Added trailing slash
+        const result = await window.fetchWithAuth('/requests/', 'POST', payload);
         if (result && !result.detail) {
             window.closeModal('addRequestModal');
             await loadRequestsData();
-            showReqAlert("Success", "Request submitted successfully.", true);
+            showReqSuccessAlert("Success", "Request submitted successfully.");
         } else {
-            const err = result.detail ? JSON.stringify(result.detail) : "Failed";
-            showReqAlert("Error", err, false);
+            const err = result?.detail ? JSON.stringify(result.detail) : "Failed to submit request.";
+            showReqErrorAlert("Error", err);
         }
-    } catch(e) { showReqAlert("Error", e.message, false); }
-    btn.disabled = false; btn.innerText = "Submit Request";
+    } catch(e) { 
+        showReqErrorAlert("Error", e.message || "Failed to submit request."); 
+    }
+    
+    btn.disabled = false; 
+    btn.innerText = "Submit Request";
 }
 
 // === VIEW / APPROVE MODAL ===
@@ -194,14 +238,23 @@ window.openViewRequestModal = function(id) {
     const content = `
         <div class="grid grid-cols-2 gap-y-4 gap-x-6">
             <div class="col-span-2 border-b border-slate-700 pb-3 mb-2 flex justify-between items-center">
-                <div><div class="text-white font-bold text-lg">${requester}</div><div class="text-slate-500 text-xs">${service}</div></div>
-                <div class="text-right"><div class="text-blue-400 font-mono text-sm">ID #${r.id}</div><div class="text-slate-500 text-xs uppercase">${r.status.replace(/_/g, ' ')}</div></div>
+                <div>
+                    <div class="text-white font-bold text-lg">${requester}</div>
+                    <div class="text-slate-500 text-xs">${service}</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-blue-400 font-mono text-sm">ID #${r.id}</div>
+                    <div class="text-slate-500 text-xs uppercase">${r.status ? r.status.replace(/_/g, ' ') : 'Unknown'}</div>
+                </div>
             </div>
-            <div><span class="text-slate-500 text-xs uppercase block">Destination</span><span class="text-white">${r.destination}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Destination</span><span class="text-white">${r.destination || 'N/A'}</span></div>
             <div><span class="text-slate-500 text-xs uppercase block">Passengers</span><span class="text-white">${passengers}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Departure</span><span class="text-white">${new Date(r.departure_time).toLocaleString()}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Return</span><span class="text-white">${new Date(r.return_time).toLocaleString()}</span></div>
-            <div class="col-span-2"><span class="text-slate-500 text-xs uppercase block mb-1">Description</span><p class="text-slate-300 text-sm bg-slate-800 p-3 rounded-lg">${r.description || 'No description provided.'}</p></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Departure</span><span class="text-white">${r.departure_time ? new Date(r.departure_time).toLocaleString() : 'N/A'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Return</span><span class="text-white">${r.return_time ? new Date(r.return_time).toLocaleString() : 'N/A'}</span></div>
+            <div class="col-span-2">
+                <span class="text-slate-500 text-xs uppercase block mb-1">Description</span>
+                <p class="text-slate-300 text-sm bg-slate-800 p-3 rounded-lg">${r.description || 'No description provided.'}</p>
+            </div>
             ${rejectionHtml}
         </div>`;
     
@@ -225,11 +278,12 @@ window.openViewRequestModal = function(id) {
 
     footer.innerHTML = buttons;
     document.getElementById('viewRequestModal').classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
 }
 
 function getApproveRejectButtons(id, label) {
     return `
-        <button onclick="closeModal('viewRequestModal')" class="px-3 py-2 text-slate-400 hover:text-white text-sm">Cancel</button>
+        <button onclick="closeModal('viewRequestModal')" class="px-3 py-2 text-slate-400 hover:text-white text-sm font-medium">Cancel</button>
         <button onclick="openApprovalModal(${id}, 'reject')" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg flex items-center gap-2"><i data-lucide="x-circle" class="w-4 h-4"></i> Deny</button>
         <button onclick="openApprovalModal(${id}, 'approve')" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Approve</button>
     `;
@@ -245,56 +299,124 @@ window.openApprovalModal = function(id, type) {
     
     const title = document.getElementById('approvalTitle');
     const btn = document.getElementById('btnExecuteApproval');
+    const iconDiv = document.getElementById('approvalIcon');
     
     if (type === 'approve') {
         title.innerText = "Confirm Approval";
         btn.innerText = "Approve";
         btn.className = "px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm w-full font-medium shadow-lg";
+        
+        if(iconDiv) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-green-500 bg-green-500/10";
+            iconDiv.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6"></i>';
+        }
     } else {
         title.innerText = "Deny Request";
         btn.innerText = "Reject";
         btn.className = "px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm w-full font-medium shadow-lg";
+        
+        if(iconDiv) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 bg-red-500/10";
+            iconDiv.innerHTML = '<i data-lucide="x-circle" class="w-6 h-6"></i>';
+        }
     }
+    
     document.getElementById('approvalModal').classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
 }
 
 async function submitApprovalDecision() {
     const comment = document.getElementById('approvalComment').value;
     const btn = document.getElementById('btnExecuteApproval');
 
-    if (reqActionType === 'reject' && !comment.trim()) { alert("Please provide a reason."); return; }
+    if (reqActionType === 'reject' && !comment.trim()) { 
+        showReqErrorAlert("Validation", "Please provide a rejection reason."); 
+        return; 
+    }
 
-    btn.disabled = true; btn.innerText = "Processing...";
+    btn.disabled = true; 
+    btn.innerText = "Processing...";
 
-    const statusMap = { 'approve': 'approved', 'reject': 'denied' };
-    const payload = { status: statusMap[reqActionType], comments: comment };
+    // FIX: Changed payload structure to match backend expectations
+    const payload = { 
+        status: reqActionType === 'approve' ? 'approved' : 'denied',
+        comment: comment.trim() || null 
+    };
 
     try {
-        const result = await window.fetchWithAuth(`/approvals/${reqActionId}`, 'POST', payload);
+        // FIX: Added trailing slash
+        const result = await window.fetchWithAuth(`/approvals/${reqActionId}/`, 'POST', payload);
         window.closeModal('approvalModal');
+        
         if (result && !result.detail) {
             await loadRequestsData();
-            showReqAlert("Success", `Request ${reqActionType}ed successfully.`, true);
+            showReqSuccessAlert("Success", `Request ${reqActionType === 'approve' ? 'approved' : 'rejected'} successfully.`);
         } else {
-            showReqAlert("Error", result?.detail || "Action failed.", false);
+            const msg = result?.detail ? JSON.stringify(result.detail) : "Action failed.";
+            showReqErrorAlert("Error", msg);
         }
     } catch(e) {
         window.closeModal('approvalModal');
-        showReqAlert("System Error", e.message, false);
+        showReqErrorAlert("System Error", e.message || "Failed to process approval.");
     }
+    
     btn.disabled = false;
+    btn.innerText = reqActionType === 'approve' ? "Approve" : "Reject";
 }
 
-// Helpers
-window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
-function showReqAlert(t, m, i) {
-    const modal = document.getElementById('reqAlertModal');
-    if(!modal) { alert(m); return; }
-    document.getElementById('reqAlertTitle').innerText = t;
-    document.getElementById('reqAlertMessage').innerText = m;
-    const icon = document.getElementById('reqAlertIcon');
-    icon.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${i?'bg-green-500/10 text-green-500':'bg-red-500/10 text-red-500'}`;
-    icon.innerHTML = `<i data-lucide="${i?'check':'x'}" class="w-6 h-6"></i>`;
+// === HELPER FUNCTIONS ===
+
+window.closeModal = function(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+}
+
+// NEW: Custom success alert modal
+function showReqSuccessAlert(title, message) {
+    const modal = document.getElementById('reqSuccessAlertModal');
+    if(!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(`${title}: ${message}`);
+        return;
+    }
+    
+    document.getElementById('reqSuccessAlertTitle').innerText = title;
+    document.getElementById('reqSuccessAlertMessage').innerText = message;
+    
     modal.classList.remove('hidden');
+    
+    // Auto close after 3 seconds
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 3000);
+    
     if(window.lucide) window.lucide.createIcons();
+}
+
+// NEW: Custom error alert modal
+function showReqErrorAlert(title, message) {
+    const modal = document.getElementById('reqErrorAlertModal');
+    if(!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(`${title}: ${message}`);
+        return;
+    }
+    
+    document.getElementById('reqErrorAlertTitle').innerText = title;
+    document.getElementById('reqErrorAlertMessage').innerText = message;
+    
+    modal.classList.remove('hidden');
+    
+    // Auto close after 5 seconds for errors
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 5000);
+    
+    if(window.lucide) window.lucide.createIcons();
+}
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initRequests);
+} else {
+    initRequests();
 }

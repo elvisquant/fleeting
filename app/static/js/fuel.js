@@ -52,10 +52,14 @@ async function loadFuelData() {
     tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading logs...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
-    const data = await window.fetchWithAuth('/fuel'); 
+    // FIX: Added trailing slash
+    const data = await window.fetchWithAuth('/fuel/'); 
     
-    if (Array.isArray(data)) {
-        allFuelLogs = data;
+    // Handle pagination or list response
+    const items = data.items || data;
+    
+    if (Array.isArray(items)) {
+        allFuelLogs = items;
         selectedFuelIds.clear(); 
         updateFuelBulkUI();
         renderFuelTable();
@@ -67,14 +71,23 @@ async function loadFuelData() {
 
 async function fetchFuelDropdowns() {
     try {
+        // FIX: Added trailing slashes
         const [vehicles, types] = await Promise.all([
-            window.fetchWithAuth('/vehicles?limit=1000'),
-            window.fetchWithAuth('/fuel-types')
+            window.fetchWithAuth('/vehicles/?limit=1000'),
+            window.fetchWithAuth('/fuel-types/')
         ]);
-        if(Array.isArray(vehicles)) fuelOptions.vehicles = vehicles;
-        if(Array.isArray(types)) fuelOptions.fuelTypes = types;
+        
+        // Handle pagination
+        fuelOptions.vehicles = Array.isArray(vehicles) ? vehicles : (vehicles.items || []);
+        fuelOptions.fuelTypes = Array.isArray(types) ? types : (types.items || []);
+        
         populateSelect('fuelVehicleFilter', fuelOptions.vehicles, '', 'plate_number', 'All Vehicles');
-    } catch (e) { console.warn("Fuel Dropdown Error:", e); }
+        populateSelect('fuelVehicleSelect', fuelOptions.vehicles, '', 'plate_number', 'Select Vehicle');
+        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', 'Select Type');
+        
+    } catch (e) { 
+        console.warn("Fuel Dropdown Error:", e); 
+    }
 }
 
 function renderFuelTable() {
@@ -148,7 +161,7 @@ function renderFuelTable() {
                 <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4 font-mono text-white">${plate}</td>
                 <td class="p-4 text-slate-400">${typeName}</td>
-                <td class="p-4 text-right"><div class="text-slate-200">${log.quantity.toFixed(2)} L</div><div class="text-xs text-slate-500">@ ${log.price_little}</div></td>
+                <td class="p-4 text-right"><div class="text-slate-200">${log.quantity.toFixed(2)} L</div><div class="text-xs text-slate-500">@ ${log.price_little.toFixed(2)}</div></td>
                 <td class="p-4 text-right font-bold text-emerald-400">${log.cost.toFixed(2)}</td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-slate-500 text-xs">${date}</td>
@@ -243,16 +256,16 @@ async function executeFuelConfirmAction() {
 
         window.closeModal('fuelConfirmModal');
         
-        if (result !== null) {
+        if (result !== null && result !== false) {
             if (fuelActionType === 'bulk-verify') selectedFuelIds.clear();
             await loadFuelData();
-            showFuelAlert("Success", "Action completed successfully.", true);
+            showFuelSuccessAlert("Success", "Action completed successfully.");
         } else {
-            showFuelAlert("Failed", "Action could not be completed.", false);
+            showFuelErrorAlert("Failed", "Action could not be completed.");
         }
     } catch(e) {
         window.closeModal('fuelConfirmModal');
-        showFuelAlert("Error", e.message, false);
+        showFuelErrorAlert("Error", e.message || "An unexpected error occurred.");
     }
     
     btn.disabled = false; btn.innerText = "Confirm"; 
@@ -277,15 +290,17 @@ window.openAddFuelModal = function() {
 window.openEditFuelModal = function(id) {
     const log = allFuelLogs.find(l => l.id === id);
     if(!log) return;
+    
     document.getElementById('fuelEditId').value = log.id; 
     document.getElementById('fuelModalTitle').innerText = "Edit Fuel Log";
     document.getElementById('btnSaveFuel').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Save Changes`;
 
     populateSelect('fuelVehicleSelect', fuelOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
+    populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, log.fuel_type_id, 'fuel_type', 'Select Type');
+    
     document.getElementById('fuelQuantity').value = log.quantity;
     document.getElementById('fuelPrice').value = log.price_little;
     
-    autoSelectFuelType();
     updateCostPreview();
 
     document.getElementById('addFuelModal').classList.remove('hidden');
@@ -299,8 +314,8 @@ window.saveFuelLog = async function() {
     const qty = document.getElementById('fuelQuantity').value;
     const price = document.getElementById('fuelPrice').value;
 
-    if(!vId || !qty || !price) { 
-        showFuelAlert("Validation", "Please fill all fields.", false); 
+    if(!vId || !typeId || !qty || !price) { 
+        showFuelErrorAlert("Validation", "Please fill all required fields."); 
         return; 
     }
 
@@ -320,20 +335,24 @@ window.saveFuelLog = async function() {
         if(id) {
             result = await window.fetchWithAuth(`/fuel/${id}`, 'PUT', payload);
         } else {
-            result = await window.fetchWithAuth('/fuel', 'POST', payload);
+            // FIX: Added trailing slash
+            result = await window.fetchWithAuth('/fuel/', 'POST', payload);
         }
 
         if(result && !result.detail) {
             window.closeModal('addFuelModal');
             await loadFuelData();
-            showFuelAlert("Success", "Saved successfully.", true);
+            showFuelSuccessAlert("Success", "Saved successfully.");
         } else {
-            showFuelAlert("Error", result?.detail || "Failed", false);
+            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save.";
+            showFuelErrorAlert("Error", msg);
         }
     } catch(e) {
-        showFuelAlert("System Error", e.message, false);
+        showFuelErrorAlert("System Error", e.message || "Failed to save fuel log.");
     }
     btn.disabled = false;
+    btn.innerHTML = id ? `<i data-lucide="save" class="w-4 h-4"></i> Save Changes` : `<i data-lucide="plus" class="w-4 h-4"></i> Add Log`;
+    if(window.lucide) window.lucide.createIcons();
 }
 
 window.openViewFuelModal = function(id) {
@@ -345,12 +364,15 @@ window.openViewFuelModal = function(id) {
     const content = `
         <div class="grid grid-cols-2 gap-y-4">
             <div><span class="text-slate-500 text-xs uppercase block">Vehicle</span><span class="text-white font-mono">${vehicle ? vehicle.plate_number : log.vehicle_id}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Fuel Type</span><span class="text-white">${type ? type.fuel_type : log.fuel_type_id}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Quantity</span><span class="text-white">${log.quantity} L</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Price/Unit</span><span class="text-white">${log.price_little}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Fuel Type</span><span class="text-white">${type ? type.fuel_type : '-'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Quantity</span><span class="text-white">${log.quantity.toFixed(2)} L</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Price/Unit</span><span class="text-white">${log.price_little.toFixed(2)}</span></div>
             <div class="col-span-2 border-t border-slate-700 pt-2 flex justify-between items-center">
                 <span class="text-slate-500 text-xs uppercase">Total Cost</span>
-                <span class="text-emerald-400 font-bold text-lg">${log.cost.toFixed(2)}</span>
+                <span class="text-emerald-400 font-bold text-lg">BIF ${log.cost.toFixed(2)}</span>
+            </div>
+            <div class="col-span-2 text-xs text-slate-600 text-center mt-2">
+                Date: ${new Date(log.created_at).toLocaleDateString()}
             </div>
         </div>
     `;
@@ -358,8 +380,11 @@ window.openViewFuelModal = function(id) {
     document.getElementById('viewFuelModal').classList.remove('hidden');
 }
 
-// Helpers
-window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+// === HELPER FUNCTIONS ===
+
+window.closeModal = function(id) { 
+    document.getElementById(id).classList.add('hidden'); 
+}
 
 function showFuelConfirmModal(title, msg, icon, btnClass) {
     document.getElementById('fuelConfirmTitle').innerText = title;
@@ -373,33 +398,69 @@ function showFuelConfirmModal(title, msg, icon, btnClass) {
     if(window.lucide) window.lucide.createIcons();
 }
 
-function showFuelAlert(title, message, isSuccess) {
-    const modal = document.getElementById('fuelAlertModal');
-    if(!modal) { alert(message); return; }
-    document.getElementById('fuelAlertTitle').innerText = title;
-    document.getElementById('fuelAlertMessage').innerText = message;
-    
-    const iconDiv = document.getElementById('fuelAlertIcon');
-    if(isSuccess) {
-        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
-        iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
-    } else {
-        iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
-        iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+// NEW: Custom success alert modal
+function showFuelSuccessAlert(title, message) {
+    const modal = document.getElementById('fuelSuccessAlertModal');
+    if(!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(`${title}: ${message}`);
+        return;
     }
     
+    document.getElementById('fuelSuccessAlertTitle').innerText = title;
+    document.getElementById('fuelSuccessAlertMessage').innerText = message;
+    
     modal.classList.remove('hidden');
+    
+    // Auto close after 3 seconds
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 3000);
+    
+    if(window.lucide) window.lucide.createIcons();
+}
+
+// NEW: Custom error alert modal
+function showFuelErrorAlert(title, message) {
+    const modal = document.getElementById('fuelErrorAlertModal');
+    if(!modal) {
+        // Fallback to browser alert if modal doesn't exist
+        alert(`${title}: ${message}`);
+        return;
+    }
+    
+    document.getElementById('fuelErrorAlertTitle').innerText = title;
+    document.getElementById('fuelErrorAlertMessage').innerText = message;
+    
+    modal.classList.remove('hidden');
+    
+    // Auto close after 5 seconds for errors
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 5000);
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
 function autoSelectFuelType() {
     const vId = document.getElementById('fuelVehicleSelect').value;
     const typeSelect = document.getElementById('fuelTypeSelect');
-    if(!vId) { typeSelect.innerHTML = "<option>Select a vehicle first</option>"; return; }
+    
+    if(!vId) { 
+        typeSelect.innerHTML = '<option value="">Select Vehicle First</option>'; 
+        return; 
+    }
+    
     const vehicle = fuelOptions.vehicles.find(v => v.id == vId);
     if(vehicle && vehicle.vehicle_fuel_type) {
         const type = fuelOptions.fuelTypes.find(t => t.id === vehicle.vehicle_fuel_type);
-        typeSelect.innerHTML = type ? `<option value="${type.id}" selected>${type.fuel_type}</option>` : `<option disabled>Unknown</option>`;
+        if(type) {
+            typeSelect.innerHTML = `<option value="${type.id}" selected>${type.fuel_type}</option>`;
+        } else {
+            populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', 'Select Type');
+        }
+    } else {
+        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', 'Select Type');
     }
 }
 
@@ -408,6 +469,7 @@ function updateCostPreview() {
     const price = parseFloat(document.getElementById('fuelPrice').value) || 0;
     const total = qty * price;
     const preview = document.getElementById('costPreview');
+    
     if(total > 0) {
         preview.classList.remove('hidden');
         document.getElementById('totalCostDisplay').innerText = `BIF ${total.toFixed(2)}`;
@@ -419,9 +481,24 @@ function updateCostPreview() {
 function populateSelect(elementId, items, selectedValue, labelKey, defaultText) {
     const el = document.getElementById(elementId);
     if (!el) return;
-    el.innerHTML = `<option value="">${defaultText}</option>` + items.map(item => {
-        const isSelected = item.id === selectedValue ? 'selected' : '';
-        const label = item[labelKey] || item.name || item.id; 
-        return `<option value="${item.id}" ${isSelected}>${label}</option>`;
-    }).join('');
+    
+    let options = `<option value="">${defaultText}</option>`;
+    
+    if (Array.isArray(items)) {
+        options += items.map(item => {
+            const value = item.id;
+            const label = item[labelKey] || item.name || `ID ${value}`;
+            const isSelected = value == selectedValue ? 'selected' : '';
+            return `<option value="${value}" ${isSelected}>${label}</option>`;
+        }).join('');
+    }
+    
+    el.innerHTML = options;
+}
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFuel);
+} else {
+    initFuel();
 }
