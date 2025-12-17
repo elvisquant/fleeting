@@ -282,13 +282,13 @@ async function executeMaintConfirmAction() {
         if(result !== null) {
             if (maintActionType === 'bulk-verify') selectedMaintIds.clear();
             await loadMaintData();
-            showMaintSuccessAlert("Success", "Action completed successfully.");
+            showMaintAlert("Success", "Action completed successfully.", true);
         } else {
-            showMaintErrorAlert("Failed", "Action could not be completed.");
+            showMaintAlert("Failed", "Action could not be completed.", false);
         }
     } catch(e) {
         window.closeModal('maintConfirmModal');
-        showMaintErrorAlert("Error", e.message || "An unexpected error occurred.");
+        showMaintAlert("Error", e.message || "An unexpected error occurred.", false);
     }
     
     btn.disabled = false; btn.innerText = "Confirm"; 
@@ -349,7 +349,7 @@ window.saveMaintenance = async function() {
     const receipt = document.getElementById('maintReceipt').value;
 
     if(!vId || isNaN(cost) || !date) { 
-        showMaintErrorAlert("Validation", "Please fill required fields (Vehicle, Cost, Date)."); 
+        showMaintAlert("Validation", "Please fill required fields (Vehicle, Cost, Date).", false); 
         return; 
     }
 
@@ -378,13 +378,13 @@ window.saveMaintenance = async function() {
         if(result && !result.detail) {
             window.closeModal('addMaintModal');
             await loadMaintData();
-            showMaintSuccessAlert("Success", "Saved successfully.");
+            showMaintAlert("Success", "Saved successfully.", true);
         } else {
             const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save.";
-            showMaintErrorAlert("Error", msg);
+            showMaintAlert("Error", msg, false);
         }
     } catch(e) {
-        showMaintErrorAlert("System Error", e.message || "Failed to save maintenance record.");
+        showMaintAlert("System Error", e.message || "Failed to save maintenance record.", false);
     }
     
     btn.disabled = false; 
@@ -447,46 +447,51 @@ function showMaintConfirmModal(title, message, icon, color) {
     if(window.lucide) window.lucide.createIcons();
 }
 
-// NEW: Custom success alert modal
-function showMaintSuccessAlert(title, message) {
-    const modal = document.getElementById('maintSuccessAlertModal');
+// FIXED: Unified alert function that uses a simple approach
+function showMaintAlert(title, message, isSuccess) {
+    // Create a simple alert modal if it doesn't exist
+    let modal = document.getElementById('maintAlertModal');
+    
     if(!modal) {
-        // Fallback to browser alert if modal doesn't exist
-        alert(`${title}: ${message}`);
-        return;
+        // Create a simple modal on the fly
+        modal = document.createElement('div');
+        modal.id = 'maintAlertModal';
+        modal.className = 'fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" id="maintAlertIcon"></div>
+                <h3 class="text-lg font-bold text-white mb-2" id="maintAlertTitle"></h3>
+                <p class="text-slate-400 text-sm mb-6" id="maintAlertMessage"></p>
+                <button onclick="closeModal('maintAlertModal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm w-full">OK</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
     }
     
-    document.getElementById('maintSuccessAlertTitle').innerText = title;
-    document.getElementById('maintSuccessAlertMessage').innerText = message;
+    // Set title and message
+    document.getElementById('maintAlertTitle').innerText = title;
+    document.getElementById('maintAlertMessage').innerText = message;
     
-    modal.classList.remove('hidden');
-    
-    // Auto close after 3 seconds
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 3000);
-    
-    if(window.lucide) window.lucide.createIcons();
-}
-
-// NEW: Custom error alert modal
-function showMaintErrorAlert(title, message) {
-    const modal = document.getElementById('maintErrorAlertModal');
-    if(!modal) {
-        // Fallback to browser alert if modal doesn't exist
-        alert(`${title}: ${message}`);
-        return;
+    // Set icon
+    const iconDiv = document.getElementById('maintAlertIcon');
+    if(iconDiv) {
+        if(isSuccess) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
+            iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
+        } else {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
+            iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+        }
     }
     
-    document.getElementById('maintErrorAlertTitle').innerText = title;
-    document.getElementById('maintErrorAlertMessage').innerText = message;
-    
+    // Show modal
     modal.classList.remove('hidden');
     
-    // Auto close after 5 seconds for errors
+    // Auto close after appropriate time
+    const closeTime = isSuccess ? 3000 : 5000; // 3 seconds for success, 5 for errors
     setTimeout(() => {
         modal.classList.add('hidden');
-    }, 5000);
+    }, closeTime);
     
     if(window.lucide) window.lucide.createIcons();
 }

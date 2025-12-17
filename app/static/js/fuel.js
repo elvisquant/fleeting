@@ -259,13 +259,13 @@ async function executeFuelConfirmAction() {
         if (result !== null && result !== false) {
             if (fuelActionType === 'bulk-verify') selectedFuelIds.clear();
             await loadFuelData();
-            showFuelSuccessAlert("Success", "Action completed successfully.");
+            showFuelAlert("Success", "Action completed successfully.", true);
         } else {
-            showFuelErrorAlert("Failed", "Action could not be completed.");
+            showFuelAlert("Failed", "Action could not be completed.", false);
         }
     } catch(e) {
         window.closeModal('fuelConfirmModal');
-        showFuelErrorAlert("Error", e.message || "An unexpected error occurred.");
+        showFuelAlert("Error", e.message || "An unexpected error occurred.", false);
     }
     
     btn.disabled = false; btn.innerText = "Confirm"; 
@@ -315,7 +315,7 @@ window.saveFuelLog = async function() {
     const price = document.getElementById('fuelPrice').value;
 
     if(!vId || !typeId || !qty || !price) { 
-        showFuelErrorAlert("Validation", "Please fill all required fields."); 
+        showFuelAlert("Validation", "Please fill all required fields.", false); 
         return; 
     }
 
@@ -342,13 +342,13 @@ window.saveFuelLog = async function() {
         if(result && !result.detail) {
             window.closeModal('addFuelModal');
             await loadFuelData();
-            showFuelSuccessAlert("Success", "Saved successfully.");
+            showFuelAlert("Success", "Saved successfully.", true);
         } else {
             const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save.";
-            showFuelErrorAlert("Error", msg);
+            showFuelAlert("Error", msg, false);
         }
     } catch(e) {
-        showFuelErrorAlert("System Error", e.message || "Failed to save fuel log.");
+        showFuelAlert("System Error", e.message || "Failed to save fuel log.", false);
     }
     btn.disabled = false;
     btn.innerHTML = id ? `<i data-lucide="save" class="w-4 h-4"></i> Save Changes` : `<i data-lucide="plus" class="w-4 h-4"></i> Add Log`;
@@ -398,46 +398,36 @@ function showFuelConfirmModal(title, msg, icon, btnClass) {
     if(window.lucide) window.lucide.createIcons();
 }
 
-// NEW: Custom success alert modal
-function showFuelSuccessAlert(title, message) {
-    const modal = document.getElementById('fuelSuccessAlertModal');
-    if(!modal) {
+// FIXED: Use the existing fuelAlertModal with isSuccess parameter
+function showFuelAlert(title, message, isSuccess) {
+    const modal = document.getElementById('fuelAlertModal');
+    if(!modal) { 
         // Fallback to browser alert if modal doesn't exist
         alert(`${title}: ${message}`);
-        return;
+        return; 
     }
     
-    document.getElementById('fuelSuccessAlertTitle').innerText = title;
-    document.getElementById('fuelSuccessAlertMessage').innerText = message;
+    document.getElementById('fuelAlertTitle').innerText = title;
+    document.getElementById('fuelAlertMessage').innerText = message;
+    
+    const iconDiv = document.getElementById('fuelAlertIcon');
+    if(iconDiv) {
+        if(isSuccess) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
+            iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
+        } else {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
+            iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+        }
+    }
     
     modal.classList.remove('hidden');
     
-    // Auto close after 3 seconds
+    // Auto close after appropriate time
+    const closeTime = isSuccess ? 3000 : 5000; // 3 seconds for success, 5 for errors
     setTimeout(() => {
         modal.classList.add('hidden');
-    }, 3000);
-    
-    if(window.lucide) window.lucide.createIcons();
-}
-
-// NEW: Custom error alert modal
-function showFuelErrorAlert(title, message) {
-    const modal = document.getElementById('fuelErrorAlertModal');
-    if(!modal) {
-        // Fallback to browser alert if modal doesn't exist
-        alert(`${title}: ${message}`);
-        return;
-    }
-    
-    document.getElementById('fuelErrorAlertTitle').innerText = title;
-    document.getElementById('fuelErrorAlertMessage').innerText = message;
-    
-    modal.classList.remove('hidden');
-    
-    // Auto close after 5 seconds for errors
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 5000);
+    }, closeTime);
     
     if(window.lucide) window.lucide.createIcons();
 }

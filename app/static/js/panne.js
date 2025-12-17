@@ -276,13 +276,13 @@ async function executePanneConfirmAction() {
                 selectedPanneIds.clear();
             }
             await loadPanneData();
-            showPanneSuccessAlert("Success", "Action completed successfully.");
+            showPanneAlert("Success", "Action completed successfully.", true);
         } else {
-            showPanneErrorAlert("Failed", "Action could not be completed.");
+            showPanneAlert("Failed", "Action could not be completed.", false);
         }
     } catch(e) {
         window.closeModal('panneConfirmModal');
-        showPanneErrorAlert("Error", e.message || "An unexpected error occurred.");
+        showPanneAlert("Error", e.message || "An unexpected error occurred.", false);
     }
     
     btn.disabled = false; btn.innerText = "Confirm"; 
@@ -334,7 +334,7 @@ window.savePanne = async function() {
     const date = document.getElementById('panneDate').value;
 
     if(!vId || !catId || !date) { 
-        showPanneErrorAlert("Validation", "Please fill required fields (Vehicle, Category, Date)."); 
+        showPanneAlert("Validation", "Please fill required fields (Vehicle, Category, Date).", false); 
         return; 
     }
 
@@ -361,13 +361,13 @@ window.savePanne = async function() {
         if(result && !result.detail) {
             window.closeModal('addPanneModal');
             await loadPanneData();
-            showPanneSuccessAlert("Success", "Saved successfully.");
+            showPanneAlert("Success", "Saved successfully.", true);
         } else { 
             const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save.";
-            showPanneErrorAlert("Error", msg); 
+            showPanneAlert("Error", msg, false); 
         }
     } catch(e) { 
-        showPanneErrorAlert("System Error", e.message || "Failed to save panne report."); 
+        showPanneAlert("System Error", e.message || "Failed to save panne report.", false); 
     }
     
     btn.disabled = false; 
@@ -427,46 +427,36 @@ function showPanneConfirmModal(title, message, icon, color) {
     if(window.lucide) window.lucide.createIcons();
 }
 
-// NEW: Custom success alert modal
-function showPanneSuccessAlert(title, message) {
-    const modal = document.getElementById('panneSuccessAlertModal');
-    if(!modal) {
+// FIXED: Use the existing panneAlertModal with isSuccess parameter
+function showPanneAlert(title, message, isSuccess) {
+    const modal = document.getElementById('panneAlertModal');
+    if(!modal) { 
         // Fallback to browser alert if modal doesn't exist
         alert(`${title}: ${message}`);
-        return;
+        return; 
     }
     
-    document.getElementById('panneSuccessAlertTitle').innerText = title;
-    document.getElementById('panneSuccessAlertMessage').innerText = message;
+    document.getElementById('panneAlertTitle').innerText = title;
+    document.getElementById('panneAlertMessage').innerText = message;
+    
+    const iconDiv = document.getElementById('panneAlertIcon');
+    if(iconDiv) {
+        if(isSuccess) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
+            iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
+        } else {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
+            iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
+        }
+    }
     
     modal.classList.remove('hidden');
     
-    // Auto close after 3 seconds
+    // Auto close after appropriate time
+    const closeTime = isSuccess ? 3000 : 5000; // 3 seconds for success, 5 for errors
     setTimeout(() => {
         modal.classList.add('hidden');
-    }, 3000);
-    
-    if(window.lucide) window.lucide.createIcons();
-}
-
-// NEW: Custom error alert modal
-function showPanneErrorAlert(title, message) {
-    const modal = document.getElementById('panneErrorAlertModal');
-    if(!modal) {
-        // Fallback to browser alert if modal doesn't exist
-        alert(`${title}: ${message}`);
-        return;
-    }
-    
-    document.getElementById('panneErrorAlertTitle').innerText = title;
-    document.getElementById('panneErrorAlertMessage').innerText = message;
-    
-    modal.classList.remove('hidden');
-    
-    // Auto close after 5 seconds for errors
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 5000);
+    }, closeTime);
     
     if(window.lucide) window.lucide.createIcons();
 }
