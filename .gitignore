@@ -28,3 +28,4 @@ postgres_data/
 build/
 dist/
 *.egg-info/
+tecx
