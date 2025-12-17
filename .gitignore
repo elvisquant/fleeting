@@ -1,0 +1,30 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.class
+
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+
+# --- Environment Variables (Security) ---
+.env
+.env.*
+
+# --- IDE Settings ---
+.vscode/
+.idea/
+
+# --- Operating System ---
+.DS_Store
+Thumbs.db
+
+# --- Docker/Database ---
+postgres_data/
+*.log
+
+# --- Distribution / Builds ---
+build/
+dist/
+*.egg-info/

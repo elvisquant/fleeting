@@ -1,0 +1,62 @@
+name: Deploy to Google Cloud
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/fleetdash-backend:latest
+
+      - name: Copy Compose File to Server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.GCP_IP }}
+          username: ${{ secrets.GCP_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "~/fleetdash/"
+
+      - name: Deploy on GCP
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.GCP_IP }}
+          username: ${{ secrets.GCP_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/fleetdash
+            # Rename for simplicity
+            mv docker-compose.prod.yml docker-compose.yml
+            
+            # Pull new code
+            docker compose pull
+            
+            # Restart App
+            docker compose up -d --remove-orphans
+            
+            # Clean up
+            docker image prune -f
+            
+            # Run Migrations
+            docker compose exec -T fastapi-service alembic upgrade head
+
+
+
+
