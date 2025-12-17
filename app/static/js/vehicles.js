@@ -32,7 +32,7 @@ async function loadVehiclesData() {
     tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
-    const data = await window.fetchWithAuth('/vehicles?limit=1000');
+    const data = await window.fetchWithAuth('/vehicles/?limit=1000');
     
     if (Array.isArray(data)) {
         allVehicles = data;
@@ -48,11 +48,11 @@ async function loadVehiclesData() {
 async function fetchVehicleDropdowns() {
     try {
         const [makes, models, types, trans, fuels] = await Promise.all([
-            window.fetchWithAuth('/vehicle-makes?limit=200'),
-            window.fetchWithAuth('/vehicle-models?limit=1000'),
-            window.fetchWithAuth('/vehicle-types?limit=200'),
-            window.fetchWithAuth('/vehicle-transmissions?limit=200'),
-            window.fetchWithAuth('/fuel-types?limit=200')
+            window.fetchWithAuth('/vehicle-makes/?limit=200'),
+            window.fetchWithAuth('/vehicle-models/?limit=1000'),
+            window.fetchWithAuth('/vehicle-types/?limit=200'),
+            window.fetchWithAuth('/vehicle-transmissions/?limit=200'),
+            window.fetchWithAuth('/fuel-types/?limit=200')
         ]);
         vehicleOptions = { 
             makes: Array.isArray(makes) ? makes : [], 
