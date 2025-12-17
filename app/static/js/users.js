@@ -42,9 +42,9 @@ async function fetchDropdownData() {
     if(dropdownsLoaded) return;
     try {
         const [roles, agencies, services] = await Promise.all([
-            window.fetchWithAuth('/roles'),
-            window.fetchWithAuth('/agencies'),
-            window.fetchWithAuth('/services')
+            window.fetchWithAuth('/roles/'),
+            window.fetchWithAuth('/agencies/'),
+            window.fetchWithAuth('/services/')
         ]);
 
         if(Array.isArray(roles)) dropdownOptions.roles = roles;
