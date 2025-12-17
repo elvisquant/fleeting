@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   fastapi-service:
-    # Replace 'your_dockerhub_username' with your actual username
+    # Your Docker Hub image
     image: elvispro1993/fleetdash-backend:latest
     container_name: fleetdash_app
     restart: always
@@ -11,15 +11,18 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    # CRITICAL: This must match the service name below
     depends_on:
-      - postgres
+      - fastapi-db
     networks:
       - fleet_net
 
-  postgres:
+  # Renamed service from 'postgres' to 'fastapi-db' as requested
+  fastapi-db:
     image: postgres:15-alpine
     container_name: fleetdash_db
     restart: always
+    # These variables create the database inside the container
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}

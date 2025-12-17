@@ -348,8 +348,8 @@
         async function loadDropdowns() {
             try {
                 const [agencyRes, serviceRes] = await Promise.all([
-                    fetch('/api/v1/agencies'),
-                    fetch('/api/v1/services')
+                    fetch('/api/v1/agencies/'),
+                    fetch('/api/v1/services/')
                 ]);
 
                 // Populate Agencies
