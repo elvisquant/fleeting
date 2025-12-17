@@ -271,13 +271,13 @@ async function executeRepConfirmAction() {
             const payload = { ids: [parseInt(repActionId)] };
             // FIX: Slash before verify-bulk is implicit from previous router config but let's be safe
             // Assuming /api/v1/reparation/verify-bulk
-            result = await window.fetchWithAuth(`/reparation/verify-bulk/`, 'PUT', payload);
+            result = await window.fetchWithAuth(`/reparation/verify-bulk`, 'PUT', payload);
         }
         // --- VERIFY (Bulk) ---
         else if (repActionType === 'bulk-verify') {
             const idList = Array.from(selectedRepIds).map(id => parseInt(id));
             const payload = { ids: idList };
-            result = await window.fetchWithAuth('/reparation/verify-bulk/', 'PUT', payload);
+            result = await window.fetchWithAuth('/reparation/verify-bulk', 'PUT', payload);
         }
 
         window.closeModal('repConfirmModal');
