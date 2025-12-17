@@ -299,7 +299,7 @@ window.saveVehicle = async function() {
     try {
         let result;
         if(id) result = await window.fetchWithAuth(`/vehicles/${id}`, 'PUT', payload);
-        else result = await window.fetchWithAuth('/vehicles', 'POST', payload);
+        else result = await window.fetchWithAuth('/vehicles/', 'POST', payload);
 
         if(result && !result.detail) {
             window.closeModal('addVehicleModal');
