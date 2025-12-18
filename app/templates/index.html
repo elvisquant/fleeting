@@ -37,7 +37,6 @@
                         'slide-out': 'slideOut 0.3s ease-in',
                         'fade-in': 'fadeIn 0.3s ease-out',
                         'fade-out': 'fadeOut 0.3s ease-in',
-                        'bounce-in': 'bounceIn 0.5s ease-out',
                     },
                     keyframes: {
                         slideIn: {
@@ -55,12 +54,6 @@
                         fadeOut: {
                             '0%': { opacity: '1' },
                             '100%': { opacity: '0' }
-                        },
-                        bounceIn: {
-                            '0%': { transform: 'translateY(100%)' },
-                            '60%': { transform: 'translateY(-10%)' },
-                            '80%': { transform: 'translateY(5%)' },
-                            '100%': { transform: 'translateY(0)' }
                         }
                     }
                 }
@@ -169,7 +162,7 @@
             transform: translateX(0);
         }
         
-        /* Horizontal scrollable bottom navigation (NEW) */
+        /* Horizontal scrollable bottom navigation */
         .mobile-bottom-nav {
             position: fixed;
             bottom: 0;
@@ -306,11 +299,6 @@
             padding-bottom: env(safe-area-inset-bottom);
         }
         
-        /* Content container visibility fix */
-        .content-container {
-            display: block;
-        }
-        
         /* Scroll indicator for horizontal nav */
         .scroll-indicator {
             position: absolute;
@@ -325,6 +313,20 @@
         
         .light .scroll-indicator {
             background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.8));
+        }
+        
+        /* Content containers */
+        .content-container {
+            width: 100%;
+        }
+        
+        /* Loading spinner */
+        .loading-spinner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
         }
     </style>
 </head>
@@ -411,7 +413,7 @@
         <!-- Desktop Main Content -->
         <main class="flex-1 h-full overflow-y-auto overflow-x-hidden p-4 md:p-6 scroll-smooth">
             <!-- DYNAMIC CONTENT CONTAINER -->
-            <div id="app-content" class="content-container min-h-[calc(100vh-120px)]"></div>
+            <div id="app-content" class="content-container"></div>
         </main>
     </div>
 
@@ -519,16 +521,15 @@
             </header>
 
             <!-- DYNAMIC CONTENT CONTAINER -->
-            <div id="app-content-mobile" class="content-container p-4 min-h-[calc(100vh-140px)]"></div>
+            <div id="app-content-mobile" class="content-container p-4"></div>
         </div>
 
-        <!-- Horizontal Scrollable Bottom Navigation (Like Mobile App) -->
+        <!-- Horizontal Scrollable Bottom Navigation -->
         <nav class="mobile-bottom-nav safe-area-bottom" id="horizontalNav">
             <!-- Scroll indicator (visible when content overflows) -->
             <div class="scroll-indicator" id="scrollIndicator"></div>
             
             <!-- Navigation items will be dynamically added here -->
-            <!-- They will be populated by JavaScript based on user role -->
         </nav>
     </div>
 
@@ -620,7 +621,33 @@
         overlay.style.display = 'none';
     }
 
-    // 5. Create horizontal bottom navigation based on user role
+    // 5. ROLE-BASED MENU CONFIGURATION
+    const rolePermissions = {
+        'admin':      ['all'], 
+        'superadmin': ['all'],
+        
+        'charoi':     ['requests', 'panne', 'maintenance', 'reparations', 'fuel'],
+        
+        // Logistic sees Request & Trips
+        'logistic':   ['requests'], 
+        
+        // Driver sees Trips & Requests
+        'driver':     ['requests'],
+        
+        // Chef sees Requests
+        'chef':       ['requests'],
+        
+        // Standard user only sees Requests
+        'user':       ['requests'],
+
+        // Operateur sees Requests & Fuel
+        'operateur':  ['requests', 'fuel'],
+
+        // Technicien sees Requests & Operations
+        'technicien': ['requests', 'panne', 'maintenance', 'reparations'],
+    };
+
+    // 6. Create horizontal bottom navigation based on user role
     function createHorizontalNav() {
         const navContainer = document.getElementById('horizontalNav');
         const scrollIndicator = document.getElementById('scrollIndicator');
@@ -682,7 +709,7 @@
         setActiveBottomNav(currentHash);
     }
 
-    // 6. Set active bottom navigation
+    // 7. Set active bottom navigation
     function setActiveBottomNav(page) {
         // Remove active class from all bottom nav items
         const navItems = document.querySelectorAll('.mobile-nav-item');
@@ -706,38 +733,9 @@
         // Close sidebar if open
         closeMobileSidebar();
         
-        // Update URL hash
+        // Update URL hash - this will trigger router.js
         window.location.hash = `#${page}`;
-        
-        // Load content for this page
-        loadContent(page);
     }
-
-    // 7. ROLE-BASED MENU CONFIGURATION
-    const rolePermissions = {
-        'admin':      ['all'], 
-        'superadmin': ['all'],
-        
-        'charoi':     ['requests', 'panne', 'maintenance', 'reparations', 'fuel'],
-        
-        // Logistic sees Request & Trips
-        'logistic':   ['requests'], 
-        
-        // Driver sees Trips & Requests
-        'driver':     ['requests'],
-        
-        // Chef sees Requests
-        'chef':       ['requests'],
-        
-        // Standard user only sees Requests
-        'user':       ['requests'],
-
-        // Operateur sees Requests & Fuel
-        'operateur':  ['requests', 'fuel'],
-
-        // Technicien sees Requests & Operations
-        'technicien': ['requests', 'panne', 'maintenance', 'reparations'],
-    };
 
     // 8. APPLY VISIBILITY TO ALL MENUS
     function initSidebar() {
@@ -802,93 +800,27 @@
         createHorizontalNav();
     }
 
-    // 9. Content loading function (TEMPORARY - will be replaced by router.js)
-    function loadContent(page) {
-        console.log(`Loading content for: ${page}`);
-        
-        // Get both content containers
-        const desktopContent = document.getElementById('app-content');
-        const mobileContent = document.getElementById('app-content-mobile');
-        
-        // Show loading state
-        const loadingHTML = `
-            <div class="flex flex-col items-center justify-center h-64">
-                <i data-lucide="loader-2" class="w-12 h-12 animate-spin text-blue-500 mb-4"></i>
-                <p class="text-slate-500 dark:text-slate-400">Loading ${page}...</p>
-            </div>
-        `;
-        
-        if (desktopContent) desktopContent.innerHTML = loadingHTML;
-        if (mobileContent) mobileContent.innerHTML = loadingHTML;
-        
-        // Create Lucide icons for loading spinner
-        if (window.lucide) window.lucide.createIcons();
-        
-        // Simulate content loading (this will be replaced by router.js)
-        setTimeout(() => {
-            const contentHTML = `
-                <div class="animate-up">
-                    <div class="flex items-center justify-between mb-6">
-                        <div>
-                            <h1 class="text-2xl font-bold dark:text-white text-slate-800 capitalize">${page}</h1>
-                            <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage your ${page} here</p>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                        <div class="glass-panel p-6">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="font-semibold dark:text-white text-slate-800">${page} Overview</h3>
-                                <i data-lucide="info" class="w-5 h-5 text-slate-400"></i>
-                            </div>
-                            <p class="text-slate-600 dark:text-slate-300 text-sm">Content for ${page} will be loaded here by the router module.</p>
-                        </div>
-                        
-                        <div class="glass-panel p-6">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="font-semibold dark:text-white text-slate-800">Quick Actions</h3>
-                                <i data-lucide="zap" class="w-5 h-5 text-yellow-500"></i>
-                            </div>
-                            <p class="text-slate-600 dark:text-slate-300 text-sm">Use the buttons below to manage ${page}.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="glass-panel p-6">
-                        <h3 class="font-semibold dark:text-white text-slate-800 mb-4">${page} Content</h3>
-                        <p class="text-slate-600 dark:text-slate-300">The full ${page} module will be loaded by router.js. This is just a placeholder.</p>
-                    </div>
-                </div>
-            `;
-            
-            if (desktopContent) desktopContent.innerHTML = contentHTML;
-            if (mobileContent) mobileContent.innerHTML = contentHTML;
-            
-            // Create Lucide icons
-            if (window.lucide) window.lucide.createIcons();
-        }, 300);
-    }
-
-    // 10. GLOBAL LOGOUT
+    // 9. GLOBAL LOGOUT
     window.logout = function() {
         localStorage.clear();
         window.location.href = '/';
     }
 
-    // 11. Handle window resize for mobile sidebar
+    // 10. Handle window resize for mobile sidebar
     window.addEventListener('resize', function() {
         if (window.innerWidth >= 768) {
             closeMobileSidebar();
         }
     });
     
-    // 12. Close mobile sidebar when clicking on a link
+    // 11. Close mobile sidebar when clicking on a link
     document.addEventListener('click', function(e) {
         if (e.target.closest('a') && window.innerWidth < 768) {
             setTimeout(closeMobileSidebar, 100);
         }
     });
 
-    // 13. Handle horizontal nav scrolling
+    // 12. Handle horizontal nav scrolling
     document.addEventListener('DOMContentLoaded', function() {
         const horizontalNav = document.getElementById('horizontalNav');
         const scrollIndicator = document.getElementById('scrollIndicator');
@@ -906,24 +838,24 @@
         }
     });
 
-    // 14. Run initializations
+    // 13. Run initializations
     initTheme();
     initSidebar();
     
-    // 15. Create Lucide icons
+    // 14. Create Lucide icons
     setTimeout(() => {
         if (window.lucide) {
             window.lucide.createIcons();
         }
     }, 100);
 
-    // 16. Handle hash changes
+    // 15. Handle hash changes
     window.addEventListener('hashchange', function() {
         const currentHash = window.location.hash.substring(1) || 'dashboard';
         setActiveBottomNav(currentHash);
     });
     
-    // 17. Initial content load
+    // 16. Initial active nav
     window.addEventListener('DOMContentLoaded', function() {
         const currentHash = window.location.hash.substring(1) || 'dashboard';
         setActiveBottomNav(currentHash);
