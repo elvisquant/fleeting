@@ -169,7 +169,7 @@
             transform: translateX(0);
         }
         
-        /* Mobile bottom navigation (NEW) */
+        /* Horizontal scrollable bottom navigation (NEW) */
         .mobile-bottom-nav {
             position: fixed;
             bottom: 0;
@@ -179,10 +179,16 @@
             background: #1e293b;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
-            justify-content: space-around;
-            align-items: center;
+            overflow-x: auto;
+            overflow-y: hidden;
             z-index: 80;
             padding-bottom: env(safe-area-inset-bottom);
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        
+        .mobile-bottom-nav::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
         }
         
         .light .mobile-bottom-nav {
@@ -196,12 +202,15 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            flex: 1;
+            flex: 0 0 auto;
+            min-width: 80px;
+            max-width: 100px;
             height: 100%;
             transition: all 0.2s;
             color: #94a3b8;
             text-decoration: none;
             position: relative;
+            padding: 0 8px;
         }
         
         .mobile-nav-item.active {
@@ -221,14 +230,16 @@
         }
         
         .mobile-nav-icon {
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             margin-bottom: 4px;
         }
         
         .mobile-nav-label {
             font-size: 10px;
             font-weight: 500;
+            text-align: center;
+            white-space: nowrap;
         }
         
         /* Mobile header */
@@ -293,6 +304,27 @@
         /* Safe area for newer iPhones */
         .safe-area-bottom {
             padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* Content container visibility fix */
+        .content-container {
+            display: block;
+        }
+        
+        /* Scroll indicator for horizontal nav */
+        .scroll-indicator {
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 20px;
+            background: linear-gradient(to right, transparent, rgba(30, 41, 59, 0.8));
+            pointer-events: none;
+            display: none;
+        }
+        
+        .light .scroll-indicator {
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.8));
         }
     </style>
 </head>
@@ -379,7 +411,7 @@
         <!-- Desktop Main Content -->
         <main class="flex-1 h-full overflow-y-auto overflow-x-hidden p-4 md:p-6 scroll-smooth">
             <!-- DYNAMIC CONTENT CONTAINER -->
-            <div id="app-content" class="min-h-[calc(100vh-120px)]"></div>
+            <div id="app-content" class="content-container min-h-[calc(100vh-120px)]"></div>
         </main>
     </div>
 
@@ -487,31 +519,16 @@
             </header>
 
             <!-- DYNAMIC CONTENT CONTAINER -->
-            <div id="app-content-mobile" class="p-4 min-h-[calc(100vh-140px)]"></div>
+            <div id="app-content-mobile" class="content-container p-4 min-h-[calc(100vh-140px)]"></div>
         </div>
 
-        <!-- Mobile Bottom Navigation (Like Mobile App) -->
-        <nav class="mobile-bottom-nav safe-area-bottom">
-            <a href="#dashboard" class="mobile-nav-item" id="bottom-nav-dashboard" onclick="setActiveBottomNav('dashboard')">
-                <i data-lucide="layout-grid" class="mobile-nav-icon"></i>
-                <span class="mobile-nav-label">Dashboard</span>
-            </a>
-            <a href="#requests" class="mobile-nav-item" id="bottom-nav-requests" onclick="setActiveBottomNav('requests')">
-                <i data-lucide="file-check" class="mobile-nav-icon"></i>
-                <span class="mobile-nav-label">Requests</span>
-            </a>
-            <a href="#vehicles" class="mobile-nav-item" id="bottom-nav-vehicles" onclick="setActiveBottomNav('vehicles')">
-                <i data-lucide="car" class="mobile-nav-icon"></i>
-                <span class="mobile-nav-label">Vehicles</span>
-            </a>
-            <a href="#maintenance" class="mobile-nav-item" id="bottom-nav-maintenance" onclick="setActiveBottomNav('maintenance')">
-                <i data-lucide="wrench" class="mobile-nav-icon"></i>
-                <span class="mobile-nav-label">Maintenance</span>
-            </a>
-            <a href="#menu" class="mobile-nav-item" id="bottom-nav-menu" onclick="toggleMobileSidebar()">
-                <i data-lucide="more-horizontal" class="mobile-nav-icon"></i>
-                <span class="mobile-nav-label">More</span>
-            </a>
+        <!-- Horizontal Scrollable Bottom Navigation (Like Mobile App) -->
+        <nav class="mobile-bottom-nav safe-area-bottom" id="horizontalNav">
+            <!-- Scroll indicator (visible when content overflows) -->
+            <div class="scroll-indicator" id="scrollIndicator"></div>
+            
+            <!-- Navigation items will be dynamically added here -->
+            <!-- They will be populated by JavaScript based on user role -->
         </nav>
     </div>
 
@@ -603,7 +620,69 @@
         overlay.style.display = 'none';
     }
 
-    // 5. Set active bottom navigation
+    // 5. Create horizontal bottom navigation based on user role
+    function createHorizontalNav() {
+        const navContainer = document.getElementById('horizontalNav');
+        const scrollIndicator = document.getElementById('scrollIndicator');
+        
+        // Clear existing nav items
+        navContainer.innerHTML = '<div class="scroll-indicator" id="scrollIndicator"></div>';
+        
+        // Define all possible navigation items with icons and labels
+        const allNavItems = [
+            { id: 'dashboard', label: 'Dashboard', icon: 'layout-grid', permission: 'dashboard' },
+            { id: 'analytics', label: 'Analytics', icon: 'bar-chart-2', permission: 'analytics' },
+            { id: 'vehicles', label: 'Vehicles', icon: 'car', permission: 'vehicles' },
+            { id: 'requests', label: 'Requests', icon: 'file-check', permission: 'requests' },
+            { id: 'users', label: 'Users', icon: 'users', permission: 'users' },
+            { id: 'fuel', label: 'Fuel', icon: 'fuel', permission: 'fuel' },
+            { id: 'maintenance', label: 'Maintenance', icon: 'wrench', permission: 'maintenance' },
+            { id: 'panne', label: 'Panne', icon: 'alert-triangle', permission: 'panne' },
+            { id: 'reparations', label: 'Reparations', icon: 'hammer', permission: 'reparations' }
+        ];
+        
+        // Get permissions for current user
+        const allowed = rolePermissions[uRole] || ['dashboard'];
+        
+        // Filter items based on permissions
+        const visibleItems = allNavItems.filter(item => 
+            allowed.includes('all') || allowed.includes(item.permission)
+        );
+        
+        // Create nav items
+        visibleItems.forEach(item => {
+            const navItem = document.createElement('a');
+            navItem.href = `#${item.id}`;
+            navItem.className = 'mobile-nav-item';
+            navItem.id = `bottom-nav-${item.id}`;
+            navItem.onclick = function(e) {
+                e.preventDefault();
+                setActiveBottomNav(item.id);
+                return false;
+            };
+            
+            navItem.innerHTML = `
+                <i data-lucide="${item.icon}" class="mobile-nav-icon"></i>
+                <span class="mobile-nav-label">${item.label}</span>
+            `;
+            
+            navContainer.appendChild(navItem);
+        });
+        
+        // Check if scrolling is needed and show indicator
+        setTimeout(() => {
+            const nav = document.getElementById('horizontalNav');
+            if (nav.scrollWidth > nav.clientWidth) {
+                scrollIndicator.style.display = 'block';
+            }
+        }, 100);
+        
+        // Set initial active nav based on hash
+        const currentHash = window.location.hash.substring(1) || 'dashboard';
+        setActiveBottomNav(currentHash);
+    }
+
+    // 6. Set active bottom navigation
     function setActiveBottomNav(page) {
         // Remove active class from all bottom nav items
         const navItems = document.querySelectorAll('.mobile-nav-item');
@@ -615,16 +694,26 @@
         const activeItem = document.getElementById(`bottom-nav-${page}`);
         if (activeItem) {
             activeItem.classList.add('active');
+            
+            // Scroll the active item into view if needed
+            activeItem.scrollIntoView({ 
+                behavior: 'smooth', 
+                inline: 'center', 
+                block: 'nearest' 
+            });
         }
         
         // Close sidebar if open
         closeMobileSidebar();
         
-        // Update content via router (this will be handled by router.js)
+        // Update URL hash
         window.location.hash = `#${page}`;
+        
+        // Load content for this page
+        loadContent(page);
     }
 
-    // 6. ROLE-BASED MENU CONFIGURATION
+    // 7. ROLE-BASED MENU CONFIGURATION
     const rolePermissions = {
         'admin':      ['all'], 
         'superadmin': ['all'],
@@ -650,12 +739,12 @@
         'technicien': ['requests', 'panne', 'maintenance', 'reparations'],
     };
 
-    // 7. APPLY VISIBILITY TO ALL MENUS
+    // 8. APPLY VISIBILITY TO ALL MENUS
     function initSidebar() {
         // Get the list of allowed keys for this user
         const allowed = rolePermissions[uRole] || ['dashboard'];
 
-        // Map HTML IDs to the keys above (for desktop, mobile sidebar, and bottom nav)
+        // Map HTML IDs to the keys above (for desktop and mobile sidebar)
         const menuMap = {
             // Desktop menu items
             'nav-dashboard':   'dashboard',
@@ -679,12 +768,6 @@
             'mobile-nav-reparations': 'reparations',
             'mobile-nav-fuel':        'fuel',
             
-            // Bottom navigation items
-            'bottom-nav-dashboard':   'dashboard',
-            'bottom-nav-requests':    'requests',
-            'bottom-nav-vehicles':    'vehicles',
-            'bottom-nav-maintenance': 'maintenance',
-            
             // Menu group visibility
             'group-overview': 'overview',
             'group-management': 'management',
@@ -694,10 +777,7 @@
             'mobile-group-operations': 'operations'
         };
 
-        // First, determine which menu items are visible
-        const visibleItems = {};
-        const visibleGroups = new Set();
-        
+        // Apply visibility to desktop and mobile sidebar
         for (const [elementId, permissionKey] of Object.entries(menuMap)) {
             const el = document.getElementById(elementId);
             if (!el) continue;
@@ -709,20 +789,8 @@
                 // Show the element
                 if (elementId.startsWith('group-') || elementId.startsWith('mobile-group-')) {
                     el.style.display = 'block';
-                } else if (elementId.startsWith('bottom-nav-')) {
-                    el.style.display = 'flex';
                 } else {
                     el.style.display = 'flex';
-                }
-                visibleItems[permissionKey] = true;
-                
-                // Track which groups should be visible
-                if (permissionKey === 'dashboard' || permissionKey === 'analytics') {
-                    visibleGroups.add('overview');
-                } else if (['vehicles', 'requests', 'users', 'fuel'].includes(permissionKey)) {
-                    visibleGroups.add('management');
-                } else if (['maintenance', 'panne', 'reparations'].includes(permissionKey)) {
-                    visibleGroups.add('operations');
                 }
             } else {
                 // Hide the element
@@ -730,69 +798,133 @@
             }
         }
         
-        // Hide empty group headers
-        const groupElements = {
-            'overview': ['group-overview', 'mobile-group-overview'],
-            'management': ['group-management', 'mobile-group-management'],
-            'operations': ['group-operations', 'mobile-group-operations']
-        };
-        
-        for (const [group, elementIds] of Object.entries(groupElements)) {
-            const shouldShowGroup = visibleGroups.has(group);
-            elementIds.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = shouldShowGroup ? 'block' : 'none';
-            });
-        }
-        
-        // Set initial active bottom nav based on current hash
-        const currentHash = window.location.hash.substring(1) || 'dashboard';
-        setActiveBottomNav(currentHash);
+        // Create horizontal navigation for mobile
+        createHorizontalNav();
     }
 
-    // 8. Content synchronization between desktop and mobile
-    function syncContent() {
+    // 9. Content loading function (TEMPORARY - will be replaced by router.js)
+    function loadContent(page) {
+        console.log(`Loading content for: ${page}`);
+        
+        // Get both content containers
         const desktopContent = document.getElementById('app-content');
         const mobileContent = document.getElementById('app-content-mobile');
         
-        // When router loads content, it should update both containers
-        // This will be handled by the router.js file
+        // Show loading state
+        const loadingHTML = `
+            <div class="flex flex-col items-center justify-center h-64">
+                <i data-lucide="loader-2" class="w-12 h-12 animate-spin text-blue-500 mb-4"></i>
+                <p class="text-slate-500 dark:text-slate-400">Loading ${page}...</p>
+            </div>
+        `;
+        
+        if (desktopContent) desktopContent.innerHTML = loadingHTML;
+        if (mobileContent) mobileContent.innerHTML = loadingHTML;
+        
+        // Create Lucide icons for loading spinner
+        if (window.lucide) window.lucide.createIcons();
+        
+        // Simulate content loading (this will be replaced by router.js)
+        setTimeout(() => {
+            const contentHTML = `
+                <div class="animate-up">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold dark:text-white text-slate-800 capitalize">${page}</h1>
+                            <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage your ${page} here</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="glass-panel p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-semibold dark:text-white text-slate-800">${page} Overview</h3>
+                                <i data-lucide="info" class="w-5 h-5 text-slate-400"></i>
+                            </div>
+                            <p class="text-slate-600 dark:text-slate-300 text-sm">Content for ${page} will be loaded here by the router module.</p>
+                        </div>
+                        
+                        <div class="glass-panel p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-semibold dark:text-white text-slate-800">Quick Actions</h3>
+                                <i data-lucide="zap" class="w-5 h-5 text-yellow-500"></i>
+                            </div>
+                            <p class="text-slate-600 dark:text-slate-300 text-sm">Use the buttons below to manage ${page}.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel p-6">
+                        <h3 class="font-semibold dark:text-white text-slate-800 mb-4">${page} Content</h3>
+                        <p class="text-slate-600 dark:text-slate-300">The full ${page} module will be loaded by router.js. This is just a placeholder.</p>
+                    </div>
+                </div>
+            `;
+            
+            if (desktopContent) desktopContent.innerHTML = contentHTML;
+            if (mobileContent) mobileContent.innerHTML = contentHTML;
+            
+            // Create Lucide icons
+            if (window.lucide) window.lucide.createIcons();
+        }, 300);
     }
 
-    // 9. GLOBAL LOGOUT
+    // 10. GLOBAL LOGOUT
     window.logout = function() {
         localStorage.clear();
         window.location.href = '/';
     }
 
-    // 10. Handle window resize for mobile sidebar
+    // 11. Handle window resize for mobile sidebar
     window.addEventListener('resize', function() {
         if (window.innerWidth >= 768) {
             closeMobileSidebar();
         }
     });
     
-    // 11. Close mobile sidebar when clicking on a link
+    // 12. Close mobile sidebar when clicking on a link
     document.addEventListener('click', function(e) {
         if (e.target.closest('a') && window.innerWidth < 768) {
             setTimeout(closeMobileSidebar, 100);
         }
     });
 
-    // 12. Run initializations
+    // 13. Handle horizontal nav scrolling
+    document.addEventListener('DOMContentLoaded', function() {
+        const horizontalNav = document.getElementById('horizontalNav');
+        const scrollIndicator = document.getElementById('scrollIndicator');
+        
+        if (horizontalNav) {
+            horizontalNav.addEventListener('scroll', function() {
+                // Show/hide scroll indicator based on scroll position
+                const maxScroll = horizontalNav.scrollWidth - horizontalNav.clientWidth;
+                if (horizontalNav.scrollLeft < maxScroll - 10) {
+                    scrollIndicator.style.display = 'block';
+                } else {
+                    scrollIndicator.style.display = 'none';
+                }
+            });
+        }
+    });
+
+    // 14. Run initializations
     initTheme();
     initSidebar();
-    syncContent();
     
-    // 13. Create Lucide icons
+    // 15. Create Lucide icons
     setTimeout(() => {
         if (window.lucide) {
             window.lucide.createIcons();
         }
     }, 100);
 
-    // 14. Handle hash changes for bottom nav
+    // 16. Handle hash changes
     window.addEventListener('hashchange', function() {
+        const currentHash = window.location.hash.substring(1) || 'dashboard';
+        setActiveBottomNav(currentHash);
+    });
+    
+    // 17. Initial content load
+    window.addEventListener('DOMContentLoaded', function() {
         const currentHash = window.location.hash.substring(1) || 'dashboard';
         setActiveBottomNav(currentHash);
     });
