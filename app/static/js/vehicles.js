@@ -8,6 +8,9 @@ let vehicleActionType = null;
 let vehicleActionId = null;
 let selectedVehicleIds = new Set();
 
+// =================================================================
+// 1. INITIALIZATION
+// =================================================================
 async function initVehicles() {
     console.log("Vehicles Module: Init");
     vehicleUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
@@ -26,32 +29,51 @@ async function initVehicles() {
     await Promise.all([loadVehiclesData(), fetchVehicleDropdowns()]);
 }
 
+// =================================================================
+// 2. DATA LOADING
+// =================================================================
 async function loadVehiclesData() {
     const tbody = document.getElementById('vehiclesBody');
     if(!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500">
+        <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+        <div class="text-sm mt-2">Loading vehicles...</div>
+    </td></tr>`;
+    
     if(window.lucide) window.lucide.createIcons();
 
-    const data = await window.fetchWithAuth('/vehicles/?limit=1000');
-    
-    // Handle pagination or list response
-    const items = data.items || data;
-    
-    if (Array.isArray(items)) {
-        allVehicles = items;
-        selectedVehicleIds.clear();
-        updateVehicleBulkUI();
-        renderVehiclesTable();
-    } else {
-        const msg = data && data.detail ? data.detail : "Failed to load data.";
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+    try {
+        const data = await window.fetchWithAuth('/vehicles/?limit=1000');
+        
+        // Handle pagination or list response
+        const items = data.items || data;
+        
+        if (Array.isArray(items)) {
+            allVehicles = items;
+            selectedVehicleIds.clear();
+            updateVehicleBulkUI();
+            renderVehiclesTable();
+        } else {
+            const msg = data && data.detail ? data.detail : "Failed to load data.";
+            showVehicleAlert("Error", msg, false);
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">
+                <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2 text-red-400"></i>
+                <div>Error loading vehicles</div>
+            </td></tr>`;
+        }
+    } catch (error) {
+        console.error("Load vehicles error:", error);
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">
+            <i data-lucide="wifi-off" class="w-8 h-8 mx-auto mb-2 text-red-400"></i>
+            <div>Network error. Please check connection.</div>
+        </td></tr>`;
+        if(window.lucide) window.lucide.createIcons();
     }
 }
 
 async function fetchVehicleDropdowns() {
     try {
-        // FIX: Use trailing slashes to prevent 307 Redirects
         const [makes, models, types, trans, fuels] = await Promise.all([
             window.fetchWithAuth('/vehicle-makes/?limit=200'),
             window.fetchWithAuth('/vehicle-models/?limit=1000'),
@@ -60,7 +82,6 @@ async function fetchVehicleDropdowns() {
             window.fetchWithAuth('/fuel-types/?limit=200')
         ]);
         
-        // Handle pagination responses
         vehicleOptions.makes = Array.isArray(makes) ? makes : (makes.items || []);
         vehicleOptions.models = Array.isArray(models) ? models : (models.items || []);
         vehicleOptions.types = Array.isArray(types) ? types : (types.items || []);
@@ -69,9 +90,13 @@ async function fetchVehicleDropdowns() {
         
     } catch (e) {
         console.warn("Dropdown Error", e);
+        showVehicleAlert("Warning", "Could not load all dropdown options", false);
     }
 }
 
+// =================================================================
+// 3. TABLE RENDERING
+// =================================================================
 function renderVehiclesTable() {
     const tbody = document.getElementById('vehiclesBody');
     if(!tbody) return;
@@ -80,10 +105,16 @@ function renderVehiclesTable() {
     const sFilter = document.getElementById('vehicleStatusFilter') ? document.getElementById('vehicleStatusFilter').value : "all";
     
     let filtered = allVehicles.filter(v => {
+        const makeName = getOptionName(vehicleOptions.makes, v.make, 'vehicle_make').toLowerCase();
+        const modelName = getOptionName(vehicleOptions.models, v.model, 'vehicle_model').toLowerCase();
+        const plate = v.plate_number ? v.plate_number.toLowerCase() : '';
+        const vin = v.vin ? v.vin.toLowerCase() : '';
+        
         const matchesSearch = 
-            (v.plate_number && v.plate_number.toLowerCase().includes(search)) ||
-            (v.vin && v.vin.toLowerCase().includes(search)) ||
-            (getOptionName(vehicleOptions.makes, v.make, 'vehicle_make').toLowerCase().includes(search));
+            plate.includes(search) ||
+            vin.includes(search) ||
+            makeName.includes(search) ||
+            modelName.includes(search);
             
         let matchesStatus = true;
         if (sFilter === 'verified') matchesStatus = v.is_verified === true;
@@ -92,10 +123,13 @@ function renderVehiclesTable() {
         return matchesSearch && matchesStatus;
     });
 
-    document.getElementById('vehiclesCount').innerText = `${filtered.length} vehicles found`;
+    document.getElementById('vehiclesCount').innerText = `${filtered.length} vehicle${filtered.length !== 1 ? 's' : ''} found`;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No vehicles found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">
+            <i data-lucide="search" class="w-8 h-8 mx-auto mb-2 text-slate-500"></i>
+            <div>No vehicles found</div>
+        </td></tr>`;
         return;
     }
 
@@ -108,75 +142,153 @@ function renderVehiclesTable() {
         const purchaseDate = v.purchase_date ? new Date(v.purchase_date).toLocaleDateString() : '-';
         
         const verifyBadge = v.is_verified 
-            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
-            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
+            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20 flex items-center gap-1 w-fit">
+                <i data-lucide="check-circle" class="w-3 h-3"></i> Verified
+               </span>`
+            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 flex items-center gap-1 w-fit">
+                <i data-lucide="clock" class="w-3 h-3"></i> Pending
+               </span>`;
 
         // Checkbox logic
         let checkboxHtml = '';
         if (canManage && !v.is_verified) {
             const isChecked = selectedVehicleIds.has(v.id) ? 'checked' : '';
-            checkboxHtml = `<input type="checkbox" onchange="toggleVehicleRow(${v.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`;
+            checkboxHtml = `<input type="checkbox" onchange="toggleVehicleRow(${v.id})" ${isChecked} 
+                class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-1 focus:ring-blue-500 cursor-pointer hover:border-blue-500 transition">`;
         } else {
-            checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30 cursor-not-allowed">`;
+            checkboxHtml = `<input type="checkbox" disabled 
+                class="rounded border-slate-700 bg-slate-900 opacity-30 cursor-not-allowed">`;
         }
 
         let actions = '';
-        const viewBtn = `<button onclick="viewVehicle(${v.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
+        const viewBtn = `<button onclick="viewVehicle(${v.id})" 
+            class="p-1.5 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-white rounded-md transition border border-slate-700 hover:border-blue-500"
+            title="View Details"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
         if (v.is_verified) {
-            actions = `<div class="flex items-center justify-end gap-2">${viewBtn}<span class="text-slate-600 cursor-not-allowed" title="Locked"><i data-lucide="lock" class="w-4 h-4"></i></span></div>`;
+            actions = `<div class="flex items-center justify-end gap-2">
+                ${viewBtn}
+                <span class="text-slate-600 cursor-not-allowed p-1.5" title="Locked - Verified vehicles cannot be edited">
+                    <i data-lucide="lock" class="w-4 h-4"></i>
+                </span>
+            </div>`;
         } else if (canManage) {
-            actions = `
-                <div class="flex items-center justify-end gap-2">
-                    ${viewBtn}
-                    <button onclick="reqVehicleVerify(${v.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
-                    <button onclick="openEditVehicleModal(${v.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                    <button onclick="reqVehicleDelete(${v.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>`;
+            actions = `<div class="flex items-center justify-end gap-2">
+                ${viewBtn}
+                <button onclick="reqVehicleVerify(${v.id})" 
+                    class="p-1.5 bg-slate-800 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-md transition border border-slate-700 hover:border-emerald-500"
+                    title="Verify Vehicle"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                <button onclick="openEditVehicleModal(${v.id})" 
+                    class="p-1.5 bg-slate-800 hover:bg-amber-600 text-amber-400 hover:text-white rounded-md transition border border-slate-700 hover:border-amber-500"
+                    title="Edit Vehicle"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                <button onclick="reqVehicleDelete(${v.id})" 
+                    class="p-1.5 bg-slate-800 hover:bg-red-600 text-red-400 hover:text-white rounded-md transition border border-slate-700 hover:border-red-500"
+                    title="Delete Vehicle"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>`;
         } else {
             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
         }
         
         return `
-            <tr class="hover:bg-white/5 transition group border-b border-slate-700/30">
-                <td class="p-4 text-center">${checkboxHtml}</td>
-                <td class="p-4">
+            <tr class="hover:bg-white/[0.02] transition-colors border-b border-slate-700/30">
+                <td class="p-4 text-center align-middle">${checkboxHtml}</td>
+                <td class="p-4 align-middle">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400"><i data-lucide="car" class="w-5 h-5"></i></div>
-                        <div><div class="font-medium text-white">${make} ${model}</div><div class="text-xs text-slate-500">ID: ${v.id}</div></div>
+                        <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
+                            <i data-lucide="car" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-white text-sm">${make} ${model}</div>
+                            <div class="text-xs text-slate-500">ID: ${v.id} • ${v.year}</div>
+                        </div>
                     </div>
                 </td>
-                <td class="p-4 font-mono text-slate-300 text-sm">${v.plate_number}<br><span class="text-xs text-slate-500">${v.vin || 'No VIN'}</span></td>
-                <td class="p-4 text-slate-400 text-sm">${v.year}</td>
-                <td class="p-4 text-slate-400 text-right text-sm">${v.mileage ? v.mileage.toLocaleString() : 0} km</td>
-                <td class="p-4"><span class="px-2 py-1 rounded-full text-[10px] uppercase font-bold border ${statusClass}">${v.status ? v.status.replace('_', ' ') : 'N/A'}</span></td>
-                <td class="p-4">${verifyBadge}</td>
-                <td class="p-4 text-right">${actions}</td>
+                <td class="p-4 align-middle">
+                    <div class="font-mono text-white text-sm">${v.plate_number || 'No Plate'}</div>
+                    <div class="text-xs text-slate-500 truncate max-w-[150px]">${v.vin || 'No VIN'}</div>
+                </td>
+                <td class="p-4 text-slate-400 align-middle text-sm">${v.year || '-'}</td>
+                <td class="p-4 align-middle">
+                    <span class="px-2 py-1 rounded-full text-[10px] uppercase font-bold border ${statusClass}">
+                        ${v.status ? v.status.replace('_', ' ') : 'N/A'}
+                    </span>
+                </td>
+                <td class="p-4 align-middle">${verifyBadge}</td>
+                <td class="p-4 align-middle text-right">
+                    <div class="flex justify-end gap-2">${actions}</div>
+                </td>
             </tr>
         `;
     }).join('');
     
+    // Update select all checkbox
+    updateSelectAllCheckbox();
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
-// === BULK LOGIC ===
+// =================================================================
+// 4. BULK OPERATIONS
+// =================================================================
+
 window.toggleVehicleRow = function(id) {
-    if (selectedVehicleIds.has(id)) selectedVehicleIds.delete(id);
-    else selectedVehicleIds.add(id);
+    const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
+    const vehicle = allVehicles.find(v => v.id === id);
+    
+    if (!vehicle || !canManage || vehicle.is_verified) return;
+    
+    if (selectedVehicleIds.has(id)) {
+        selectedVehicleIds.delete(id);
+    } else {
+        selectedVehicleIds.add(id);
+    }
+    
     updateVehicleBulkUI();
+    updateSelectAllCheckbox();
+}
+
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('selectAllVehicles');
+    if (!selectAllCheckbox) return;
+    
+    const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
+    const selectableVehicles = allVehicles.filter(v => canManage && !v.is_verified);
+    
+    if (selectableVehicles.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        return;
+    }
+    
+    const selectedFromSelectable = selectableVehicles.filter(v => selectedVehicleIds.has(v.id));
+    
+    if (selectedFromSelectable.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedFromSelectable.length === selectableVehicles.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
 }
 
 window.toggleVehicleSelectAll = function() {
     const mainCheck = document.getElementById('selectAllVehicles');
     const isChecked = mainCheck.checked;
+    
+    const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
+    const selectableVehicles = allVehicles.filter(v => canManage && !v.is_verified);
+    
     selectedVehicleIds.clear();
     
-    if (isChecked) {
-        const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
-        allVehicles.forEach(v => {
-             if(canManage && !v.is_verified) selectedVehicleIds.add(v.id);
+    if (isChecked && selectableVehicles.length > 0) {
+        selectableVehicles.forEach(v => {
+            selectedVehicleIds.add(v.id);
         });
     }
+    
     renderVehiclesTable();
     updateVehicleBulkUI();
 }
@@ -184,75 +296,160 @@ window.toggleVehicleSelectAll = function() {
 function updateVehicleBulkUI() {
     const btn = document.getElementById('btnVehicleBulkVerify');
     const countSpan = document.getElementById('vehicleSelectedCount');
-    if (!btn) return;
-
+    
+    if (!btn || !countSpan) return;
+    
     countSpan.innerText = selectedVehicleIds.size;
-    if (selectedVehicleIds.size > 0) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
+    
+    if (selectedVehicleIds.size > 0) {
+        btn.classList.remove('hidden');
+        btn.classList.add('animate-pulse');
+        setTimeout(() => btn.classList.remove('animate-pulse'), 1000);
+    } else {
+        btn.classList.add('hidden');
+    }
 }
 
-window.executeVehicleBulkVerify = async function() {
-    if (selectedVehicleIds.size === 0) return;
+// FIXED: The HTML calls reqVehicleBulkVerify (not executeVehicleBulkVerify)
+window.reqVehicleBulkVerify = function() {
+    if (selectedVehicleIds.size === 0) {
+        showVehicleAlert("No Selection", "Please select at least one vehicle to verify.", false);
+        return;
+    }
     
     vehicleActionType = 'bulk-verify';
     vehicleActionId = null;
-    showVehicleConfirmModal("Verify Selected?", `Verify ${selectedVehicleIds.size} vehicles? This cannot be undone.`, "check-circle", "bg-emerald-600");
+    
+    showVehicleConfirmModal(
+        "Bulk Verify Vehicles", 
+        `Are you sure you want to verify ${selectedVehicleIds.size} selected vehicle${selectedVehicleIds.size > 1 ? 's' : ''}?<br><span class="text-xs text-slate-400 mt-1 block">This action cannot be undone.</span>`, 
+        "shield-check", 
+        "bg-emerald-600"
+    );
 }
 
-// === ACTIONS ===
+// =================================================================
+// 5. SINGLE ACTIONS (Trigger Modal)
+// =================================================================
+
 window.reqVehicleVerify = function(id) {
-    vehicleActionType = 'verify'; 
+    const vehicle = allVehicles.find(v => v.id === id);
+    if (!vehicle) return;
+    
+    if (vehicle.is_verified) {
+        showVehicleAlert("Already Verified", "This vehicle is already verified.", false);
+        return;
+    }
+    
+    vehicleActionType = 'verify';
     vehicleActionId = id;
-    showVehicleConfirmModal("Verify Vehicle?", "This action locks the record.", "check-circle", "bg-green-600");
+    
+    const make = getOptionName(vehicleOptions.makes, vehicle.make, 'vehicle_make');
+    const model = getOptionName(vehicleOptions.models, vehicle.model, 'vehicle_model');
+    const vehicleInfo = `${make} ${model} (${vehicle.plate_number})`;
+    
+    showVehicleConfirmModal(
+        "Verify Vehicle", 
+        `Verify vehicle #${id} ${vehicleInfo}?<br><span class="text-xs text-slate-400 mt-1 block">This will lock the vehicle permanently.</span>`, 
+        "check-circle", 
+        "bg-green-600"
+    );
 }
 
 window.reqVehicleDelete = function(id) {
-    vehicleActionType = 'delete'; 
+    const vehicle = allVehicles.find(v => v.id === id);
+    if (!vehicle) return;
+    
+    vehicleActionType = 'delete';
     vehicleActionId = id;
-    showVehicleConfirmModal("Delete Vehicle?", "This action cannot be undone.", "trash-2", "bg-red-600");
+    
+    const make = getOptionName(vehicleOptions.makes, vehicle.make, 'vehicle_make');
+    const model = getOptionName(vehicleOptions.models, vehicle.model, 'vehicle_model');
+    const vehicleInfo = `${make} ${model} (${vehicle.plate_number})`;
+    
+    showVehicleConfirmModal(
+        "Delete Vehicle", 
+        `Permanently delete vehicle #${id} ${vehicleInfo}?<br><span class="text-xs text-red-400 mt-1 block">This action cannot be undone.</span>`, 
+        "trash-2", 
+        "bg-red-600"
+    );
 }
+
+// =================================================================
+// 6. EXECUTE ACTION (Confirm Modal Click)
+// =================================================================
 
 async function executeVehicleConfirmAction() {
     const btn = document.getElementById('btnVehicleConfirmAction');
-    btn.disabled = true; btn.innerText = "Processing...";
-
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
+    
     try {
-        let result;
+        let result = null;
+        let successMessage = "";
         
+        // --- DELETE ---
         if (vehicleActionType === 'delete') {
             result = await window.fetchWithAuth(`/vehicles/${vehicleActionId}`, 'DELETE');
-        } 
+            successMessage = "Vehicle deleted successfully";
+        }
+        // --- VERIFY (Single) ---
         else if (vehicleActionType === 'verify') {
             const payload = { ids: [parseInt(vehicleActionId)] };
-            result = await window.fetchWithAuth(`/vehicles/verify-bulk`, 'PUT', payload); 
+            result = await window.fetchWithAuth(`/vehicles/verify-bulk`, 'PUT', payload);
+            successMessage = "Vehicle verified successfully";
         }
+        // --- VERIFY (Bulk) ---
         else if (vehicleActionType === 'bulk-verify') {
             const idList = Array.from(selectedVehicleIds).map(id => parseInt(id));
             const payload = { ids: idList };
             result = await window.fetchWithAuth('/vehicles/verify-bulk', 'PUT', payload);
+            successMessage = `${idList.length} vehicle${idList.length > 1 ? 's' : ''} verified successfully`;
         }
-        
+
         window.closeModal('vehicleConfirmModal');
         
-        if(result !== null && result !== false) {
-            if (vehicleActionType === 'bulk-verify') selectedVehicleIds.clear();
+        if (result !== null && result !== false && !result.detail) {
+            // Clear selections for bulk operations
+            if (vehicleActionType === 'bulk-verify') {
+                selectedVehicleIds.clear();
+            }
+            
+            // Reload data
             await loadVehiclesData();
-            showVehicleSuccessAlert("Success", "Action completed successfully.");
+            
+            // Show success alert
+            showVehicleAlert("Success", successMessage, true);
+            
         } else {
-            showVehicleErrorAlert("Failed", "Action could not be completed.");
+            // Handle API errors
+            const errorMsg = result?.detail || "Action could not be completed";
+            showVehicleAlert("Failed", typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
         }
+        
     } catch(e) {
+        console.error("Action error:", e);
         window.closeModal('vehicleConfirmModal');
-        showVehicleErrorAlert("Error", e.message || "An unexpected error occurred.");
+        showVehicleAlert("Error", e.message || "An unexpected error occurred", false);
     }
     
-    btn.disabled = false; 
-    btn.innerText = "Confirm"; 
-    vehicleActionId = null; 
+    // Reset button state
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+    
+    // Reset action state
+    vehicleActionId = null;
     vehicleActionType = null;
+    
+    if(window.lucide) window.lucide.createIcons();
 }
 
-// === MODALS ===
+// =================================================================
+// 7. ADD / EDIT / VIEW LOGIC
+// =================================================================
+
 window.openAddVehicleModal = function() {
     document.getElementById('vehicleEditId').value = "";
     document.getElementById('vehicleModalTitle').innerText = "Add New Vehicle";
@@ -260,17 +457,33 @@ window.openAddVehicleModal = function() {
     resetForm();
     populateVehicleDropdowns();
     document.getElementById('addVehicleModal').classList.remove('hidden');
+    
+    // Focus first field
+    setTimeout(() => {
+        const firstSelect = document.getElementById('vehicleMake');
+        if (firstSelect) firstSelect.focus();
+    }, 100);
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.openEditVehicleModal = function(id) {
-    const v = allVehicles.find(x => x.id === id);
-    if(!v) return;
+    const vehicle = allVehicles.find(v => v.id === id);
+    if(!vehicle) {
+        showVehicleAlert("Error", "Vehicle not found", false);
+        return;
+    }
     
-    document.getElementById('vehicleEditId').value = v.id;
+    if (vehicle.is_verified) {
+        showVehicleAlert("Locked", "Verified vehicles cannot be edited", false);
+        return;
+    }
+
+    document.getElementById('vehicleEditId').value = vehicle.id;
     document.getElementById('vehicleModalTitle').innerText = "Edit Vehicle";
-    document.getElementById('btnSaveVehicle').innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> Update`;
-    populateVehicleDropdowns(v);
+    document.getElementById('btnSaveVehicle').innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> Update Vehicle`;
+    
+    populateVehicleDropdowns(vehicle);
     
     const setVal = (id, val) => { 
         if(document.getElementById(id) && val !== null && val !== undefined) {
@@ -278,14 +491,14 @@ window.openEditVehicleModal = function(id) {
         }
     };
     
-    setVal('vehicleYear', v.year);
-    setVal('vehiclePlate', v.plate_number);
-    setVal('vehicleVin', v.vin);
-    setVal('vehicleColor', v.color);
-    setVal('vehicleMileage', v.mileage);
-    setVal('vehicleEngine', v.engine_size);
-    setVal('vehiclePrice', v.purchase_price);
-    if(v.purchase_date) setVal('vehicleDate', v.purchase_date.split('T')[0]);
+    setVal('vehicleYear', vehicle.year);
+    setVal('vehiclePlate', vehicle.plate_number);
+    setVal('vehicleVin', vehicle.vin);
+    setVal('vehicleColor', vehicle.color);
+    setVal('vehicleMileage', vehicle.mileage);
+    setVal('vehicleEngine', vehicle.engine_size);
+    setVal('vehiclePrice', vehicle.purchase_price);
+    if(vehicle.purchase_date) setVal('vehicleDate', vehicle.purchase_date.split('T')[0]);
 
     document.getElementById('addVehicleModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
@@ -293,17 +506,23 @@ window.openEditVehicleModal = function(id) {
 
 window.saveVehicle = async function() {
     const id = document.getElementById('vehicleEditId').value;
-    const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
+    const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value.trim() : '';
     const getInt = (id) => parseInt(document.getElementById(id).value) || null;
     const getFloat = (id) => parseFloat(document.getElementById(id).value) || null;
 
     const makeId = getInt('vehicleMake');
     const modelId = getInt('vehicleModel');
-    const plateNumber = getVal('vehiclePlate').trim();
+    const plateNumber = getVal('vehiclePlate');
 
-    if(!makeId || !modelId || !plateNumber) { 
-        showVehicleErrorAlert("Validation", "Please fill required fields (Make, Model, Plate Number)."); 
-        return; 
+    // Validation
+    const errors = [];
+    if(!makeId) errors.push("Please select a make");
+    if(!modelId) errors.push("Please select a model");
+    if(!plateNumber) errors.push("Please enter a plate number");
+    
+    if(errors.length > 0) {
+        showVehicleAlert("Validation Error", errors.join("<br>"), false);
+        return;
     }
 
     const payload = {
@@ -311,8 +530,8 @@ window.saveVehicle = async function() {
         model: modelId,
         year: getInt('vehicleYear'),
         plate_number: plateNumber,
-        vin: getVal('vehicleVin').trim(),
-        color: getVal('vehicleColor').trim(),
+        vin: getVal('vehicleVin'),
+        color: getVal('vehicleColor'),
         vehicle_type: getInt('vehicleType'),
         mileage: getFloat('vehicleMileage'),
         engine_size: getFloat('vehicleEngine'),
@@ -327,71 +546,114 @@ window.saveVehicle = async function() {
     }
 
     const btn = document.getElementById('btnSaveVehicle');
-    btn.disabled = true; 
-    btn.innerHTML = "Saving...";
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin mr-2"></i> Saving...`;
 
     try {
         let result;
         if(id) {
             result = await window.fetchWithAuth(`/vehicles/${id}`, 'PUT', payload);
         } else {
-            // FIX: Added trailing slash
             result = await window.fetchWithAuth('/vehicles/', 'POST', payload);
         }
 
         if(result && !result.detail) {
             window.closeModal('addVehicleModal');
             await loadVehiclesData();
-            showVehicleSuccessAlert("Success", "Vehicle saved successfully.");
+            showVehicleAlert("Success", `Vehicle ${id ? 'updated' : 'created'} successfully`, true);
         } else {
-            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save vehicle.";
-            showVehicleErrorAlert("Error", msg);
+            const errorMsg = result?.detail || "Failed to save vehicle";
+            showVehicleAlert("Error", typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
         }
     } catch(e) { 
-        showVehicleErrorAlert("Error", e.message || "Failed to save vehicle."); 
+        showVehicleAlert("Error", e.message || "Failed to save vehicle", false); 
     }
     
     btn.disabled = false;
-    btn.innerHTML = id ? `<i data-lucide="save" class="w-4 h-4 mr-2"></i> Update` : `<i data-lucide="plus" class="w-4 h-4 mr-2"></i> Save Vehicle`;
+    btn.innerHTML = originalText;
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.viewVehicle = function(id) {
-    const v = allVehicles.find(x => x.id === id);
-    if(!v) return;
+    const vehicle = allVehicles.find(v => v.id === id);
+    if(!vehicle) {
+        showVehicleAlert("Error", "Vehicle not found", false);
+        return;
+    }
     
-    const make = getOptionName(vehicleOptions.makes, v.make, 'vehicle_make');
-    const model = getOptionName(vehicleOptions.models, v.model, 'vehicle_model');
-    const type = getOptionName(vehicleOptions.types, v.vehicle_type, 'vehicle_type');
-    const transmission = getOptionName(vehicleOptions.trans, v.vehicle_transmission, 'vehicle_transmission');
-    const fuel = getOptionName(vehicleOptions.fuels, v.vehicle_fuel_type, 'fuel_type');
+    const make = getOptionName(vehicleOptions.makes, vehicle.make, 'vehicle_make');
+    const model = getOptionName(vehicleOptions.models, vehicle.model, 'vehicle_model');
+    const type = getOptionName(vehicleOptions.types, vehicle.vehicle_type, 'vehicle_type');
+    const transmission = getOptionName(vehicleOptions.trans, vehicle.vehicle_transmission, 'vehicle_transmission');
+    const fuel = getOptionName(vehicleOptions.fuels, vehicle.vehicle_fuel_type, 'fuel_type');
+    
+    const verifyStatus = vehicle.is_verified 
+        ? `<span class="px-2 py-1 rounded text-xs uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20 inline-flex items-center gap-1">
+            <i data-lucide="check-circle" class="w-3 h-3"></i> Verified
+           </span>`
+        : `<span class="px-2 py-1 rounded text-xs uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 inline-flex items-center gap-1">
+            <i data-lucide="clock" class="w-3 h-3"></i> Pending
+           </span>`;
 
     const content = `
-        <div class="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
-            <div class="col-span-2 flex items-center gap-4 mb-4 pb-4 border-b border-slate-700">
-                <div class="w-16 h-16 rounded-xl bg-blue-600 flex items-center justify-center text-white"><i data-lucide="car" class="w-8 h-8"></i></div>
+        <div class="space-y-6">
+            <div class="flex items-center gap-4 pb-4 border-b border-slate-700">
+                <div class="w-16 h-16 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-500/20">
+                    <i data-lucide="car" class="w-8 h-8"></i>
+                </div>
                 <div>
-                    <h4 class="text-xl font-bold text-white">${make} ${model} ${v.year}</h4>
-                    <p class="text-slate-400">Plate: ${v.plate_number} | VIN: ${v.vin || 'N/A'}</p>
+                    <h4 class="text-xl font-bold text-white">${make} ${model} ${vehicle.year}</h4>
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="text-slate-400 font-mono">${vehicle.plate_number || 'No Plate'}</span>
+                        <span class="text-slate-500">•</span>
+                        ${verifyStatus}
+                    </div>
                 </div>
             </div>
-            <div><span class="text-xs text-slate-500 uppercase block">Status</span><span class="text-white capitalize">${v.status ? v.status.replace('_', ' ') : 'N/A'}</span></div>
-            <div><span class="text-xs text-slate-500 uppercase block">Mileage</span><span class="text-white">${v.mileage ? v.mileage.toLocaleString() : 0} km</span></div>
-            <div><span class="text-xs text-slate-500 uppercase block">Color</span><span class="text-white">${v.color || 'N/A'}</span></div>
-            <div><span class="text-xs text-slate-500 uppercase block">Engine</span><span class="text-white">${v.engine_size || 'N/A'}L</span></div>
-            <div><span class="text-xs text-slate-500 uppercase block">Type</span><span class="text-white">${type || 'N/A'}</span></div>
-            <div><span class="text-xs text-slate-500 uppercase block">Transmission</span><span class="text-white">${transmission || 'N/A'}</span></div>
-            <div><span class="text-xs text-slate-500 uppercase block">Fuel Type</span><span class="text-white">${fuel || 'N/A'}</span></div>
-            <div><span class="text-xs text-slate-500 uppercase block">Price</span><span class="text-white">${v.purchase_price ? '$' + v.purchase_price.toFixed(2) : 'N/A'}</span></div>
-            <div><span class="text-xs text-slate-500 uppercase block">Purchase Date</span><span class="text-white">${v.purchase_date ? new Date(v.purchase_date).toLocaleDateString() : 'N/A'}</span></div>
+            
+            <div class="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">VIN</span><span class="text-white font-mono">${vehicle.vin || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Color</span><span class="text-white">${vehicle.color || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Type</span><span class="text-white">${type || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Status</span><span class="text-white capitalize">${vehicle.status ? vehicle.status.replace('_', ' ') : 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Mileage</span><span class="text-white">${vehicle.mileage ? vehicle.mileage.toLocaleString() : 0} km</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Engine Size</span><span class="text-white">${vehicle.engine_size || 'N/A'}L</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Transmission</span><span class="text-white">${transmission || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Fuel Type</span><span class="text-white">${fuel || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Purchase Price</span><span class="text-white">${vehicle.purchase_price ? '$' + vehicle.purchase_price.toFixed(2) : 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">Purchase Date</span><span class="text-white">${vehicle.purchase_date ? new Date(vehicle.purchase_date).toLocaleDateString() : 'N/A'}</span></div>
+            </div>
+            
+            ${vehicle.created_at ? `
+            <div class="border-t border-slate-700 pt-4 text-xs text-slate-500">
+                <div class="flex justify-between">
+                    <span>Vehicle ID:</span>
+                    <span class="text-slate-400">#${vehicle.id}</span>
+                </div>
+                <div class="flex justify-between mt-1">
+                    <span>Created:</span>
+                    <span class="text-slate-400">${new Date(vehicle.created_at).toLocaleString()}</span>
+                </div>
+                ${vehicle.updated_at && vehicle.updated_at !== vehicle.created_at ? `
+                <div class="flex justify-between mt-1">
+                    <span>Last Updated:</span>
+                    <span class="text-slate-400">${new Date(vehicle.updated_at).toLocaleString()}</span>
+                </div>` : ''}
+            </div>` : ''}
         </div>
     `;
+    
     document.getElementById('viewVehicleContent').innerHTML = content;
     document.getElementById('viewVehicleModal').classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
-// === HELPER FUNCTIONS ===
+// =================================================================
+// 8. HELPER FUNCTIONS
+// =================================================================
 
 window.closeModal = function(id) { 
     document.getElementById(id).classList.add('hidden'); 
@@ -399,65 +661,90 @@ window.closeModal = function(id) {
 
 function showVehicleConfirmModal(title, message, icon, color) {
     const modal = document.getElementById('vehicleConfirmModal');
-    if(!modal) return;
+    if(!modal) {
+        // Fallback to browser confirm
+        if(confirm(title + ": " + message.replace(/<br>|<span.*?>|<\/span>/g, ' '))) {
+            executeVehicleConfirmAction();
+        }
+        return;
+    }
     
     document.getElementById('vehicleConfirmTitle').innerText = title;
-    document.getElementById('vehicleConfirmMessage').innerText = message;
+    document.getElementById('vehicleConfirmMessage').innerHTML = message;
     
     const btn = document.getElementById('btnVehicleConfirmAction');
-    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
+    btn.className = `px-4 py-2.5 text-white rounded-lg text-sm w-full font-medium transition-all duration-200 ${color} hover:opacity-90`;
     
-    // Icon Logic
+    // Update icon
     const iconDiv = document.getElementById('vehicleConfirmIcon');
     if(iconDiv) {
-        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${color.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
+        const textColor = color === 'bg-red-600' ? 'text-red-500' :
+                         color === 'bg-green-600' ? 'text-green-500' : 'text-emerald-500';
+        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${textColor} bg-opacity-20 border border-current/20`;
         iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
     }
     
+    // Show modal with animation
     modal.classList.remove('hidden');
-    if(window.lucide) window.lucide.createIcons();
-}
-
-// NEW: Custom success alert modal
-function showVehicleSuccessAlert(title, message) {
-    const modal = document.getElementById('vehicleSuccessAlertModal');
-    if(!modal) {
-        // Fallback to browser alert if modal doesn't exist
-        alert(`${title}: ${message}`);
-        return;
-    }
+    modal.style.opacity = '0';
+    modal.style.transform = 'scale(0.95)';
     
-    document.getElementById('vehicleSuccessAlertTitle').innerText = title;
-    document.getElementById('vehicleSuccessAlertMessage').innerText = message;
-    
-    modal.classList.remove('hidden');
-    
-    // Auto close after 3 seconds
     setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 3000);
+        modal.style.opacity = '1';
+        modal.style.transform = 'scale(1)';
+    }, 10);
     
     if(window.lucide) window.lucide.createIcons();
 }
 
-// NEW: Custom error alert modal
-function showVehicleErrorAlert(title, message) {
-    const modal = document.getElementById('vehicleErrorAlertModal');
+function showVehicleAlert(title, message, isSuccess) {
+    const modal = document.getElementById('vehicleAlertModal');
+    
     if(!modal) {
-        // Fallback to browser alert if modal doesn't exist
+        // Fallback to browser alert
         alert(`${title}: ${message}`);
         return;
     }
     
-    document.getElementById('vehicleErrorAlertTitle').innerText = title;
-    document.getElementById('vehicleErrorAlertMessage').innerText = message;
+    document.getElementById('vehicleAlertTitle').innerText = title;
+    document.getElementById('vehicleAlertMessage').innerHTML = message;
     
+    const iconDiv = document.getElementById('vehicleAlertIcon');
+    if(iconDiv) {
+        if(isSuccess) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+            iconDiv.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6"></i>';
+        } else {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500 border border-red-500/20";
+            iconDiv.innerHTML = '<i data-lucide="alert-circle" class="w-6 h-6"></i>';
+        }
+    }
+    
+    const okBtn = modal.querySelector('button');
+    if(okBtn) {
+        okBtn.className = isSuccess 
+            ? "px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm w-full font-medium transition"
+            : "px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm w-full font-medium transition";
+    }
+    
+    // Show modal with animation
     modal.classList.remove('hidden');
+    modal.style.opacity = '0';
+    modal.style.transform = 'scale(0.95)';
     
-    // Auto close after 5 seconds for errors
     setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 5000);
+        modal.style.opacity = '1';
+        modal.style.transform = 'scale(1)';
+    }, 10);
+    
+    // Auto close for success messages
+    if(isSuccess) {
+        setTimeout(() => {
+            if(!modal.classList.contains('hidden')) {
+                modal.classList.add('hidden');
+            }
+        }, 3000);
+    }
     
     if(window.lucide) window.lucide.createIcons();
 }
@@ -510,9 +797,31 @@ function getStatusClass(status) {
     return map[status] || 'bg-slate-500/10 text-slate-400 border-slate-500/20';
 }
 
+// =================================================================
+// 9. EXPORT FUNCTIONS (Optional - Add if needed)
+// =================================================================
+
+window.exportVehiclesExcel = async function() {
+    showVehicleAlert("Info", "Excel export feature coming soon!", false);
+}
+
+window.exportVehiclesPDF = async function() {
+    showVehicleAlert("Info", "PDF export feature coming soon!", false);
+}
+
+// =================================================================
+// 10. INITIALIZATION
+// =================================================================
+
 // Initialize on page load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initVehicles);
 } else {
-    initVehicles();
+    // DOM already loaded
+    setTimeout(initVehicles, 100);
 }
+
+// Make functions available globally
+window.initVehicles = initVehicles;
+window.loadVehiclesData = loadVehiclesData;
+window.renderVehiclesTable = renderVehiclesTable;
