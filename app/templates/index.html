@@ -285,6 +285,9 @@
         .mobile-content-area {
             padding-bottom: 80px;
             min-height: calc(100vh - 64px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            height: 100vh;
         }
         
         /* Desktop layout fix */
@@ -320,6 +323,13 @@
             width: 100%;
         }
         
+        /* Mobile content container */
+        #app-content-mobile {
+            max-height: calc(100vh - 64px - 70px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
         /* Loading spinner */
         .loading-spinner {
             display: flex;
@@ -330,7 +340,7 @@
         }
     </style>
 </head>
-<body class="antialiased overflow-hidden">
+<body class="antialiased">
 
     <!-- Desktop Layout -->
     <div class="desktop-layout hidden md:flex">
@@ -418,7 +428,7 @@
     </div>
 
     <!-- Mobile Layout -->
-    <div class="md:hidden">
+    <div class="md:hidden flex flex-col h-screen">
         <!-- Mobile Sidebar Overlay -->
         <div class="mobile-sidebar-overlay" id="mobileOverlay" onclick="toggleMobileSidebar()"></div>
         
@@ -502,7 +512,7 @@
         </aside>
 
         <!-- Mobile Main Content -->
-        <div class="mobile-content-area">
+        <div class="mobile-content-area flex-1">
             <!-- Mobile Header -->
             <header class="mobile-header flex items-center justify-between px-4">
                 <div class="flex items-center gap-3">
