@@ -11,18 +11,34 @@ let repActionId = null;
 let selectedRepIds = new Set(); 
 
 // =================================================================
+// MOBILE-COMPATIBLE ELEMENT GETTER
+// =================================================================
+function getRepEl(id) {
+    // First try mobile container (if we're on mobile)
+    if (window.innerWidth < 768) {
+        const mobileEl = document.querySelector('#app-content-mobile #' + id);
+        if (mobileEl) return mobileEl;
+    }
+    // Then try desktop container
+    const desktopEl = document.querySelector('#app-content #' + id);
+    if (desktopEl) return desktopEl;
+    // Fallback to global search
+    return document.getElementById(id);
+}
+
+// =================================================================
 // 1. INITIALIZATION
 // =================================================================
 async function initReparation() {
     console.log("Reparation Module: Init");
     repUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // DOM Elements
-    const search = document.getElementById('repSearch');
-    const garageFilter = document.getElementById('repGarageFilter');
-    const statusFilter = document.getElementById('repStatusFilter');
-    const selectAll = document.getElementById('selectAllRep');
-    const confirmBtn = document.getElementById('btnRepConfirmAction');
+    // DOM Elements using mobile-compatible getter
+    const search = getRepEl('repSearch');
+    const garageFilter = getRepEl('repGarageFilter');
+    const statusFilter = getRepEl('repStatusFilter');
+    const selectAll = getRepEl('selectAllRep');
+    const confirmBtn = getRepEl('btnRepConfirmAction');
     
     // Attach Listeners
     if(search) search.addEventListener('input', renderRepTable);
@@ -38,7 +54,7 @@ async function initReparation() {
 // 2. DATA LOADING
 // =================================================================
 async function loadRepData() {
-    const tbody = document.getElementById('repLogsBody');
+    const tbody = getRepEl('repLogsBody');
     if(!tbody) return;
     
     // Loading State
@@ -90,13 +106,17 @@ async function fetchRepDropdowns() {
 // 3. TABLE RENDERING
 // =================================================================
 function renderRepTable() {
-    const tbody = document.getElementById('repLogsBody');
+    const tbody = getRepEl('repLogsBody');
     if (!tbody) return;
 
     // Get Filter Values
-    const search = document.getElementById('repSearch').value.toLowerCase();
-    const gFilter = document.getElementById('repGarageFilter').value;
-    const sFilter = document.getElementById('repStatusFilter').value;
+    const search = getRepEl('repSearch');
+    const garageFilter = getRepEl('repGarageFilter');
+    const statusFilter = getRepEl('repStatusFilter');
+    
+    const searchValue = search ? search.value.toLowerCase() : '';
+    const gFilter = garageFilter ? garageFilter.value : '';
+    const sFilter = statusFilter ? statusFilter.value : '';
 
     // Filter Data
     let filtered = allRepLogs.filter(log => {
@@ -104,7 +124,7 @@ function renderRepTable() {
         const gName = garage ? garage.nom_garage.toLowerCase() : "";
         const receipt = log.receipt ? log.receipt.toLowerCase() : "";
         
-        const matchesSearch = gName.includes(search) || receipt.includes(search);
+        const matchesSearch = gName.includes(searchValue) || receipt.includes(searchValue);
         const matchesGarage = gFilter === "" || log.garage_id == gFilter;
         
         let matchesStatus = true;
@@ -115,7 +135,8 @@ function renderRepTable() {
     });
 
     // Update Counts
-    document.getElementById('repCount').innerText = `${filtered.length} records found`;
+    const repCountEl = getRepEl('repCount');
+    if (repCountEl) repCountEl.innerText = `${filtered.length} records found`;
 
     // Empty State
     if (filtered.length === 0) {
@@ -197,7 +218,9 @@ window.toggleRepRow = function(id) {
 }
 
 window.toggleRepSelectAll = function() {
-    const mainCheck = document.getElementById('selectAllRep');
+    const mainCheck = getRepEl('selectAllRep');
+    if (!mainCheck) return;
+    
     const isChecked = mainCheck.checked;
     selectedRepIds.clear();
     
@@ -212,11 +235,11 @@ window.toggleRepSelectAll = function() {
 }
 
 function updateRepBulkUI() {
-    const btn = document.getElementById('btnRepBulkVerify');
-    const countSpan = document.getElementById('repSelectedCount');
+    const btn = getRepEl('btnRepBulkVerify');
+    const countSpan = getRepEl('repSelectedCount');
     if (!btn) return;
 
-    countSpan.innerText = selectedRepIds.size;
+    if (countSpan) countSpan.innerText = selectedRepIds.size;
     if (selectedRepIds.size > 0) btn.classList.remove('hidden');
     else btn.classList.add('hidden');
 }
@@ -256,8 +279,11 @@ window.reqRepDelete = function(id) {
 // =================================================================
 
 async function executeRepConfirmAction() {
-    const btn = document.getElementById('btnRepConfirmAction');
-    btn.disabled = true; btn.innerText = "Processing...";
+    const btn = getRepEl('btnRepConfirmAction');
+    if (!btn) return;
+    
+    btn.disabled = true; 
+    btn.innerText = "Processing...";
 
     try {
         let result;
@@ -304,19 +330,30 @@ async function executeRepConfirmAction() {
 // =================================================================
 
 window.openAddReparationModal = function() {
-    document.getElementById('repEditId').value = "";
-    document.getElementById('repModalTitle').innerText = "Log Reparation";
-    document.getElementById('btnSaveRep').innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
+    const editIdEl = getRepEl('repEditId');
+    const modalTitle = getRepEl('repModalTitle');
+    const saveBtn = getRepEl('btnSaveRep');
+    
+    if (editIdEl) editIdEl.value = "";
+    if (modalTitle) modalTitle.innerText = "Log Reparation";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
     
     populatePanneSelect('repPanneSelect', repOptions.pannes);
     populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', 'Select Garage');
     
-    document.getElementById('repCost').value = "";
-    document.getElementById('repDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('repReceipt').value = "";
-    document.getElementById('repProgressStatus').value = "Inprogress";
+    const costEl = getRepEl('repCost');
+    const dateEl = getRepEl('repDate');
+    const receiptEl = getRepEl('repReceipt');
+    const statusEl = getRepEl('repProgressStatus');
+    
+    if (costEl) costEl.value = "";
+    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+    if (receiptEl) receiptEl.value = "";
+    if (statusEl) statusEl.value = "Inprogress";
 
-    document.getElementById('addRepModal').classList.remove('hidden');
+    const modal = getRepEl('addRepModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -324,65 +361,79 @@ window.openEditRepModal = function(id) {
     const log = allRepLogs.find(l => l.id === id);
     if(!log) return;
 
-    document.getElementById('repEditId').value = log.id;
-    document.getElementById('repModalTitle').innerText = "Edit Reparation";
-    document.getElementById('btnSaveRep').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
+    const editIdEl = getRepEl('repEditId');
+    const modalTitle = getRepEl('repModalTitle');
+    const saveBtn = getRepEl('btnSaveRep');
+    
+    if (editIdEl) editIdEl.value = log.id;
+    if (modalTitle) modalTitle.innerText = "Edit Reparation";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
 
     populatePanneSelect('repPanneSelect', repOptions.pannes, log.panne_id);
     populateSelect('repGarageSelect', repOptions.garages, log.garage_id, 'nom_garage', 'Select Garage');
     
-    document.getElementById('repCost').value = log.cost || "";
-    document.getElementById('repDate').value = log.repair_date ? new Date(log.repair_date).toISOString().split('T')[0] : "";
-    document.getElementById('repReceipt').value = log.receipt || "";
-    document.getElementById('repProgressStatus').value = log.status || "Inprogress";
+    const costEl = getRepEl('repCost');
+    const dateEl = getRepEl('repDate');
+    const receiptEl = getRepEl('repReceipt');
+    const statusEl = getRepEl('repProgressStatus');
+    
+    if (costEl) costEl.value = log.cost || "";
+    if (dateEl) dateEl.value = log.repair_date ? new Date(log.repair_date).toISOString().split('T')[0] : "";
+    if (receiptEl) receiptEl.value = log.receipt || "";
+    if (statusEl) statusEl.value = log.status || "Inprogress";
 
-    document.getElementById('addRepModal').classList.remove('hidden');
+    const modal = getRepEl('addRepModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.saveReparation = async function() {
-    const id = document.getElementById('repEditId').value;
+    const editIdEl = getRepEl('repEditId');
+    const id = editIdEl ? editIdEl.value : '';
     
     // Get form values
-    const panneId = document.getElementById('repPanneSelect').value;
-    const garageId = document.getElementById('repGarageSelect').value;
-    const cost = document.getElementById('repCost').value;
-    const dateVal = document.getElementById('repDate').value;
-    const receipt = document.getElementById('repReceipt').value;
-    const statusVal = document.getElementById('repProgressStatus').value;
+    const panneId = getRepEl('repPanneSelect');
+    const garageId = getRepEl('repGarageSelect');
+    const cost = getRepEl('repCost');
+    const dateVal = getRepEl('repDate');
+    const receipt = getRepEl('repReceipt');
+    const statusVal = getRepEl('repProgressStatus');
 
     // VALIDATION
-    if(!panneId) { 
+    if(!panneId || !panneId.value) { 
         showRepAlert("Validation", "Please select a Panne.", false); 
         return; 
     }
-    if(!garageId) { 
+    if(!garageId || !garageId.value) { 
         showRepAlert("Validation", "Please select a Garage.", false); 
         return; 
     }
-    if(!cost || isNaN(cost) || parseFloat(cost) <= 0) { 
+    if(!cost || !cost.value || isNaN(cost.value) || parseFloat(cost.value) <= 0) { 
         showRepAlert("Validation", "Please enter a valid cost.", false); 
         return; 
     }
-    if(!dateVal) { 
+    if(!dateVal || !dateVal.value) { 
         showRepAlert("Validation", "Please select a date.", false); 
         return; 
     }
-    if(!receipt.trim()) { 
+    if(!receipt || !receipt.value.trim()) { 
         showRepAlert("Validation", "Please enter receipt reference.", false); 
         return; 
     }
 
     const payload = {
-        panne_id: parseInt(panneId),
-        garage_id: parseInt(garageId),
-        cost: parseFloat(cost),
-        repair_date: new Date(dateVal).toISOString(),
-        receipt: receipt.trim(),
-        status: statusVal
+        panne_id: parseInt(panneId.value),
+        garage_id: parseInt(garageId.value),
+        cost: parseFloat(cost.value),
+        repair_date: new Date(dateVal.value).toISOString(),
+        receipt: receipt.value.trim(),
+        status: statusVal ? statusVal.value : "Inprogress"
     };
 
-    const btn = document.getElementById('btnSaveRep');
+    const btn = getRepEl('btnSaveRep');
+    if (!btn) return;
+    
     btn.disabled = true; 
     btn.innerHTML = "Saving...";
     
@@ -435,8 +486,12 @@ window.openViewRepModal = function(id) {
                 <span class="text-emerald-400 font-bold text-lg">BIF ${log.cost ? log.cost.toFixed(2) : '0.00'}</span>
             </div>
         </div>`;
-    document.getElementById('viewRepContent').innerHTML = content;
-    document.getElementById('viewRepModal').classList.remove('hidden');
+    
+    const viewContent = getRepEl('viewRepContent');
+    if (viewContent) viewContent.innerHTML = content;
+    
+    const modal = getRepEl('viewRepModal');
+    if (modal) modal.classList.remove('hidden');
 }
 
 // =================================================================
@@ -444,21 +499,27 @@ window.openViewRepModal = function(id) {
 // =================================================================
 
 window.closeModal = function(id) { 
-    document.getElementById(id).classList.add('hidden'); 
+    const modal = getRepEl(id) || document.getElementById(id);
+    if (modal) modal.classList.add('hidden'); 
 }
 
 function showRepConfirmModal(title, message, icon, color) {
-    const modal = document.getElementById('repConfirmModal');
+    const modal = getRepEl('repConfirmModal');
     if(!modal) return;
     
-    document.getElementById('repConfirmTitle').innerText = title;
-    document.getElementById('repConfirmMessage').innerText = message;
+    const titleEl = getRepEl('repConfirmTitle');
+    const messageEl = getRepEl('repConfirmMessage');
     
-    const btn = document.getElementById('btnRepConfirmAction');
-    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerText = message;
+    
+    const btn = getRepEl('btnRepConfirmAction');
+    if (btn) {
+        btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
+    }
     
     // Icon Logic
-    const iconDiv = document.getElementById('repConfirmIcon');
+    const iconDiv = getRepEl('repConfirmIcon');
     if(iconDiv) {
         iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${color.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
         iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
@@ -470,17 +531,20 @@ function showRepConfirmModal(title, message, icon, color) {
 
 // FIXED: Use the existing repAlertModal with isSuccess parameter
 function showRepAlert(title, message, isSuccess) {
-    const modal = document.getElementById('repAlertModal');
+    const modal = getRepEl('repAlertModal');
     if(!modal) { 
         // Fallback to browser alert if modal doesn't exist
         alert(`${title}: ${message}`);
         return; 
     }
     
-    document.getElementById('repAlertTitle').innerText = title;
-    document.getElementById('repAlertMessage').innerText = message;
+    const titleEl = getRepEl('repAlertTitle');
+    const messageEl = getRepEl('repAlertMessage');
     
-    const iconDiv = document.getElementById('repAlertIcon');
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerText = message;
+    
+    const iconDiv = getRepEl('repAlertIcon');
     if(iconDiv) {
         if(isSuccess) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
@@ -503,7 +567,7 @@ function showRepAlert(title, message, isSuccess) {
 }
 
 function populateSelect(id, list, selectedValue, labelKey, defaultText = 'Select...') {
-    const el = document.getElementById(id);
+    const el = getRepEl(id);
     if(!el) return;
     
     let options = `<option value="">${defaultText}</option>`;
@@ -521,7 +585,7 @@ function populateSelect(id, list, selectedValue, labelKey, defaultText = 'Select
 }
 
 function populatePanneSelect(id, list, selectedValue) {
-    const el = document.getElementById(id);
+    const el = getRepEl(id);
     if(!el) return;
     
     if(!list || list.length === 0) { 
