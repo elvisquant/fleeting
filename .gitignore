@@ -30,3 +30,4 @@ dist/
 *.egg-info/
 tecx
 push.sh
+copyindex.html

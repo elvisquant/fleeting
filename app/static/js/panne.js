@@ -23,6 +23,7 @@ async function initPanne() {
     const sFilter = document.getElementById('panneStatusFilter');
     const selectAll = document.getElementById('selectAllPanne');
     const confirmBtn = document.getElementById('btnPanneConfirmAction');
+    const bulkBtn = document.getElementById('btnPanneBulkVerify'); // NEW
     
     // Attach Listeners
     if(search) search.addEventListener('input', renderPanneTable);
@@ -30,6 +31,9 @@ async function initPanne() {
     if(sFilter) sFilter.addEventListener('change', renderPanneTable);
     if(selectAll) selectAll.addEventListener('change', togglePanneSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executePanneConfirmAction);
+    if(bulkBtn) { // NEW: Ensure bulk button has correct onclick
+        bulkBtn.onclick = triggerPanneBulkVerify;
+    }
     
     await Promise.all([loadPanneData(), fetchPanneDropdowns()]);
 }
@@ -46,6 +50,7 @@ async function loadPanneData() {
         <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
         <div class="text-sm mt-2">Loading reports...</div>
     </td></tr>`;
+    
     if(window.lucide) window.lucide.createIcons();
 
     try {
@@ -126,7 +131,7 @@ function renderPanneTable() {
     });
 
     // Update Counts
-    document.getElementById('panneCount').innerText = `${filtered.length} ${filtered.length === 1 ? 'record' : 'records'} found`;
+    document.getElementById('panneCount').innerText = `${filtered.length} record${filtered.length !== 1 ? 's' : ''} found`;
 
     // Update Select All checkbox
     const selectAllCheckbox = document.getElementById('selectAllPanne');
@@ -221,22 +226,29 @@ function renderPanneTable() {
                 </td>
                 <td class="p-4 align-middle">${verifyBadge}</td>
                 <td class="p-4 text-slate-500 text-xs align-middle">${date}</td>
-                <td class="p-4 align-middle">${actions}</td>
+                <td class="p-4 align-middle">
+                    <div class="flex justify-end gap-2">${actions}</div>
+                </td>
             </tr>`;
     }).join('');
+    
+    // Update select all checkbox state
+    updateSelectAllCheckbox();
     
     if(window.lucide) window.lucide.createIcons();
 }
 
 // =================================================================
-// 4. BULK OPERATIONS
+// 4. BULK OPERATIONS - FIXED
 // =================================================================
 
 window.togglePanneRow = function(id) {
     const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
     const log = allPannes.find(l => l.id === id);
     
-    if (!log || !canManage || log.is_verified) return;
+    if (!log || !canManage || log.is_verified) {
+        return;
+    }
     
     if (selectedPanneIds.has(id)) {
         selectedPanneIds.delete(id);
@@ -311,7 +323,7 @@ function updatePanneBulkUI() {
     }
 }
 
-// FIXED: This was missing - the HTML calls triggerPanneBulkVerify but function was named executePanneBulkVerify
+// FIXED: Function name matches HTML onclick
 window.triggerPanneBulkVerify = function() {
     if (selectedPanneIds.size === 0) {
         showPanneAlert("No Selection", "Please select at least one report to verify.", false);
@@ -321,12 +333,10 @@ window.triggerPanneBulkVerify = function() {
     panneActionType = 'bulk-verify';
     panneActionId = null;
     
-    showPanneConfirmModal(
-        "Bulk Verify Reports", 
-        `Are you sure you want to verify ${selectedPanneIds.size} selected report${selectedPanneIds.size > 1 ? 's' : ''}?<br><span class="text-xs text-slate-400 mt-1 block">This action cannot be undone.</span>`, 
-        "shield-check", 
-        "bg-emerald-600"
-    );
+    const confirmTitle = "Bulk Verify Reports";
+    const confirmMessage = `Are you sure you want to verify ${selectedPanneIds.size} selected report${selectedPanneIds.size > 1 ? 's' : ''}?<br><span class="text-xs text-slate-400 mt-1 block">This action cannot be undone.</span>`;
+    
+    showPanneConfirmModal(confirmTitle, confirmMessage, "shield-check", "bg-emerald-600");
 }
 
 // =================================================================
@@ -375,7 +385,7 @@ window.reqPanneDelete = function(id) {
 }
 
 // =================================================================
-// 6. EXECUTE ACTION (Confirm Modal Click)
+// 6. EXECUTE ACTION (Confirm Modal Click) - FIXED
 // =================================================================
 
 async function executePanneConfirmAction() {
@@ -388,6 +398,7 @@ async function executePanneConfirmAction() {
     try {
         let result = null;
         let successMessage = "";
+        let idList = [];
         
         // --- DELETE ---
         if (panneActionType === 'delete') {
@@ -396,13 +407,14 @@ async function executePanneConfirmAction() {
         }
         // --- VERIFY (Single) ---
         else if (panneActionType === 'verify') {
-            const payload = { ids: [parseInt(panneActionId)] };
+            idList = [parseInt(panneActionId)];
+            const payload = { ids: idList };
             result = await window.fetchWithAuth(`/panne/verify-bulk`, 'PUT', payload);
             successMessage = "Report verified successfully";
         }
         // --- VERIFY (Bulk) ---
         else if (panneActionType === 'bulk-verify') {
-            const idList = Array.from(selectedPanneIds).map(id => parseInt(id));
+            idList = Array.from(selectedPanneIds).map(id => parseInt(id));
             const payload = { ids: idList };
             result = await window.fetchWithAuth('/panne/verify-bulk', 'PUT', payload);
             successMessage = `${idList.length} report${idList.length > 1 ? 's' : ''} verified successfully`;
@@ -410,7 +422,10 @@ async function executePanneConfirmAction() {
 
         window.closeModal('panneConfirmModal');
         
-        if (result !== null && result !== false && !result.detail) {
+        // Check if result is valid
+        const isSuccess = result !== null && result !== false && !result.detail;
+        
+        if (isSuccess) {
             // Clear selections for bulk operations
             if (panneActionType === 'bulk-verify') {
                 selectedPanneIds.clear();
@@ -545,11 +560,11 @@ window.savePanne = async function() {
             const errorMsg = result?.detail || "Failed to save report";
             showPanneAlert("Error", typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
         }
-    } catch(e) {
-        showPanneAlert("System Error", e.message || "Failed to save report", false);
+    } catch(e) { 
+        showPanneAlert("System Error", e.message || "Failed to save panne report.", false); 
     }
     
-    btn.disabled = false;
+    btn.disabled = false; 
     btn.innerHTML = originalText;
     if(window.lucide) window.lucide.createIcons();
 }

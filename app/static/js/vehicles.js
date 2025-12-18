@@ -9,7 +9,7 @@ let vehicleActionId = null;
 let selectedVehicleIds = new Set();
 
 // =================================================================
-// 1. INITIALIZATION
+// 1. INITIALIZATION - FIXED
 // =================================================================
 async function initVehicles() {
     console.log("Vehicles Module: Init");
@@ -20,11 +20,15 @@ async function initVehicles() {
     const statusFilter = document.getElementById('vehicleStatusFilter');
     const selectAll = document.getElementById('selectAllVehicles');
     const confirmBtn = document.getElementById('btnVehicleConfirmAction');
-
+    const bulkBtn = document.getElementById('btnVehicleBulkVerify'); // NEW
+    
     if(searchInput) searchInput.addEventListener('input', renderVehiclesTable);
     if(statusFilter) statusFilter.addEventListener('change', renderVehiclesTable);
     if(selectAll) selectAll.addEventListener('change', toggleVehicleSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executeVehicleConfirmAction);
+    if(bulkBtn) { // NEW: Ensure bulk button has correct onclick
+        bulkBtn.onclick = reqVehicleBulkVerify;
+    }
 
     await Promise.all([loadVehiclesData(), fetchVehicleDropdowns()]);
 }
@@ -125,6 +129,13 @@ function renderVehiclesTable() {
 
     document.getElementById('vehiclesCount').innerText = `${filtered.length} vehicle${filtered.length !== 1 ? 's' : ''} found`;
 
+    // Update Select All checkbox
+    const selectAllCheckbox = document.getElementById('selectAllVehicles');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">
             <i data-lucide="search" class="w-8 h-8 mx-auto mb-2 text-slate-500"></i>
@@ -139,7 +150,6 @@ function renderVehiclesTable() {
         const make = getOptionName(vehicleOptions.makes, v.make, 'vehicle_make');
         const model = getOptionName(vehicleOptions.models, v.model, 'vehicle_model');
         const statusClass = getStatusClass(v.status);
-        const purchaseDate = v.purchase_date ? new Date(v.purchase_date).toLocaleDateString() : '-';
         
         const verifyBadge = v.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20 flex items-center gap-1 w-fit">
@@ -199,7 +209,7 @@ function renderVehiclesTable() {
                         </div>
                         <div>
                             <div class="font-medium text-white text-sm">${make} ${model}</div>
-                            <div class="text-xs text-slate-500">ID: ${v.id} • ${v.year}</div>
+                            <div class="text-xs text-slate-500">ID: ${v.id} • ${v.year || ''}</div>
                         </div>
                     </div>
                 </td>
@@ -221,21 +231,23 @@ function renderVehiclesTable() {
         `;
     }).join('');
     
-    // Update select all checkbox
+    // Update select all checkbox state
     updateSelectAllCheckbox();
     
     if(window.lucide) window.lucide.createIcons();
 }
 
 // =================================================================
-// 4. BULK OPERATIONS
+// 4. BULK OPERATIONS - FIXED
 // =================================================================
 
 window.toggleVehicleRow = function(id) {
     const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
     const vehicle = allVehicles.find(v => v.id === id);
     
-    if (!vehicle || !canManage || vehicle.is_verified) return;
+    if (!vehicle || !canManage || vehicle.is_verified) {
+        return;
+    }
     
     if (selectedVehicleIds.has(id)) {
         selectedVehicleIds.delete(id);
@@ -310,7 +322,7 @@ function updateVehicleBulkUI() {
     }
 }
 
-// FIXED: The HTML calls reqVehicleBulkVerify (not executeVehicleBulkVerify)
+// FIXED: Function name matches HTML onclick
 window.reqVehicleBulkVerify = function() {
     if (selectedVehicleIds.size === 0) {
         showVehicleAlert("No Selection", "Please select at least one vehicle to verify.", false);
@@ -376,7 +388,7 @@ window.reqVehicleDelete = function(id) {
 }
 
 // =================================================================
-// 6. EXECUTE ACTION (Confirm Modal Click)
+// 6. EXECUTE ACTION (Confirm Modal Click) - FIXED
 // =================================================================
 
 async function executeVehicleConfirmAction() {
@@ -389,6 +401,7 @@ async function executeVehicleConfirmAction() {
     try {
         let result = null;
         let successMessage = "";
+        let idList = [];
         
         // --- DELETE ---
         if (vehicleActionType === 'delete') {
@@ -397,13 +410,14 @@ async function executeVehicleConfirmAction() {
         }
         // --- VERIFY (Single) ---
         else if (vehicleActionType === 'verify') {
-            const payload = { ids: [parseInt(vehicleActionId)] };
+            idList = [parseInt(vehicleActionId)];
+            const payload = { ids: idList };
             result = await window.fetchWithAuth(`/vehicles/verify-bulk`, 'PUT', payload);
             successMessage = "Vehicle verified successfully";
         }
         // --- VERIFY (Bulk) ---
         else if (vehicleActionType === 'bulk-verify') {
-            const idList = Array.from(selectedVehicleIds).map(id => parseInt(id));
+            idList = Array.from(selectedVehicleIds).map(id => parseInt(id));
             const payload = { ids: idList };
             result = await window.fetchWithAuth('/vehicles/verify-bulk', 'PUT', payload);
             successMessage = `${idList.length} vehicle${idList.length > 1 ? 's' : ''} verified successfully`;
@@ -411,7 +425,10 @@ async function executeVehicleConfirmAction() {
 
         window.closeModal('vehicleConfirmModal');
         
-        if (result !== null && result !== false && !result.detail) {
+        // Check if result is valid
+        const isSuccess = result !== null && result !== false && !result.detail;
+        
+        if (isSuccess) {
             // Clear selections for bulk operations
             if (vehicleActionType === 'bulk-verify') {
                 selectedVehicleIds.clear();

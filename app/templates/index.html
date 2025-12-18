@@ -162,25 +162,25 @@
             'admin':      ['all'], 
             'superadmin': ['all'],
             
-            'charoi':     ['dashboard', 'requests', 'panne', 'maintenance', 'reparations', 'fuel'],
+            'charoi':     ['requests', 'panne', 'maintenance', 'reparations', 'fuel'],
             
             // Logistic sees Request & Trips
-            'logistic':   ['dashboard', 'requests', 'trips'], 
+            'logistic':   ['requests'], 
             
             // Driver sees Trips & Requests
-            'driver':     ['dashboard', 'requests', 'trips'],
+            'driver':     ['requests'],
             
             // Chef sees Requests
-            'chef':       ['dashboard', 'requests'],
+            'chef':       ['requests'],
             
             // Standard user only sees Requests
-            'user':       ['dashboard', 'requests'],
+            'user':       ['requests'],
 
             // Operateur sees Requests & Fuel
-            'operateur':  ['dashboard','requests', 'fuel'],
+            'operateur':  ['requests', 'fuel'],
 
             // Technicien sees Requests & Operations
-            'technicien': ['dashboard', 'requests', 'panne', 'maintenance', 'reparations'],
+            'technicien': ['requests', 'panne', 'maintenance', 'reparations'],
         };
 
         // 4. APPLY VISIBILITY
