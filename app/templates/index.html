@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>FleetDash</title>
     
     <!-- Favicon -->
@@ -13,6 +13,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Config & Styles -->
     <script>
@@ -23,222 +24,620 @@
                     fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
                     colors: {
                         dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
-                        brand: { 500: '#3b82f6', 600: '#2563eb' }
+                        brand: { 500: '#3b82f6', 600: '#2563eb' },
+                        light: { 
+                            background: '#f8fafc',
+                            card: '#ffffff',
+                            text: '#1e293b',
+                            muted: '#64748b'
+                        }
+                    },
+                    animation: {
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'slide-out': 'slideOut 0.3s ease-in',
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'fade-out': 'fadeOut 0.3s ease-in',
+                    },
+                    keyframes: {
+                        slideIn: {
+                            '0%': { transform: 'translateX(-100%)' },
+                            '100%': { transform: 'translateX(0)' }
+                        },
+                        slideOut: {
+                            '0%': { transform: 'translateX(0)' },
+                            '100%': { transform: 'translateX(-100%)' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        fadeOut: {
+                            '0%': { opacity: '1' },
+                            '100%': { opacity: '0' }
+                        }
                     }
                 }
             }
         }
     </script>
     <style>
-        :root { --glass-border: rgba(255, 255, 255, 0.08); --glass-bg: rgba(30, 41, 59, 0.7); }
-        body { background: #0f172a; background-image: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%); background-attachment: fixed; }
+        :root {
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --light-glass-border: rgba(0, 0, 0, 0.08);
+            --light-glass-bg: rgba(255, 255, 255, 0.8);
+        }
         
-        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 16px; }
+        .dark body { 
+            background: #0f172a; 
+            background-image: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%); 
+            background-attachment: fixed; 
+        }
         
-        .sidebar-link { transition: all 0.2s; border-radius: 10px; cursor: pointer; display: none; /* Hidden by default */ }
-        .sidebar-link.visible { display: flex; } /* Shown via JS */
-        .sidebar-link:hover, .sidebar-link.active { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .light body {
+            background: #f8fafc;
+            background-image: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #1e293b;
+        }
+        
+        .glass-panel { 
+            background: var(--glass-bg); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px); 
+            border: 1px solid var(--glass-border); 
+            border-radius: 16px; 
+        }
+        
+        .light .glass-panel {
+            background: var(--light-glass-bg);
+            border: 1px solid var(--light-glass-border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        
+        .sidebar-link { 
+            transition: all 0.2s; 
+            border-radius: 10px; 
+            cursor: pointer; 
+        }
+        .sidebar-link:hover, .sidebar-link.active { 
+            background: rgba(59, 130, 246, 0.15); 
+            color: #60a5fa; 
+        }
+        
+        .light .sidebar-link:hover, 
+        .light .sidebar-link.active { 
+            background: rgba(59, 130, 246, 0.1); 
+            color: #2563eb; 
+        }
         
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        .light ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-up { animation: fadeUp 0.4s ease-out forwards; }
         .delay-1 { animation-delay: 0.1s; } .delay-2 { animation-delay: 0.2s; }
         
         select, input { color-scheme: dark; }
+        
+        /* Mobile sidebar overlay */
+        .mobile-sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            display: none;
+        }
+        
+        .light .mobile-sidebar-overlay {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Mobile sidebar */
+        .mobile-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px;
+            background: #1e293b;
+            z-index: 50;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+        }
+        
+        .light .mobile-sidebar {
+            background: #ffffff;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mobile-sidebar.open {
+            transform: translateX(0);
+        }
+        
+        /* Mobile header adjustments */
+        .mobile-header {
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        .light .mobile-header {
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        /* Touch-friendly buttons */
+        button, a {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Responsive text */
+        @media (max-width: 640px) {
+            h1 { font-size: 1.25rem; }
+            h2 { font-size: 1.125rem; }
+            .text-sm { font-size: 0.875rem; }
+        }
+        
+        /* Dark mode input styles */
+        .dark input, .dark select, .dark textarea {
+            background-color: #1e293b;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+        
+        .light input, .light select, .light textarea {
+            background-color: #ffffff;
+            border-color: #cbd5e1;
+            color: #1e293b;
+        }
+        
+        /* Theme transition */
+        * {
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
     </style>
 </head>
 <body class="text-slate-200 antialiased overflow-hidden">
 
-    <div class="flex h-screen w-full">
-        
-        <!-- SIDEBAR -->
-        <aside class="hidden md:flex w-64 flex-col glass-panel m-3 ml-0 md:ml-3 h-[calc(100vh-24px)]">
-            <!-- Brand -->
-            <div class="p-6 flex items-center gap-3 border-b border-white/5">
-                <!-- Desktop Logo -->
-                <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white">
-                <h1 class="font-bold text-lg tracking-tight">FleetDash</h1>
-            </div>
+    <!-- Mobile Sidebar Overlay -->
+    <div class="mobile-sidebar-overlay" id="mobileOverlay" onclick="toggleMobileSidebar()"></div>
+    
+    <!-- Mobile Sidebar -->
+    <aside class="mobile-sidebar" id="mobileSidebar">
+        <!-- Mobile Brand -->
+        <div class="p-6 flex items-center gap-3 border-b border-white/5 dark:border-slate-200/10">
+            <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white dark:bg-slate-800">
+            <h1 class="font-bold text-lg tracking-tight dark:text-white text-slate-800">FleetDash</h1>
+            <button onclick="toggleMobileSidebar()" class="ml-auto text-slate-400 hover:text-slate-200 dark:text-slate-500 dark:hover:text-slate-700">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
 
-            <!-- Nav -->
-            <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-                
-                <!-- SECTION: OVERVIEW -->
-                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 nav-group" id="group-overview">Overview</p>
-                
-                <a href="#dashboard" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium" id="nav-dashboard">
-                    <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
-                </a>
-                <a href="#analytics" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200" id="nav-analytics">
-                    <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Analytics
-                </a>
+        <!-- Mobile Nav -->
+        <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+            
+            <!-- SECTION: OVERVIEW -->
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 nav-group" id="mobile-group-overview">Overview</p>
+            
+            <a href="#dashboard" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-300 text-slate-700" id="mobile-nav-dashboard" onclick="toggleMobileSidebar()">
+                <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
+            </a>
+            <a href="#analytics" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-analytics" onclick="toggleMobileSidebar()">
+                <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Analytics
+            </a>
 
-                <!-- SECTION: MANAGEMENT -->
-                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group" id="group-management">Management</p>
-                
-                <a href="#vehicles" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200" id="nav-vehicles">
-                    <i data-lucide="car" class="w-5 h-5"></i> Vehicles
-                </a>
-                <a href="#requests" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200" id="nav-requests">
-                    <i data-lucide="file-check" class="w-5 h-5"></i> Requests
-                </a>
-                <a href="#users" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200" id="nav-users">
-                    <i data-lucide="users" class="w-5 h-5"></i> Users
-                </a>
-                <a href="#fuel" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200" id="nav-fuel">
-                    <i data-lucide="fuel" class="w-5 h-5"></i> Fuel Logs
-                </a>
+            <!-- SECTION: MANAGEMENT -->
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group" id="mobile-group-management">Management</p>
+            
+            <a href="#vehicles" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-vehicles" onclick="toggleMobileSidebar()">
+                <i data-lucide="car" class="w-5 h-5"></i> Vehicles
+            </a>
+            <a href="#requests" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-requests" onclick="toggleMobileSidebar()">
+                <i data-lucide="file-check" class="w-5 h-5"></i> Requests
+            </a>
+            <a href="#users" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-users" onclick="toggleMobileSidebar()">
+                <i data-lucide="users" class="w-5 h-5"></i> Users
+            </a>
+            <a href="#fuel" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-fuel" onclick="toggleMobileSidebar()">
+                <i data-lucide="fuel" class="w-5 h-5"></i> Fuel Logs
+            </a>
 
-                <!-- SECTION: OPERATIONS -->
-                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group" id="group-operations">Operations</p>
-                
-                <a href="#maintenance" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200" id="nav-maintenance">
-                    <i data-lucide="wrench" class="w-5 h-5"></i> Maintenance
-                </a>
-                <a href="#panne" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200" id="nav-panne">
-                    <i data-lucide="alert-triangle" class="w-5 h-5"></i> Panne
-                </a>
-                <a href="#reparations" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200" id="nav-reparations">
-                    <i data-lucide="hammer" class="w-5 h-5"></i> Reparations
-                </a>
-                
-            </nav>
-
-            <!-- User Profile (Bottom) -->
-            <div class="p-4 border-t border-white/5">
-                <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition">
-                    <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold" id="user-avatar">U</div>
-                    <div class="flex-1 overflow-hidden">
-                        <p class="text-sm font-medium truncate" id="user-name">Loading...</p>
-                        <p class="text-xs text-slate-500 truncate" id="user-role">...</p>
-                    </div>
-                    <button onclick="logout()" class="text-slate-400 hover:text-red-400 transition" title="Sign Out"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+            <!-- SECTION: OPERATIONS -->
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group" id="mobile-group-operations">Operations</p>
+            
+            <a href="#maintenance" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-maintenance" onclick="toggleMobileSidebar()">
+                <i data-lucide="wrench" class="w-5 h-5"></i> Maintenance
+            </a>
+            <a href="#panne" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-panne" onclick="toggleMobileSidebar()">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i> Panne
+            </a>
+            <a href="#reparations" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-reparations" onclick="toggleMobileSidebar()">
+                <i data-lucide="hammer" class="w-5 h-5"></i> Reparations
+            </a>
+            
+            <!-- Theme Toggle in Mobile Sidebar -->
+            <div class="px-3 pt-8 mt-6 border-t border-white/5 dark:border-slate-200/10">
+                <div class="flex items-center justify-between p-3 rounded-lg dark:bg-slate-800/50 bg-slate-100">
+                    <span class="text-sm font-medium dark:text-slate-300 text-slate-700">
+                        <i data-lucide="moon" class="w-4 h-4 inline-block mr-2"></i> Theme
+                    </span>
+                    <button onclick="toggleTheme()" class="relative w-12 h-6 rounded-full dark:bg-blue-600 bg-slate-300 transition-all duration-300">
+                        <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300" id="themeToggleKnob"></span>
+                    </button>
                 </div>
             </div>
-        </aside>
+        </nav>
 
-        <!-- MAIN CONTENT -->
-        <main class="flex-1 h-full overflow-y-auto overflow-x-hidden p-4 md:p-6 scroll-smooth">
-            
-            <!-- Mobile Header -->
-            <header class="flex md:hidden items-center justify-between mb-6">
-                <div class="flex items-center gap-3">
-                    <!-- Mobile Logo (UPDATED HERE) -->
-                    <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white">
-                    <h1 class="font-bold text-lg">FleetDash</h1>
+        <!-- Mobile User Profile (Bottom) -->
+        <div class="p-4 border-t border-white/5 dark:border-slate-200/10">
+            <div class="flex items-center gap-3 p-2 rounded-xl dark:hover:bg-white/5 hover:bg-slate-100 cursor-pointer transition">
+                <div class="w-10 h-10 rounded-full dark:bg-slate-700 bg-slate-200 flex items-center justify-center dark:text-slate-300 text-slate-700 font-bold" id="mobile-user-avatar">U</div>
+                <div class="flex-1 overflow-hidden">
+                    <p class="text-sm font-medium truncate dark:text-white text-slate-800" id="mobile-user-name">Loading...</p>
+                    <p class="text-xs dark:text-slate-500 text-slate-600 truncate" id="mobile-user-role">...</p>
                 </div>
-                <button onclick="logout()" class="p-2 text-slate-400"><i data-lucide="log-out" class="w-6 h-6"></i></button>
-            </header>
+                <button onclick="logout()" class="dark:text-slate-400 text-slate-500 hover:text-red-400 transition" title="Sign Out"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+    </aside>
 
-            <!-- DYNAMIC CONTENT CONTAINER -->
-            <div id="app-content"></div>
+    <!-- Desktop Sidebar -->
+    <aside class="hidden md:flex w-64 flex-col glass-panel m-3 ml-0 md:ml-3 h-[calc(100vh-24px)]">
+        <!-- Brand -->
+        <div class="p-6 flex items-center gap-3 border-b border-white/5 dark:border-slate-200/10">
+            <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white dark:bg-slate-800">
+            <h1 class="font-bold text-lg tracking-tight dark:text-white text-slate-800">FleetDash</h1>
+        </div>
 
-        </main>
-    </div>
+        <!-- Nav -->
+        <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+            
+            <!-- SECTION: OVERVIEW -->
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 nav-group">Overview</p>
+            
+            <a href="#dashboard" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-300 text-slate-700" id="nav-dashboard">
+                <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
+            </a>
+            <a href="#analytics" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-analytics">
+                <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Analytics
+            </a>
 
-    <!-- LOGIC -->
-    <!-- SCRIPTS -->
-    <script>
-        const API_BASE = '/api/v1'; 
-        const token = localStorage.getItem('access_token');
+            <!-- SECTION: MANAGEMENT -->
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group">Management</p>
+            
+            <a href="#vehicles" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-vehicles">
+                <i data-lucide="car" class="w-5 h-5"></i> Vehicles
+            </a>
+            <a href="#requests" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-requests">
+                <i data-lucide="file-check" class="w-5 h-5"></i> Requests
+            </a>
+            <a href="#users" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-users">
+                <i data-lucide="users" class="w-5 h-5"></i> Users
+            </a>
+            <a href="#fuel" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-fuel">
+                <i data-lucide="fuel" class="w-5 h-5"></i> Fuel Logs
+            </a>
+
+            <!-- SECTION: OPERATIONS -->
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group">Operations</p>
+            
+            <a href="#maintenance" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-maintenance">
+                <i data-lucide="wrench" class="w-5 h-5"></i> Maintenance
+            </a>
+            <a href="#panne" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-panne">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i> Panne
+            </a>
+            <a href="#reparations" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-reparations">
+                <i data-lucide="hammer" class="w-5 h-5"></i> Reparations
+            </a>
+            
+        </nav>
+
+        <!-- User Profile & Theme Toggle (Bottom) -->
+        <div class="p-4 border-t border-white/5 dark:border-slate-200/10 space-y-4">
+            <!-- Theme Toggle -->
+            <div class="flex items-center justify-between p-3 rounded-lg dark:bg-slate-800/50 bg-slate-100">
+                <span class="text-sm font-medium dark:text-slate-300 text-slate-700">
+                    <i data-lucide="moon" class="w-4 h-4 inline-block mr-2"></i> Dark Mode
+                </span>
+                <button onclick="toggleTheme()" class="relative w-12 h-6 rounded-full dark:bg-blue-600 bg-slate-300 transition-all duration-300">
+                    <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300" id="desktopThemeToggleKnob"></span>
+                </button>
+            </div>
+            
+            <!-- User Profile -->
+            <div class="flex items-center gap-3 p-2 rounded-xl dark:hover:bg-white/5 hover:bg-slate-100 cursor-pointer transition">
+                <div class="w-10 h-10 rounded-full dark:bg-slate-700 bg-slate-200 flex items-center justify-center dark:text-slate-300 text-slate-700 font-bold" id="user-avatar">U</div>
+                <div class="flex-1 overflow-hidden">
+                    <p class="text-sm font-medium truncate dark:text-white text-slate-800" id="user-name">Loading...</p>
+                    <p class="text-xs dark:text-slate-500 text-slate-600 truncate" id="user-role">...</p>
+                </div>
+                <button onclick="logout()" class="dark:text-slate-400 text-slate-500 hover:text-red-400 transition" title="Sign Out"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 h-full overflow-y-auto overflow-x-hidden p-4 md:p-6 scroll-smooth">
         
-        // 1. Auth Check
-        if(!token) window.location.href = '/';
+        <!-- Mobile Header -->
+        <header class="mobile-header flex md:hidden items-center justify-between mb-4 px-4">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleMobileSidebar()" class="p-2 dark:text-slate-300 text-slate-700">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+                <!-- Mobile Logo -->
+                <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white dark:bg-slate-800">
+                <h1 class="font-bold text-lg dark:text-white text-slate-800">FleetDash</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleTheme()" class="p-2 dark:text-slate-300 text-slate-700">
+                    <i data-lucide="moon" class="w-5 h-5"></i>
+                </button>
+                <button onclick="logout()" class="p-2 dark:text-slate-300 text-slate-700">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
 
-        // 2. Load User Info
-        const uName = localStorage.getItem('username') || 'User';
-        // Default to 'user' if role is missing
-        const uRole = (localStorage.getItem('user_role') || 'user').toLowerCase(); 
+        <!-- DYNAMIC CONTENT CONTAINER -->
+        <div id="app-content" class="min-h-[calc(100vh-120px)]"></div>
+
+    </main>
+</div>
+
+<!-- LOGIC -->
+<!-- SCRIPTS -->
+<script>
+    const API_BASE = '/api/v1'; 
+    const token = localStorage.getItem('access_token');
+    
+    // 1. Auth Check
+    if(!token) window.location.href = '/';
+
+    // 2. Load User Info
+    const uName = localStorage.getItem('username') || 'User';
+    // Default to 'user' if role is missing
+    const uRole = (localStorage.getItem('user_role') || 'user').toLowerCase(); 
+    
+    document.getElementById('user-name').innerText = uName;
+    document.getElementById('user-role').innerText = uRole.toUpperCase();
+    document.getElementById('user-avatar').innerText = uName.charAt(0).toUpperCase();
+    
+    // Mobile versions
+    document.getElementById('mobile-user-name').innerText = uName;
+    document.getElementById('mobile-user-role').innerText = uRole.toUpperCase();
+    document.getElementById('mobile-user-avatar').innerText = uName.charAt(0).toUpperCase();
+
+    // 3. Initialize theme from localStorage or prefer-color-scheme
+    function initTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         
-        document.getElementById('user-name').innerText = uName;
-        document.getElementById('user-role').innerText = uRole.toUpperCase();
-        document.getElementById('user-avatar').innerText = uName.charAt(0).toUpperCase();
+        if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+            updateThemeToggle(true);
+        } else {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+            updateThemeToggle(false);
+        }
+    }
+    
+    function updateThemeToggle(isDark) {
+        const knob = document.getElementById('themeToggleKnob');
+        const desktopKnob = document.getElementById('desktopThemeToggleKnob');
+        
+        if (isDark) {
+            if (knob) knob.style.transform = 'translateX(26px)';
+            if (desktopKnob) desktopKnob.style.transform = 'translateX(26px)';
+        } else {
+            if (knob) knob.style.transform = 'translateX(0)';
+            if (desktopKnob) desktopKnob.style.transform = 'translateX(0)';
+        }
+    }
+    
+    function toggleTheme() {
+        if (document.documentElement.classList.contains('dark')) {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            localStorage.setItem('theme', 'light');
+            updateThemeToggle(false);
+        } else {
+            document.documentElement.classList.remove('light');
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+            updateThemeToggle(true);
+        }
+    }
 
-        // 3. ROLE-BASED MENU CONFIGURATION
-        const rolePermissions = {
-            'admin':      ['all'], 
-            'superadmin': ['all'],
-            
-            'charoi':     ['requests', 'panne', 'maintenance', 'reparations', 'fuel'],
-            
-            // Logistic sees Request & Trips
-            'logistic':   ['requests'], 
-            
-            // Driver sees Trips & Requests
-            'driver':     ['requests'],
-            
-            // Chef sees Requests
-            'chef':       ['requests'],
-            
-            // Standard user only sees Requests
-            'user':       ['requests'],
+    // 4. Mobile Sidebar Functions
+    function toggleMobileSidebar() {
+        const sidebar = document.getElementById('mobileSidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        
+        if (sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            overlay.style.display = 'none';
+        } else {
+            sidebar.classList.add('open');
+            overlay.style.display = 'block';
+        }
+    }
+    
+    function closeMobileSidebar() {
+        const sidebar = document.getElementById('mobileSidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        
+        sidebar.classList.remove('open');
+        overlay.style.display = 'none';
+    }
 
-            // Operateur sees Requests & Fuel
-            'operateur':  ['requests', 'fuel'],
+    // 5. ROLE-BASED MENU CONFIGURATION
+    const rolePermissions = {
+        'admin':      ['all'], 
+        'superadmin': ['all'],
+        
+        'charoi':     ['requests', 'panne', 'maintenance', 'reparations', 'fuel'],
+        
+        // Logistic sees Request & Trips
+        'logistic':   ['requests'], 
+        
+        // Driver sees Trips & Requests
+        'driver':     ['requests'],
+        
+        // Chef sees Requests
+        'chef':       ['requests'],
+        
+        // Standard user only sees Requests
+        'user':       ['requests'],
 
-            // Technicien sees Requests & Operations
-            'technicien': ['requests', 'panne', 'maintenance', 'reparations'],
+        // Operateur sees Requests & Fuel
+        'operateur':  ['requests', 'fuel'],
+
+        // Technicien sees Requests & Operations
+        'technicien': ['requests', 'panne', 'maintenance', 'reparations'],
+    };
+
+    // 6. APPLY VISIBILITY TO BOTH DESKTOP AND MOBILE MENUS
+    function initSidebar() {
+        // Get the list of allowed keys for this user
+        const allowed = rolePermissions[uRole] || ['dashboard'];
+
+        // Map HTML IDs to the keys above (for both desktop and mobile)
+        const menuMap = {
+            // Desktop menu items
+            'nav-dashboard':   'dashboard',
+            'nav-analytics':   'analytics',
+            'nav-vehicles':    'vehicles',
+            'nav-requests':    'requests',
+            'nav-users':       'users',
+            'nav-maintenance': 'maintenance',
+            'nav-panne':       'panne',
+            'nav-reparations': 'reparations',
+            'nav-fuel':        'fuel',
+            
+            // Mobile menu items
+            'mobile-nav-dashboard':   'dashboard',
+            'mobile-nav-analytics':   'analytics',
+            'mobile-nav-vehicles':    'vehicles',
+            'mobile-nav-requests':    'requests',
+            'mobile-nav-users':       'users',
+            'mobile-nav-maintenance': 'maintenance',
+            'mobile-nav-panne':       'panne',
+            'mobile-nav-reparations': 'reparations',
+            'mobile-nav-fuel':        'fuel',
+            
+            // Menu group visibility (show only if at least one item in group is visible)
+            'group-overview': 'overview',
+            'group-management': 'management',
+            'group-operations': 'operations',
+            'mobile-group-overview': 'overview',
+            'mobile-group-management': 'management',
+            'mobile-group-operations': 'operations'
         };
 
-        // 4. APPLY VISIBILITY
-        function initSidebar() {
-            // Get the list of allowed keys for this user
-            const allowed = rolePermissions[uRole] || ['dashboard'];
+        // First, determine which menu items are visible
+        const visibleItems = {};
+        const visibleGroups = new Set();
+        
+        for (const [elementId, permissionKey] of Object.entries(menuMap)) {
+            const el = document.getElementById(elementId);
+            if (!el) continue;
 
-            // Map HTML IDs to the keys above
-            const menuMap = {
-                'nav-dashboard':   'dashboard',
-                'nav-analytics':   'analytics',
-                'nav-vehicles':    'vehicles',
-                'nav-requests':    'requests',
-                'nav-users':       'users',
-                'nav-maintenance': 'maintenance',
-                'nav-panne':       'panne',
-                'nav-reparations': 'reparations',
-                'nav-fuel':        'fuel',
-                'nav-trips':       'trips'
-            };
-
-            // Loop through all menu items and hide/show them
-            for (const [elementId, permissionKey] of Object.entries(menuMap)) {
-                const el = document.getElementById(elementId);
-                if (!el) continue;
-
-                if (allowed.includes('all') || allowed.includes(permissionKey)) {
-                    el.style.display = 'flex'; // Show
-                } else {
-                    el.style.display = 'none'; // Hide
+            // Check if this element should be visible
+            const shouldShow = allowed.includes('all') || allowed.includes(permissionKey);
+            
+            if (shouldShow) {
+                el.style.display = elementId.startsWith('group-') || elementId.startsWith('mobile-group-') ? 'block' : 'flex';
+                visibleItems[permissionKey] = true;
+                
+                // Track which groups should be visible
+                if (permissionKey === 'dashboard' || permissionKey === 'analytics') {
+                    visibleGroups.add('overview');
+                } else if (['vehicles', 'requests', 'users', 'fuel'].includes(permissionKey)) {
+                    visibleGroups.add('management');
+                } else if (['maintenance', 'panne', 'reparations'].includes(permissionKey)) {
+                    visibleGroups.add('operations');
                 }
+            } else {
+                el.style.display = 'none';
             }
         }
-
-        // 5. GLOBAL LOGOUT
-        window.logout = function() {
-            localStorage.clear();
-            window.location.href = '/';
+        
+        // Hide empty group headers
+        const groupElements = {
+            'overview': ['group-overview', 'mobile-group-overview'],
+            'management': ['group-management', 'mobile-group-management'],
+            'operations': ['group-operations', 'mobile-group-operations']
+        };
+        
+        for (const [group, elementIds] of Object.entries(groupElements)) {
+            const shouldShowGroup = visibleGroups.has(group);
+            elementIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = shouldShowGroup ? 'block' : 'none';
+            });
         }
+    }
 
-        // Run Logic
-        initSidebar();
+    // 7. GLOBAL LOGOUT
+    window.logout = function() {
+        localStorage.clear();
+        window.location.href = '/';
+    }
 
-    </script>
-
-    <!-- Load Modules -->
-    <script src="/static/js/dashboard.js"></script>
-    <script src="/static/js/vehicles.js"></script>
-    <script src="/static/js/requests.js"></script>
-    <script src="/static/js/users.js"></script>
-    <script src="/static/js/fuel.js"></script>
-    <script src="/static/js/maintenance.js"></script>
-    <script src="/static/js/panne.js"></script>
-    <script src="/static/js/reparation.js"></script>
+    // 8. Handle window resize for mobile sidebar
+    window.addEventListener('resize', function() {
+        if (window.innerWidth >= 768) {
+            closeMobileSidebar();
+        }
+    });
     
+    // 9. Close mobile sidebar when clicking on a link
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('a') && window.innerWidth < 768) {
+            setTimeout(closeMobileSidebar, 100);
+        }
+    });
 
-    <!-- Load Router LAST -->
-    <script src="/static/js/router.js"></script>
+    // 10. Run initializations
+    initTheme();
+    initSidebar();
     
+    // 11. Create Lucide icons
+    setTimeout(() => {
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    }, 100);
+
+</script>
+
+<!-- Load Modules -->
+<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/vehicles.js"></script>
+<script src="/static/js/requests.js"></script>
+<script src="/static/js/users.js"></script>
+<script src="/static/js/fuel.js"></script>
+<script src="/static/js/maintenance.js"></script>
+<script src="/static/js/panne.js"></script>
+<script src="/static/js/reparation.js"></script>
+
+<!-- Load Router LAST -->
+<script src="/static/js/router.js"></script>
+
 </body>
 </html>
