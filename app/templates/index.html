@@ -37,6 +37,7 @@
                         'slide-out': 'slideOut 0.3s ease-in',
                         'fade-in': 'fadeIn 0.3s ease-out',
                         'fade-out': 'fadeOut 0.3s ease-in',
+                        'bounce-in': 'bounceIn 0.5s ease-out',
                     },
                     keyframes: {
                         slideIn: {
@@ -54,6 +55,12 @@
                         fadeOut: {
                             '0%': { opacity: '1' },
                             '100%': { opacity: '0' }
+                        },
+                        bounceIn: {
+                            '0%': { transform: 'translateY(100%)' },
+                            '60%': { transform: 'translateY(-10%)' },
+                            '80%': { transform: 'translateY(5%)' },
+                            '100%': { transform: 'translateY(0)' }
                         }
                     }
                 }
@@ -72,6 +79,7 @@
             background: #0f172a; 
             background-image: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%); 
             background-attachment: fixed; 
+            color: #e2e8f0;
         }
         
         .light body {
@@ -130,7 +138,7 @@
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.5);
-            z-index: 40;
+            z-index: 90;
             display: none;
         }
         
@@ -146,7 +154,7 @@
             height: 100vh;
             width: 280px;
             background: #1e293b;
-            z-index: 50;
+            z-index: 100;
             transform: translateX(-100%);
             transition: transform 0.3s ease;
             overflow-y: auto;
@@ -161,12 +169,74 @@
             transform: translateX(0);
         }
         
-        /* Mobile header adjustments */
+        /* Mobile bottom navigation (NEW) */
+        .mobile-bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background: #1e293b;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 80;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        .light .mobile-bottom-nav {
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .mobile-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            height: 100%;
+            transition: all 0.2s;
+            color: #94a3b8;
+            text-decoration: none;
+            position: relative;
+        }
+        
+        .mobile-nav-item.active {
+            color: #3b82f6;
+        }
+        
+        .mobile-nav-item.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40%;
+            height: 3px;
+            background: #3b82f6;
+            border-radius: 0 0 3px 3px;
+        }
+        
+        .mobile-nav-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .mobile-nav-label {
+            font-size: 10px;
+            font-weight: 500;
+        }
+        
+        /* Mobile header */
         .mobile-header {
             height: 64px;
             position: sticky;
             top: 0;
-            z-index: 30;
+            z-index: 70;
             background: rgba(30, 41, 59, 0.95);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
@@ -206,196 +276,244 @@
         * {
             transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
         }
+        
+        /* Main content area adjustments for mobile bottom nav */
+        .mobile-content-area {
+            padding-bottom: 80px;
+            min-height: calc(100vh - 64px);
+        }
+        
+        /* Desktop layout fix */
+        .desktop-layout {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        
+        /* Safe area for newer iPhones */
+        .safe-area-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
     </style>
 </head>
-<body class="text-slate-200 antialiased overflow-hidden">
+<body class="antialiased overflow-hidden">
 
-    <!-- Mobile Sidebar Overlay -->
-    <div class="mobile-sidebar-overlay" id="mobileOverlay" onclick="toggleMobileSidebar()"></div>
-    
-    <!-- Mobile Sidebar -->
-    <aside class="mobile-sidebar" id="mobileSidebar">
-        <!-- Mobile Brand -->
-        <div class="p-6 flex items-center gap-3 border-b border-white/5 dark:border-slate-200/10">
-            <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white dark:bg-slate-800">
-            <h1 class="font-bold text-lg tracking-tight dark:text-white text-slate-800">FleetDash</h1>
-            <button onclick="toggleMobileSidebar()" class="ml-auto text-slate-400 hover:text-slate-200 dark:text-slate-500 dark:hover:text-slate-700">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-        </div>
+    <!-- Desktop Layout -->
+    <div class="desktop-layout hidden md:flex">
+        <!-- Desktop Sidebar -->
+        <aside class="w-64 flex flex-col glass-panel m-3 ml-0 md:ml-3 h-[calc(100vh-24px)]">
+            <!-- Brand -->
+            <div class="p-6 flex items-center gap-3 border-b border-white/5 dark:border-slate-200/10">
+                <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white dark:bg-slate-800">
+                <h1 class="font-bold text-lg tracking-tight dark:text-white text-slate-800">FleetDash</h1>
+            </div>
 
-        <!-- Mobile Nav -->
-        <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-            
-            <!-- SECTION: OVERVIEW -->
-            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 nav-group" id="mobile-group-overview">Overview</p>
-            
-            <a href="#dashboard" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-300 text-slate-700" id="mobile-nav-dashboard" onclick="toggleMobileSidebar()">
-                <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
-            </a>
-            <a href="#analytics" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-analytics" onclick="toggleMobileSidebar()">
-                <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Analytics
-            </a>
+            <!-- Nav -->
+            <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+                
+                <!-- SECTION: OVERVIEW -->
+                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 nav-group">Overview</p>
+                
+                <a href="#dashboard" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-300 text-slate-700" id="nav-dashboard">
+                    <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
+                </a>
+                <a href="#analytics" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-analytics">
+                    <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Analytics
+                </a>
 
-            <!-- SECTION: MANAGEMENT -->
-            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group" id="mobile-group-management">Management</p>
-            
-            <a href="#vehicles" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-vehicles" onclick="toggleMobileSidebar()">
-                <i data-lucide="car" class="w-5 h-5"></i> Vehicles
-            </a>
-            <a href="#requests" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-requests" onclick="toggleMobileSidebar()">
-                <i data-lucide="file-check" class="w-5 h-5"></i> Requests
-            </a>
-            <a href="#users" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-users" onclick="toggleMobileSidebar()">
-                <i data-lucide="users" class="w-5 h-5"></i> Users
-            </a>
-            <a href="#fuel" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-fuel" onclick="toggleMobileSidebar()">
-                <i data-lucide="fuel" class="w-5 h-5"></i> Fuel Logs
-            </a>
+                <!-- SECTION: MANAGEMENT -->
+                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group">Management</p>
+                
+                <a href="#vehicles" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-vehicles">
+                    <i data-lucide="car" class="w-5 h-5"></i> Vehicles
+                </a>
+                <a href="#requests" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-requests">
+                    <i data-lucide="file-check" class="w-5 h-5"></i> Requests
+                </a>
+                <a href="#users" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-users">
+                    <i data-lucide="users" class="w-5 h-5"></i> Users
+                </a>
+                <a href="#fuel" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-fuel">
+                    <i data-lucide="fuel" class="w-5 h-5"></i> Fuel Logs
+                </a>
 
-            <!-- SECTION: OPERATIONS -->
-            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group" id="mobile-group-operations">Operations</p>
-            
-            <a href="#maintenance" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-maintenance" onclick="toggleMobileSidebar()">
-                <i data-lucide="wrench" class="w-5 h-5"></i> Maintenance
-            </a>
-            <a href="#panne" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-panne" onclick="toggleMobileSidebar()">
-                <i data-lucide="alert-triangle" class="w-5 h-5"></i> Panne
-            </a>
-            <a href="#reparations" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-reparations" onclick="toggleMobileSidebar()">
-                <i data-lucide="hammer" class="w-5 h-5"></i> Reparations
-            </a>
-            
-            <!-- Theme Toggle in Mobile Sidebar -->
-            <div class="px-3 pt-8 mt-6 border-t border-white/5 dark:border-slate-200/10">
+                <!-- SECTION: OPERATIONS -->
+                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group">Operations</p>
+                
+                <a href="#maintenance" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-maintenance">
+                    <i data-lucide="wrench" class="w-5 h-5"></i> Maintenance
+                </a>
+                <a href="#panne" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-panne">
+                    <i data-lucide="alert-triangle" class="w-5 h-5"></i> Panne
+                </a>
+                <a href="#reparations" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-reparations">
+                    <i data-lucide="hammer" class="w-5 h-5"></i> Reparations
+                </a>
+                
+            </nav>
+
+            <!-- User Profile & Theme Toggle (Bottom) -->
+            <div class="p-4 border-t border-white/5 dark:border-slate-200/10 space-y-4">
+                <!-- Theme Toggle -->
                 <div class="flex items-center justify-between p-3 rounded-lg dark:bg-slate-800/50 bg-slate-100">
                     <span class="text-sm font-medium dark:text-slate-300 text-slate-700">
-                        <i data-lucide="moon" class="w-4 h-4 inline-block mr-2"></i> Theme
+                        <i data-lucide="moon" class="w-4 h-4 inline-block mr-2"></i> Dark Mode
                     </span>
                     <button onclick="toggleTheme()" class="relative w-12 h-6 rounded-full dark:bg-blue-600 bg-slate-300 transition-all duration-300">
-                        <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300" id="themeToggleKnob"></span>
+                        <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300" id="desktopThemeToggleKnob"></span>
                     </button>
                 </div>
-            </div>
-        </nav>
-
-        <!-- Mobile User Profile (Bottom) -->
-        <div class="p-4 border-t border-white/5 dark:border-slate-200/10">
-            <div class="flex items-center gap-3 p-2 rounded-xl dark:hover:bg-white/5 hover:bg-slate-100 cursor-pointer transition">
-                <div class="w-10 h-10 rounded-full dark:bg-slate-700 bg-slate-200 flex items-center justify-center dark:text-slate-300 text-slate-700 font-bold" id="mobile-user-avatar">U</div>
-                <div class="flex-1 overflow-hidden">
-                    <p class="text-sm font-medium truncate dark:text-white text-slate-800" id="mobile-user-name">Loading...</p>
-                    <p class="text-xs dark:text-slate-500 text-slate-600 truncate" id="mobile-user-role">...</p>
+                
+                <!-- User Profile -->
+                <div class="flex items-center gap-3 p-2 rounded-xl dark:hover:bg-white/5 hover:bg-slate-100 cursor-pointer transition">
+                    <div class="w-10 h-10 rounded-full dark:bg-slate-700 bg-slate-200 flex items-center justify-center dark:text-slate-300 text-slate-700 font-bold" id="user-avatar">U</div>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="text-sm font-medium truncate dark:text-white text-slate-800" id="user-name">Loading...</p>
+                        <p class="text-xs dark:text-slate-500 text-slate-600 truncate" id="user-role">...</p>
+                    </div>
+                    <button onclick="logout()" class="dark:text-slate-400 text-slate-500 hover:text-red-400 transition" title="Sign Out"><i data-lucide="log-out" class="w-5 h-5"></i></button>
                 </div>
-                <button onclick="logout()" class="dark:text-slate-400 text-slate-500 hover:text-red-400 transition" title="Sign Out"><i data-lucide="log-out" class="w-5 h-5"></i></button>
             </div>
-        </div>
-    </aside>
+        </aside>
 
-    <!-- Desktop Sidebar -->
-    <aside class="hidden md:flex w-64 flex-col glass-panel m-3 ml-0 md:ml-3 h-[calc(100vh-24px)]">
-        <!-- Brand -->
-        <div class="p-6 flex items-center gap-3 border-b border-white/5 dark:border-slate-200/10">
-            <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white dark:bg-slate-800">
-            <h1 class="font-bold text-lg tracking-tight dark:text-white text-slate-800">FleetDash</h1>
-        </div>
+        <!-- Desktop Main Content -->
+        <main class="flex-1 h-full overflow-y-auto overflow-x-hidden p-4 md:p-6 scroll-smooth">
+            <!-- DYNAMIC CONTENT CONTAINER -->
+            <div id="app-content" class="min-h-[calc(100vh-120px)]"></div>
+        </main>
+    </div>
 
-        <!-- Nav -->
-        <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-            
-            <!-- SECTION: OVERVIEW -->
-            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 nav-group">Overview</p>
-            
-            <a href="#dashboard" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-300 text-slate-700" id="nav-dashboard">
-                <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
-            </a>
-            <a href="#analytics" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-analytics">
-                <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Analytics
-            </a>
-
-            <!-- SECTION: MANAGEMENT -->
-            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group">Management</p>
-            
-            <a href="#vehicles" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-vehicles">
-                <i data-lucide="car" class="w-5 h-5"></i> Vehicles
-            </a>
-            <a href="#requests" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-requests">
-                <i data-lucide="file-check" class="w-5 h-5"></i> Requests
-            </a>
-            <a href="#users" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-users">
-                <i data-lucide="users" class="w-5 h-5"></i> Users
-            </a>
-            <a href="#fuel" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-fuel">
-                <i data-lucide="fuel" class="w-5 h-5"></i> Fuel Logs
-            </a>
-
-            <!-- SECTION: OPERATIONS -->
-            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group">Operations</p>
-            
-            <a href="#maintenance" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-maintenance">
-                <i data-lucide="wrench" class="w-5 h-5"></i> Maintenance
-            </a>
-            <a href="#panne" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-panne">
-                <i data-lucide="alert-triangle" class="w-5 h-5"></i> Panne
-            </a>
-            <a href="#reparations" class="sidebar-link items-center gap-3 px-3 py-2.5 text-sm font-medium dark:text-slate-400 text-slate-600" id="nav-reparations">
-                <i data-lucide="hammer" class="w-5 h-5"></i> Reparations
-            </a>
-            
-        </nav>
-
-        <!-- User Profile & Theme Toggle (Bottom) -->
-        <div class="p-4 border-t border-white/5 dark:border-slate-200/10 space-y-4">
-            <!-- Theme Toggle -->
-            <div class="flex items-center justify-between p-3 rounded-lg dark:bg-slate-800/50 bg-slate-100">
-                <span class="text-sm font-medium dark:text-slate-300 text-slate-700">
-                    <i data-lucide="moon" class="w-4 h-4 inline-block mr-2"></i> Dark Mode
-                </span>
-                <button onclick="toggleTheme()" class="relative w-12 h-6 rounded-full dark:bg-blue-600 bg-slate-300 transition-all duration-300">
-                    <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300" id="desktopThemeToggleKnob"></span>
-                </button>
-            </div>
-            
-            <!-- User Profile -->
-            <div class="flex items-center gap-3 p-2 rounded-xl dark:hover:bg-white/5 hover:bg-slate-100 cursor-pointer transition">
-                <div class="w-10 h-10 rounded-full dark:bg-slate-700 bg-slate-200 flex items-center justify-center dark:text-slate-300 text-slate-700 font-bold" id="user-avatar">U</div>
-                <div class="flex-1 overflow-hidden">
-                    <p class="text-sm font-medium truncate dark:text-white text-slate-800" id="user-name">Loading...</p>
-                    <p class="text-xs dark:text-slate-500 text-slate-600 truncate" id="user-role">...</p>
-                </div>
-                <button onclick="logout()" class="dark:text-slate-400 text-slate-500 hover:text-red-400 transition" title="Sign Out"><i data-lucide="log-out" class="w-5 h-5"></i></button>
-            </div>
-        </div>
-    </aside>
-
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 h-full overflow-y-auto overflow-x-hidden p-4 md:p-6 scroll-smooth">
+    <!-- Mobile Layout -->
+    <div class="md:hidden">
+        <!-- Mobile Sidebar Overlay -->
+        <div class="mobile-sidebar-overlay" id="mobileOverlay" onclick="toggleMobileSidebar()"></div>
         
-        <!-- Mobile Header -->
-        <header class="mobile-header flex md:hidden items-center justify-between mb-4 px-4">
-            <div class="flex items-center gap-3">
-                <button onclick="toggleMobileSidebar()" class="p-2 dark:text-slate-300 text-slate-700">
-                    <i data-lucide="menu" class="w-6 h-6"></i>
-                </button>
-                <!-- Mobile Logo -->
+        <!-- Mobile Sidebar -->
+        <aside class="mobile-sidebar" id="mobileSidebar">
+            <!-- Mobile Brand -->
+            <div class="p-6 flex items-center gap-3 border-b border-white/5 dark:border-slate-200/10">
                 <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white dark:bg-slate-800">
-                <h1 class="font-bold text-lg dark:text-white text-slate-800">FleetDash</h1>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="toggleTheme()" class="p-2 dark:text-slate-300 text-slate-700">
-                    <i data-lucide="moon" class="w-5 h-5"></i>
-                </button>
-                <button onclick="logout()" class="p-2 dark:text-slate-300 text-slate-700">
-                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                <h1 class="font-bold text-lg tracking-tight dark:text-white text-slate-800">FleetDash</h1>
+                <button onclick="toggleMobileSidebar()" class="ml-auto text-slate-400 hover:text-slate-200 dark:text-slate-500 dark:hover:text-slate-700">
+                    <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
-        </header>
 
-        <!-- DYNAMIC CONTENT CONTAINER -->
-        <div id="app-content" class="min-h-[calc(100vh-120px)]"></div>
+            <!-- Mobile Full Nav -->
+            <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+                
+                <!-- SECTION: OVERVIEW -->
+                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 nav-group" id="mobile-group-overview">Overview</p>
+                
+                <a href="#dashboard" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-300 text-slate-700" id="mobile-nav-dashboard" onclick="toggleMobileSidebar()">
+                    <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
+                </a>
+                <a href="#analytics" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-analytics" onclick="toggleMobileSidebar()">
+                    <i data-lucide="bar-chart-2" class="w-5 h-5"></i> Analytics
+                </a>
 
-    </main>
-</div>
+                <!-- SECTION: MANAGEMENT -->
+                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group" id="mobile-group-management">Management</p>
+                
+                <a href="#vehicles" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-vehicles" onclick="toggleMobileSidebar()">
+                    <i data-lucide="car" class="w-5 h-5"></i> Vehicles
+                </a>
+                <a href="#requests" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-requests" onclick="toggleMobileSidebar()">
+                    <i data-lucide="file-check" class="w-5 h-5"></i> Requests
+                </a>
+                <a href="#users" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-users" onclick="toggleMobileSidebar()">
+                    <i data-lucide="users" class="w-5 h-5"></i> Users
+                </a>
+                <a href="#fuel" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-fuel" onclick="toggleMobileSidebar()">
+                    <i data-lucide="fuel" class="w-5 h-5"></i> Fuel Logs
+                </a>
+
+                <!-- SECTION: OPERATIONS -->
+                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-6 mb-2 nav-group" id="mobile-group-operations">Operations</p>
+                
+                <a href="#maintenance" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-maintenance" onclick="toggleMobileSidebar()">
+                    <i data-lucide="wrench" class="w-5 h-5"></i> Maintenance
+                </a>
+                <a href="#panne" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-panne" onclick="toggleMobileSidebar()">
+                    <i data-lucide="alert-triangle" class="w-5 h-5"></i> Panne
+                </a>
+                <a href="#reparations" class="sidebar-link items-center gap-3 px-3 py-3 text-sm font-medium dark:text-slate-400 text-slate-600" id="mobile-nav-reparations" onclick="toggleMobileSidebar()">
+                    <i data-lucide="hammer" class="w-5 h-5"></i> Reparations
+                </a>
+                
+                <!-- Theme Toggle in Mobile Sidebar -->
+                <div class="px-3 pt-8 mt-6 border-t border-white/5 dark:border-slate-200/10">
+                    <div class="flex items-center justify-between p-3 rounded-lg dark:bg-slate-800/50 bg-slate-100">
+                        <span class="text-sm font-medium dark:text-slate-300 text-slate-700">
+                            <i data-lucide="moon" class="w-4 h-4 inline-block mr-2"></i> Theme
+                        </span>
+                        <button onclick="toggleTheme()" class="relative w-12 h-6 rounded-full dark:bg-blue-600 bg-slate-300 transition-all duration-300">
+                            <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300" id="themeToggleKnob"></span>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Mobile User Profile (Bottom) -->
+            <div class="p-4 border-t border-white/5 dark:border-slate-200/10 safe-area-bottom">
+                <div class="flex items-center gap-3 p-2 rounded-xl dark:hover:bg-white/5 hover:bg-slate-100 cursor-pointer transition">
+                    <div class="w-10 h-10 rounded-full dark:bg-slate-700 bg-slate-200 flex items-center justify-center dark:text-slate-300 text-slate-700 font-bold" id="mobile-user-avatar">U</div>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="text-sm font-medium truncate dark:text-white text-slate-800" id="mobile-user-name">Loading...</p>
+                        <p class="text-xs dark:text-slate-500 text-slate-600 truncate" id="mobile-user-role">...</p>
+                    </div>
+                    <button onclick="logout()" class="dark:text-slate-400 text-slate-500 hover:text-red-400 transition" title="Sign Out"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Mobile Main Content -->
+        <div class="mobile-content-area">
+            <!-- Mobile Header -->
+            <header class="mobile-header flex items-center justify-between px-4">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleMobileSidebar()" class="p-2 dark:text-slate-300 text-slate-700">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                    <!-- Mobile Logo -->
+                    <img src="/static/img/logo.png" alt="Logo" class="w-8 h-8 rounded-lg shadow-lg shadow-blue-500/30 object-contain bg-white dark:bg-slate-800">
+                    <h1 class="font-bold text-lg dark:text-white text-slate-800">FleetDash</h1>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleTheme()" class="p-2 dark:text-slate-300 text-slate-700">
+                        <i data-lucide="moon" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- DYNAMIC CONTENT CONTAINER -->
+            <div id="app-content-mobile" class="p-4 min-h-[calc(100vh-140px)]"></div>
+        </div>
+
+        <!-- Mobile Bottom Navigation (Like Mobile App) -->
+        <nav class="mobile-bottom-nav safe-area-bottom">
+            <a href="#dashboard" class="mobile-nav-item" id="bottom-nav-dashboard" onclick="setActiveBottomNav('dashboard')">
+                <i data-lucide="layout-grid" class="mobile-nav-icon"></i>
+                <span class="mobile-nav-label">Dashboard</span>
+            </a>
+            <a href="#requests" class="mobile-nav-item" id="bottom-nav-requests" onclick="setActiveBottomNav('requests')">
+                <i data-lucide="file-check" class="mobile-nav-icon"></i>
+                <span class="mobile-nav-label">Requests</span>
+            </a>
+            <a href="#vehicles" class="mobile-nav-item" id="bottom-nav-vehicles" onclick="setActiveBottomNav('vehicles')">
+                <i data-lucide="car" class="mobile-nav-icon"></i>
+                <span class="mobile-nav-label">Vehicles</span>
+            </a>
+            <a href="#maintenance" class="mobile-nav-item" id="bottom-nav-maintenance" onclick="setActiveBottomNav('maintenance')">
+                <i data-lucide="wrench" class="mobile-nav-icon"></i>
+                <span class="mobile-nav-label">Maintenance</span>
+            </a>
+            <a href="#menu" class="mobile-nav-item" id="bottom-nav-menu" onclick="toggleMobileSidebar()">
+                <i data-lucide="more-horizontal" class="mobile-nav-icon"></i>
+                <span class="mobile-nav-label">More</span>
+            </a>
+        </nav>
+    </div>
 
 <!-- LOGIC -->
 <!-- SCRIPTS -->
@@ -485,7 +603,28 @@
         overlay.style.display = 'none';
     }
 
-    // 5. ROLE-BASED MENU CONFIGURATION
+    // 5. Set active bottom navigation
+    function setActiveBottomNav(page) {
+        // Remove active class from all bottom nav items
+        const navItems = document.querySelectorAll('.mobile-nav-item');
+        navItems.forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Add active class to clicked item
+        const activeItem = document.getElementById(`bottom-nav-${page}`);
+        if (activeItem) {
+            activeItem.classList.add('active');
+        }
+        
+        // Close sidebar if open
+        closeMobileSidebar();
+        
+        // Update content via router (this will be handled by router.js)
+        window.location.hash = `#${page}`;
+    }
+
+    // 6. ROLE-BASED MENU CONFIGURATION
     const rolePermissions = {
         'admin':      ['all'], 
         'superadmin': ['all'],
@@ -511,12 +650,12 @@
         'technicien': ['requests', 'panne', 'maintenance', 'reparations'],
     };
 
-    // 6. APPLY VISIBILITY TO BOTH DESKTOP AND MOBILE MENUS
+    // 7. APPLY VISIBILITY TO ALL MENUS
     function initSidebar() {
         // Get the list of allowed keys for this user
         const allowed = rolePermissions[uRole] || ['dashboard'];
 
-        // Map HTML IDs to the keys above (for both desktop and mobile)
+        // Map HTML IDs to the keys above (for desktop, mobile sidebar, and bottom nav)
         const menuMap = {
             // Desktop menu items
             'nav-dashboard':   'dashboard',
@@ -529,7 +668,7 @@
             'nav-reparations': 'reparations',
             'nav-fuel':        'fuel',
             
-            // Mobile menu items
+            // Mobile sidebar items
             'mobile-nav-dashboard':   'dashboard',
             'mobile-nav-analytics':   'analytics',
             'mobile-nav-vehicles':    'vehicles',
@@ -540,7 +679,13 @@
             'mobile-nav-reparations': 'reparations',
             'mobile-nav-fuel':        'fuel',
             
-            // Menu group visibility (show only if at least one item in group is visible)
+            // Bottom navigation items
+            'bottom-nav-dashboard':   'dashboard',
+            'bottom-nav-requests':    'requests',
+            'bottom-nav-vehicles':    'vehicles',
+            'bottom-nav-maintenance': 'maintenance',
+            
+            // Menu group visibility
             'group-overview': 'overview',
             'group-management': 'management',
             'group-operations': 'operations',
@@ -561,7 +706,14 @@
             const shouldShow = allowed.includes('all') || allowed.includes(permissionKey);
             
             if (shouldShow) {
-                el.style.display = elementId.startsWith('group-') || elementId.startsWith('mobile-group-') ? 'block' : 'flex';
+                // Show the element
+                if (elementId.startsWith('group-') || elementId.startsWith('mobile-group-')) {
+                    el.style.display = 'block';
+                } else if (elementId.startsWith('bottom-nav-')) {
+                    el.style.display = 'flex';
+                } else {
+                    el.style.display = 'flex';
+                }
                 visibleItems[permissionKey] = true;
                 
                 // Track which groups should be visible
@@ -573,6 +725,7 @@
                     visibleGroups.add('operations');
                 }
             } else {
+                // Hide the element
                 el.style.display = 'none';
             }
         }
@@ -591,38 +744,58 @@
                 if (el) el.style.display = shouldShowGroup ? 'block' : 'none';
             });
         }
+        
+        // Set initial active bottom nav based on current hash
+        const currentHash = window.location.hash.substring(1) || 'dashboard';
+        setActiveBottomNav(currentHash);
     }
 
-    // 7. GLOBAL LOGOUT
+    // 8. Content synchronization between desktop and mobile
+    function syncContent() {
+        const desktopContent = document.getElementById('app-content');
+        const mobileContent = document.getElementById('app-content-mobile');
+        
+        // When router loads content, it should update both containers
+        // This will be handled by the router.js file
+    }
+
+    // 9. GLOBAL LOGOUT
     window.logout = function() {
         localStorage.clear();
         window.location.href = '/';
     }
 
-    // 8. Handle window resize for mobile sidebar
+    // 10. Handle window resize for mobile sidebar
     window.addEventListener('resize', function() {
         if (window.innerWidth >= 768) {
             closeMobileSidebar();
         }
     });
     
-    // 9. Close mobile sidebar when clicking on a link
+    // 11. Close mobile sidebar when clicking on a link
     document.addEventListener('click', function(e) {
         if (e.target.closest('a') && window.innerWidth < 768) {
             setTimeout(closeMobileSidebar, 100);
         }
     });
 
-    // 10. Run initializations
+    // 12. Run initializations
     initTheme();
     initSidebar();
+    syncContent();
     
-    // 11. Create Lucide icons
+    // 13. Create Lucide icons
     setTimeout(() => {
         if (window.lucide) {
             window.lucide.createIcons();
         }
     }, 100);
+
+    // 14. Handle hash changes for bottom nav
+    window.addEventListener('hashchange', function() {
+        const currentHash = window.location.hash.substring(1) || 'dashboard';
+        setActiveBottomNav(currentHash);
+    });
 
 </script>
 
