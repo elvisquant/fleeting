@@ -4,7 +4,8 @@ const mobileContent = document.getElementById('app-content-mobile');
 
 // ROUTE MAPPING
 const routes = {
-    'dashboard': { file: '/static/pages/dashboard.html', init: initDashboard }, 
+    'dashboard': { file: '/static/pages/dashboard.html', init: initDashboard },
+    'analytics': { file: '/static/pages/analytics.html', init: initAnalytics },
     'vehicles':  { file: '/static/pages/vehicles.html',  init: initVehicles },
     'requests':  { file: '/static/pages/requests.html',  init: initRequests },
     'users':     { file: '/static/pages/users.html',     init: initUsers }, 
@@ -15,7 +16,6 @@ const routes = {
     'requests': { file: '/static/pages/requests.html', init: initRequests },
 };
 
-// CONTENT UPDATER FUNCTION
 function updateContentContainers(html) {
     // Update desktop container if it exists
     if (desktopContent) {

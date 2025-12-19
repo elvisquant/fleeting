@@ -11,18 +11,34 @@ let maintActionId = null;
 let selectedMaintIds = new Set(); 
 
 // =================================================================
+// MOBILE-COMPATIBLE ELEMENT GETTER
+// =================================================================
+function getMaintEl(id) {
+    // First try mobile container (if we're on mobile)
+    if (window.innerWidth < 768) {
+        const mobileEl = document.querySelector('#app-content-mobile #' + id);
+        if (mobileEl) return mobileEl;
+    }
+    // Then try desktop container
+    const desktopEl = document.querySelector('#app-content #' + id);
+    if (desktopEl) return desktopEl;
+    // Fallback to global search
+    return document.getElementById(id);
+}
+
+// =================================================================
 // 1. INITIALIZATION
 // =================================================================
 async function initMaintenance() {
     console.log("Maintenance Module: Init");
     maintUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // DOM Elements
-    const search = document.getElementById('maintSearch');
-    const vFilter = document.getElementById('maintVehicleFilter');
-    const sFilter = document.getElementById('maintStatusFilter');
-    const selectAll = document.getElementById('selectAllMaint');
-    const confirmBtn = document.getElementById('btnMaintConfirmAction');
+    // DOM Elements using mobile-compatible getter
+    const search = getMaintEl('maintSearch');
+    const vFilter = getMaintEl('maintVehicleFilter');
+    const sFilter = getMaintEl('maintStatusFilter');
+    const selectAll = getMaintEl('selectAllMaint');
+    const confirmBtn = getMaintEl('btnMaintConfirmAction');
     
     // Attach Listeners
     if(search) search.addEventListener('input', renderMaintTable);
@@ -38,7 +54,7 @@ async function initMaintenance() {
 // 2. DATA LOADING
 // =================================================================
 async function loadMaintData() {
-    const tbody = document.getElementById('maintLogsBody');
+    const tbody = getMaintEl('maintLogsBody');
     if(!tbody) return;
     
     // Loading State
@@ -90,13 +106,17 @@ async function fetchMaintDropdowns() {
 // 3. TABLE RENDERING
 // =================================================================
 function renderMaintTable() {
-    const tbody = document.getElementById('maintLogsBody');
+    const tbody = getMaintEl('maintLogsBody');
     if(!tbody) return;
 
     // Get Filter Values
-    const search = document.getElementById('maintSearch').value.toLowerCase();
-    const vFilter = document.getElementById('maintVehicleFilter').value;
-    const sFilter = document.getElementById('maintStatusFilter').value;
+    const search = getMaintEl('maintSearch');
+    const vFilter = getMaintEl('maintVehicleFilter');
+    const sFilter = getMaintEl('maintStatusFilter');
+    
+    const searchValue = search ? search.value.toLowerCase() : '';
+    const vFilterValue = vFilter ? vFilter.value : '';
+    const sFilterValue = sFilter ? sFilter.value : '';
 
     // Filter Data
     let filtered = allMaintLogs.filter(log => {
@@ -104,18 +124,19 @@ function renderMaintTable() {
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
         const receipt = log.receipt ? log.receipt.toLowerCase() : "";
         
-        const matchesSearch = plate.includes(search) || receipt.includes(search);
-        const matchesVehicle = vFilter === "" || log.vehicle_id == vFilter;
+        const matchesSearch = plate.includes(searchValue) || receipt.includes(searchValue);
+        const matchesVehicle = vFilterValue === "" || log.vehicle_id == vFilterValue;
         
         let matchesStatus = true;
-        if (sFilter === 'verified') matchesStatus = log.is_verified === true;
-        if (sFilter === 'pending') matchesStatus = log.is_verified !== true;
+        if (sFilterValue === 'verified') matchesStatus = log.is_verified === true;
+        if (sFilterValue === 'pending') matchesStatus = log.is_verified !== true;
 
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
     // Update Counts
-    document.getElementById('maintLogsCount').innerText = `${filtered.length} logs found`;
+    const countEl = getMaintEl('maintLogsCount');
+    if (countEl) countEl.innerText = `${filtered.length} logs found`;
 
     // Empty State
     if(filtered.length === 0) {
@@ -195,7 +216,9 @@ window.toggleMaintRow = function(id) {
 }
 
 window.toggleMaintSelectAll = function() {
-    const mainCheck = document.getElementById('selectAllMaint');
+    const mainCheck = getMaintEl('selectAllMaint');
+    if (!mainCheck) return;
+    
     const isChecked = mainCheck.checked;
     selectedMaintIds.clear();
     
@@ -210,11 +233,11 @@ window.toggleMaintSelectAll = function() {
 }
 
 function updateMaintBulkUI() {
-    const btn = document.getElementById('btnMaintBulkVerify');
-    const countSpan = document.getElementById('maintSelectedCount');
+    const btn = getMaintEl('btnMaintBulkVerify');
+    const countSpan = getMaintEl('maintSelectedCount');
     if (!btn) return;
 
-    countSpan.innerText = selectedMaintIds.size;
+    if (countSpan) countSpan.innerText = selectedMaintIds.size;
     if (selectedMaintIds.size > 0) btn.classList.remove('hidden');
     else btn.classList.add('hidden');
 }
@@ -254,8 +277,11 @@ window.reqMaintDelete = function(id) {
 // =================================================================
 
 async function executeMaintConfirmAction() {
-    const btn = document.getElementById('btnMaintConfirmAction');
-    btn.disabled = true; btn.innerText = "Processing...";
+    const btn = getMaintEl('btnMaintConfirmAction');
+    if (!btn) return;
+    
+    btn.disabled = true; 
+    btn.innerText = "Processing...";
 
     try {
         let result;
@@ -291,8 +317,10 @@ async function executeMaintConfirmAction() {
         showMaintAlert("Error", e.message || "An unexpected error occurred.", false);
     }
     
-    btn.disabled = false; btn.innerText = "Confirm"; 
-    maintActionId = null; maintActionType = null;
+    btn.disabled = false; 
+    btn.innerText = "Confirm"; 
+    maintActionId = null; 
+    maintActionType = null;
 }
 
 // =================================================================
@@ -300,20 +328,30 @@ async function executeMaintConfirmAction() {
 // =================================================================
 
 window.openAddMaintModal = function() {
-    document.getElementById('maintEditId').value = "";
-    document.getElementById('maintModalTitle').innerText = "Log Maintenance";
-    document.getElementById('btnSaveMaint').innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
+    const editIdEl = getMaintEl('maintEditId');
+    const modalTitle = getMaintEl('maintModalTitle');
+    const saveBtn = getMaintEl('btnSaveMaint');
+    
+    if (editIdEl) editIdEl.value = "";
+    if (modalTitle) modalTitle.innerText = "Log Maintenance";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
     
     populateSelect('maintVehicleSelect', maintOptions.vehicles, '', 'plate_number', 'Select Vehicle');
     populateSelect('maintCatSelect', maintOptions.cats, '', 'cat_maintenance', 'Select Category');
     // FIX: Changed from 'garage_name' to 'nom_garage'
     populateSelect('maintGarageSelect', maintOptions.garages, '', 'nom_garage', 'Select Garage');
     
-    document.getElementById('maintCost').value = "";
-    document.getElementById('maintDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('maintReceipt').value = "";
+    const costEl = getMaintEl('maintCost');
+    const dateEl = getMaintEl('maintDate');
+    const receiptEl = getMaintEl('maintReceipt');
     
-    document.getElementById('addMaintModal').classList.remove('hidden');
+    if (costEl) costEl.value = "";
+    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+    if (receiptEl) receiptEl.value = "";
+    
+    const modal = getMaintEl('addMaintModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -321,32 +359,49 @@ window.openEditMaintModal = function(id) {
     const log = allMaintLogs.find(l => l.id === id);
     if(!log) return;
 
-    document.getElementById('maintEditId').value = log.id;
-    document.getElementById('maintModalTitle').innerText = "Edit Record";
-    document.getElementById('btnSaveMaint').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
+    const editIdEl = getMaintEl('maintEditId');
+    const modalTitle = getMaintEl('maintModalTitle');
+    const saveBtn = getMaintEl('btnSaveMaint');
+    
+    if (editIdEl) editIdEl.value = log.id;
+    if (modalTitle) modalTitle.innerText = "Edit Record";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
     
     populateSelect('maintVehicleSelect', maintOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('maintCatSelect', maintOptions.cats, log.cat_maintenance_id, 'cat_maintenance', 'Category');
     // FIX: Changed from 'garage_name' to 'nom_garage'
     populateSelect('maintGarageSelect', maintOptions.garages, log.garage_id, 'nom_garage', 'Garage');
     
-    document.getElementById('maintCost').value = log.maintenance_cost;
-    document.getElementById('maintDate').value = log.maintenance_date.split('T')[0];
-    document.getElementById('maintReceipt').value = log.receipt;
+    const costEl = getMaintEl('maintCost');
+    const dateEl = getMaintEl('maintDate');
+    const receiptEl = getMaintEl('maintReceipt');
     
-    document.getElementById('addMaintModal').classList.remove('hidden');
+    if (costEl) costEl.value = log.maintenance_cost;
+    if (dateEl) dateEl.value = log.maintenance_date ? log.maintenance_date.split('T')[0] : '';
+    if (receiptEl) receiptEl.value = log.receipt || '';
+    
+    const modal = getMaintEl('addMaintModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.saveMaintenance = async function() {
-    const id = document.getElementById('maintEditId').value;
+    const editIdEl = getMaintEl('maintEditId');
+    const vIdEl = getMaintEl('maintVehicleSelect');
+    const catIdEl = getMaintEl('maintCatSelect');
+    const garageIdEl = getMaintEl('maintGarageSelect');
+    const costEl = getMaintEl('maintCost');
+    const dateEl = getMaintEl('maintDate');
+    const receiptEl = getMaintEl('maintReceipt');
     
-    const vId = document.getElementById('maintVehicleSelect').value;
-    const catId = document.getElementById('maintCatSelect').value;
-    const garageId = document.getElementById('maintGarageSelect').value;
-    const cost = document.getElementById('maintCost').value;
-    const date = document.getElementById('maintDate').value;
-    const receipt = document.getElementById('maintReceipt').value;
+    const id = editIdEl ? editIdEl.value : '';
+    const vId = vIdEl ? vIdEl.value : '';
+    const catId = catIdEl ? catIdEl.value : '';
+    const garageId = garageIdEl ? garageIdEl.value : '';
+    const cost = costEl ? costEl.value : '';
+    const date = dateEl ? dateEl.value : '';
+    const receipt = receiptEl ? receiptEl.value : '';
 
     if(!vId || isNaN(cost) || !date) { 
         showMaintAlert("Validation", "Please fill required fields (Vehicle, Cost, Date).", false); 
@@ -362,8 +417,11 @@ window.saveMaintenance = async function() {
         receipt: receipt
     };
 
-    const btn = document.getElementById('btnSaveMaint');
-    btn.disabled = true; btn.innerHTML = "Saving...";
+    const btn = getMaintEl('btnSaveMaint');
+    if (!btn) return;
+    
+    btn.disabled = true; 
+    btn.innerHTML = "Saving...";
     
     try {
         let result;
@@ -407,15 +465,19 @@ window.openViewMaintModal = function(id) {
             <div><span class="text-slate-500 text-xs uppercase block">Receipt</span><span class="text-white font-mono">${log.receipt || '-'}</span></div>
             <div class="col-span-2 border-t border-slate-700 pt-2 flex justify-between items-center">
                 <span class="text-slate-500 text-xs uppercase">Total Cost</span>
-                <span class="text-emerald-400 font-bold text-lg">BIF ${log.maintenance_cost.toFixed(2)}</span>
+                <span class="text-emerald-400 font-bold text-lg">BIF ${log.maintenance_cost ? log.maintenance_cost.toFixed(2) : '0.00'}</span>
             </div>
              <div class="col-span-2 text-xs text-slate-600 text-center mt-2">
-                Date: ${new Date(log.maintenance_date).toLocaleDateString()}
+                Date: ${log.maintenance_date ? new Date(log.maintenance_date).toLocaleDateString() : 'N/A'}
             </div>
         </div>
     `;
-    document.getElementById('viewMaintContent').innerHTML = content;
-    document.getElementById('viewMaintModal').classList.remove('hidden');
+    
+    const viewContent = getMaintEl('viewMaintContent');
+    if (viewContent) viewContent.innerHTML = content;
+    
+    const modal = getMaintEl('viewMaintModal');
+    if (modal) modal.classList.remove('hidden');
 }
 
 // =================================================================
@@ -423,21 +485,27 @@ window.openViewMaintModal = function(id) {
 // =================================================================
 
 window.closeModal = function(id) { 
-    document.getElementById(id).classList.add('hidden'); 
+    const modal = getMaintEl(id) || document.getElementById(id);
+    if (modal) modal.classList.add('hidden'); 
 }
 
 function showMaintConfirmModal(title, message, icon, color) {
-    const modal = document.getElementById('maintConfirmModal');
+    const modal = getMaintEl('maintConfirmModal');
     if(!modal) return;
     
-    document.getElementById('maintConfirmTitle').innerText = title;
-    document.getElementById('maintConfirmMessage').innerText = message;
+    const titleEl = getMaintEl('maintConfirmTitle');
+    const messageEl = getMaintEl('maintConfirmMessage');
     
-    const btn = document.getElementById('btnMaintConfirmAction');
-    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerText = message;
+    
+    const btn = getMaintEl('btnMaintConfirmAction');
+    if (btn) {
+        btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
+    }
     
     // Icon Logic
-    const iconDiv = document.getElementById('maintConfirmIcon');
+    const iconDiv = getMaintEl('maintConfirmIcon');
     if(iconDiv) {
         iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${color.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
         iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
@@ -450,7 +518,7 @@ function showMaintConfirmModal(title, message, icon, color) {
 // FIXED: Unified alert function that uses a simple approach
 function showMaintAlert(title, message, isSuccess) {
     // Create a simple alert modal if it doesn't exist
-    let modal = document.getElementById('maintAlertModal');
+    let modal = getMaintEl('maintAlertModal');
     
     if(!modal) {
         // Create a simple modal on the fly
@@ -469,11 +537,14 @@ function showMaintAlert(title, message, isSuccess) {
     }
     
     // Set title and message
-    document.getElementById('maintAlertTitle').innerText = title;
-    document.getElementById('maintAlertMessage').innerText = message;
+    const titleEl = modal.querySelector('#maintAlertTitle');
+    const messageEl = modal.querySelector('#maintAlertMessage');
+    
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerText = message;
     
     // Set icon
-    const iconDiv = document.getElementById('maintAlertIcon');
+    const iconDiv = modal.querySelector('#maintAlertIcon');
     if(iconDiv) {
         if(isSuccess) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
@@ -497,7 +568,7 @@ function showMaintAlert(title, message, isSuccess) {
 }
 
 function populateSelect(id, list, selectedValue, labelKey, defaultText) {
-    const el = document.getElementById(id);
+    const el = getMaintEl(id);
     if(!el) return;
     
     let options = `<option value="">${defaultText}</option>`;

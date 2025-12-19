@@ -5,10 +5,26 @@ let dropdownsLoaded = false;
 let dropdownOptions = { roles: [], agencies: [], services: [] };
 let deleteTargetId = null;
 
+// =================================================================
+// MOBILE-COMPATIBLE ELEMENT GETTER
+// =================================================================
+function getUserEl(id) {
+    // First try mobile container (if we're on mobile)
+    if (window.innerWidth < 768) {
+        const mobileEl = document.querySelector('#app-content-mobile #' + id);
+        if (mobileEl) return mobileEl;
+    }
+    // Then try desktop container
+    const desktopEl = document.querySelector('#app-content #' + id);
+    if (desktopEl) return desktopEl;
+    // Fallback to global search
+    return document.getElementById(id);
+}
+
 async function initUsers() {
     console.log("Users Module: Init");
-    const searchInput = document.getElementById('userSearch');
-    const roleFilter = document.getElementById('userRoleFilter');
+    const searchInput = getUserEl('userSearch');
+    const roleFilter = getUserEl('userRoleFilter');
 
     if(searchInput) searchInput.addEventListener('input', renderUsersTable);
     if(roleFilter) roleFilter.addEventListener('change', renderUsersTable);
@@ -21,7 +37,7 @@ async function initUsers() {
 
 // 1. Fetch Data
 async function loadUsersData() {
-    const tbody = document.getElementById('usersBody');
+    const tbody = getUserEl('usersBody');
     if(!tbody) return;
     
     tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading users...</td></tr>`;
@@ -58,24 +74,28 @@ async function fetchDropdownData() {
 
 // 2. Render Table
 function renderUsersTable() {
-    const tbody = document.getElementById('usersBody');
+    const tbody = getUserEl('usersBody');
     if (!tbody) return;
 
-    const search = document.getElementById('userSearch').value.toLowerCase();
-    const roleFilter = document.getElementById('userRoleFilter').value;
+    const search = getUserEl('userSearch');
+    const roleFilter = getUserEl('userRoleFilter');
+    
+    const searchValue = search ? search.value.toLowerCase() : '';
+    const roleFilterValue = roleFilter ? roleFilter.value : 'all';
 
     let filtered = allUsers.filter(u => {
         const matchesSearch = (
-            (u.full_name || "").toLowerCase().includes(search) || 
-            (u.matricule || "").toLowerCase().includes(search) || 
-            (u.email || "").toLowerCase().includes(search)
+            (u.full_name || "").toLowerCase().includes(searchValue) || 
+            (u.matricule || "").toLowerCase().includes(searchValue) || 
+            (u.email || "").toLowerCase().includes(searchValue)
         );
         const roleName = u.role ? u.role.name.toLowerCase() : "unknown";
-        const matchesRole = roleFilter === 'all' || roleName === roleFilter;
+        const matchesRole = roleFilterValue === 'all' || roleName === roleFilterValue;
         return matchesSearch && matchesRole;
     });
 
-    document.getElementById('usersCount').innerText = `${filtered.length} users found`;
+    const countEl = getUserEl('usersCount');
+    if (countEl) countEl.innerText = `${filtered.length} users found`;
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">No users found.</td></tr>`;
@@ -167,42 +187,66 @@ window.openViewUserModal = function(id) {
         </div>
     `;
     
-    document.getElementById('viewUserContent').innerHTML = content;
-    document.getElementById('viewUserModal').classList.remove('hidden');
+    const viewContent = getUserEl('viewUserContent');
+    if (viewContent) viewContent.innerHTML = content;
+    
+    const modal = getUserEl('viewUserModal');
+    if (modal) modal.classList.remove('hidden');
 }
-
-// ... (Rest of logic: Edit, Save, Delete remains the same as previous) ...
-// === COPY THE REST OF THE PREVIOUS users.js FILE HERE ===
-// (openEditUserModal, saveUserChanges, deleteUser, populateSelect, injectUserModals)
 
 window.openEditUserModal = function(id) {
     const user = allUsers.find(u => u.id === id);
     if (!user) return;
 
-    document.getElementById('editUserId').value = user.id;
-    document.getElementById('editUserName').value = user.full_name;
-    document.getElementById('editUserMatricule').value = user.matricule;
-    document.getElementById('editUserPhone').value = user.telephone || "";
+    const editIdEl = getUserEl('editUserId');
+    const nameEl = getUserEl('editUserName');
+    const matriculeEl = getUserEl('editUserMatricule');
+    const phoneEl = getUserEl('editUserPhone');
+    const activeEl = getUserEl('editUserActive');
+    
+    if (editIdEl) editIdEl.value = user.id;
+    if (nameEl) nameEl.value = user.full_name || '';
+    if (matriculeEl) matriculeEl.value = user.matricule || '';
+    if (phoneEl) phoneEl.value = user.telephone || "";
+    if (activeEl) activeEl.checked = user.is_active;
 
     populateSelect('editUserRoleSelect', dropdownOptions.roles, user.role_id, 'name');
     populateSelect('editUserAgencySelect', dropdownOptions.agencies, user.agency_id, 'agency_name');
     populateSelect('editUserServiceSelect', dropdownOptions.services, user.service_id, 'service_name');
 
-    document.getElementById('editUserActive').checked = user.is_active;
-    document.getElementById('editUserModal').classList.remove('hidden');
+    const modal = getUserEl('editUserModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
-window.closeEditUserModal = function() { document.getElementById('editUserModal').classList.add('hidden'); }
-window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+window.closeEditUserModal = function() { 
+    const modal = getUserEl('editUserModal');
+    if (modal) modal.classList.add('hidden'); 
+}
+
+window.closeModal = function(id) { 
+    const modal = getUserEl(id) || document.getElementById(id);
+    if (modal) modal.classList.add('hidden'); 
+}
 
 window.saveUserChanges = async function() {
-    const id = document.getElementById('editUserId').value;
-    const roleId = document.getElementById('editUserRoleSelect').value;
-    const agencyId = document.getElementById('editUserAgencySelect').value;
-    const serviceId = document.getElementById('editUserServiceSelect').value;
-    const phone = document.getElementById('editUserPhone').value;
-    const isActive = document.getElementById('editUserActive').checked;
+    const editIdEl = getUserEl('editUserId');
+    const roleEl = getUserEl('editUserRoleSelect');
+    const agencyEl = getUserEl('editUserAgencySelect');
+    const serviceEl = getUserEl('editUserServiceSelect');
+    const phoneEl = getUserEl('editUserPhone');
+    const activeEl = getUserEl('editUserActive');
+    const btn = getUserEl('btnSaveUser');
+    
+    if (!btn) return;
+    
+    const id = editIdEl ? editIdEl.value : '';
+    const roleId = roleEl ? roleEl.value : '';
+    const agencyId = agencyEl ? agencyEl.value : '';
+    const serviceId = serviceEl ? serviceEl.value : '';
+    const phone = phoneEl ? phoneEl.value : '';
+    const isActive = activeEl ? activeEl.checked : false;
 
     const payload = {
         role_id: parseInt(roleId),
@@ -212,7 +256,6 @@ window.saveUserChanges = async function() {
         is_active: isActive
     };
 
-    const btn = document.getElementById('btnSaveUser');
     const originalText = btn.innerHTML;
     btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...`;
     btn.disabled = true;
@@ -239,20 +282,32 @@ window.saveUserChanges = async function() {
 
 window.confirmDeleteUser = function(id) {
     deleteTargetId = id;
-    document.getElementById('confirmTitle').innerText = "Delete User?";
-    document.getElementById('confirmMessage').innerText = "This action cannot be undone. Are you sure?";
     
-    const btn = document.getElementById('btnConfirmAction');
-    btn.onclick = performDelete;
-    btn.innerHTML = "Delete";
-    btn.className = "btn-danger w-full"; 
+    const titleEl = getUserEl('confirmTitle');
+    const messageEl = getUserEl('confirmMessage');
+    const btn = getUserEl('btnConfirmAction');
+    const modal = getUserEl('confirmModal');
     
-    document.getElementById('confirmModal').classList.remove('hidden');
+    if (!modal) return;
+    
+    if (titleEl) titleEl.innerText = "Delete User?";
+    if (messageEl) messageEl.innerText = "This action cannot be undone. Are you sure?";
+    
+    if (btn) {
+        btn.onclick = performDelete;
+        btn.innerHTML = "Delete";
+        btn.className = "btn-danger w-full"; 
+    }
+    
+    modal.classList.remove('hidden');
 }
 
 async function performDelete() {
     if(!deleteTargetId) return;
-    const btn = document.getElementById('btnConfirmAction');
+    
+    const btn = getUserEl('btnConfirmAction');
+    if (!btn) return;
+    
     btn.innerHTML = "Deleting...";
     btn.disabled = true;
 
@@ -271,9 +326,12 @@ async function performDelete() {
 }
 
 function populateSelect(elementId, items, selectedValue, labelKey) {
-    const el = document.getElementById(elementId);
+    const el = getUserEl(elementId);
     if (!el) return;
-    if(!items || items.length === 0) { el.innerHTML = '<option disabled>No options</option>'; return; }
+    if(!items || items.length === 0) { 
+        el.innerHTML = '<option disabled>No options</option>'; 
+        return; 
+    }
     el.innerHTML = items.map(item => {
         const isSelected = item.id === selectedValue ? 'selected' : '';
         const label = item[labelKey] || item.name || item.id; 
@@ -283,7 +341,9 @@ function populateSelect(elementId, items, selectedValue, labelKey) {
 
 // Helper to inject modals dynamically so users.html stays clean
 function injectUserModals() {
-    if(document.getElementById('editUserModal')) return; // Already injected
+    // Check if modal already exists in either container
+    const existingModal = getUserEl('editUserModal') || document.getElementById('editUserModal');
+    if(existingModal) return; // Already injected
 
     const modalHTML = `
     <!-- 1. EDIT USER MODAL -->
@@ -364,4 +424,11 @@ function injectUserModals() {
     const container = document.createElement('div');
     container.innerHTML = modalHTML;
     document.body.appendChild(container);
+}
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initUsers);
+} else {
+    initUsers();
 }

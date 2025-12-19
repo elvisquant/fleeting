@@ -1,32 +1,57 @@
 // app/static/js/requests.js
 
+// --- GLOBAL STATE ---
 let allRequests = [];
 let reqUserRole = 'user';
 let reqActionId = null;
 let reqActionType = null; // 'approve' or 'reject'
 
+// =================================================================
+// MOBILE-COMPATIBLE ELEMENT GETTER
+// =================================================================
+function getReqEl(id) {
+    // First try mobile container (if we're on mobile)
+    if (window.innerWidth < 768) {
+        const mobileEl = document.querySelector('#app-content-mobile #' + id);
+        if (mobileEl) return mobileEl;
+    }
+    // Then try desktop container
+    const desktopEl = document.querySelector('#app-content #' + id);
+    if (desktopEl) return desktopEl;
+    // Fallback to global search
+    return document.getElementById(id);
+}
+
+// =================================================================
+// 1. INITIALIZATION
+// =================================================================
 async function initRequests() {
     console.log("Requests Module: Init");
     reqUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // Listeners
-    const search = document.getElementById('reqSearch');
-    const filter = document.getElementById('reqStatusFilter');
-    const btnExecute = document.getElementById('btnExecuteApproval');
+    // DOM Elements using mobile-compatible getter
+    const search = getReqEl('reqSearch');
+    const filter = getReqEl('reqStatusFilter');
+    const btnExecute = getReqEl('btnExecuteApproval');
 
-    if(search) search.addEventListener('input', renderReqTable);
-    if(filter) filter.addEventListener('change', renderReqTable);
-    if(btnExecute) btnExecute.addEventListener('click', submitApprovalDecision);
+    // Attach Listeners
+    if (search) search.addEventListener('input', renderReqTable);
+    if (filter) filter.addEventListener('change', renderReqTable);
+    if (btnExecute) btnExecute.addEventListener('click', submitApprovalDecision);
 
     await loadRequestsData();
 }
 
+// =================================================================
+// 2. DATA LOADING
+// =================================================================
 async function loadRequestsData() {
-    const tbody = document.getElementById('reqLogsBody');
-    if(!tbody) return;
+    const tbody = getReqEl('reqLogsBody');
+    if (!tbody) return;
     
+    // Loading State
     tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
-    if(window.lucide) window.lucide.createIcons();
+    if (window.lucide) window.lucide.createIcons();
 
     // FIX: Added trailing slash to prevent 307 Redirect
     const data = await window.fetchWithAuth('/requests/'); 
@@ -43,35 +68,47 @@ async function loadRequestsData() {
     }
 }
 
+// =================================================================
+// 3. TABLE RENDERING
+// =================================================================
 function renderReqTable() {
-    const tbody = document.getElementById('reqLogsBody');
-    if(!tbody) return;
+    const tbody = getReqEl('reqLogsBody');
+    if (!tbody) return;
 
-    const search = document.getElementById('reqSearch').value.toLowerCase();
-    const filter = document.getElementById('reqStatusFilter').value;
+    // Get Filter Values
+    const search = getReqEl('reqSearch');
+    const filter = getReqEl('reqStatusFilter');
+    
+    const searchValue = search ? search.value.toLowerCase() : '';
+    const filterValue = filter ? filter.value : '';
 
+    // Filter Data
     let filtered = allRequests.filter(r => {
         const requesterName = r.requester ? r.requester.full_name.toLowerCase() : "";
         const dest = r.destination ? r.destination.toLowerCase() : "";
-        const matchSearch = requesterName.includes(search) || dest.includes(search);
+        const matchSearch = requesterName.includes(searchValue) || dest.includes(searchValue);
         
         let matchFilter = true;
-        if (filter === 'pending') matchFilter = r.status === 'pending';
-        if (filter === 'step1') matchFilter = r.status === 'approved_by_chef';
-        if (filter === 'step2') matchFilter = r.status === 'approved_by_logistic';
-        if (filter === 'completed') matchFilter = r.status === 'fully_approved' || r.status === 'in_progress' || r.status === 'completed';
-        if (filter === 'denied') matchFilter = r.status === 'denied';
+        if (filterValue === 'pending') matchFilter = r.status === 'pending';
+        if (filterValue === 'step1') matchFilter = r.status === 'approved_by_chef';
+        if (filterValue === 'step2') matchFilter = r.status === 'approved_by_logistic';
+        if (filterValue === 'completed') matchFilter = r.status === 'fully_approved' || r.status === 'in_progress' || r.status === 'completed';
+        if (filterValue === 'denied') matchFilter = r.status === 'denied';
 
         return matchSearch && matchFilter;
     });
 
-    document.getElementById('reqCount').innerText = `${filtered.length} requests found`;
+    // Update Count
+    const countEl = getReqEl('reqCount');
+    if (countEl) countEl.innerText = `${filtered.length} requests found`;
 
+    // Empty State
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No requests found.</td></tr>`;
         return;
     }
 
+    // Generate Rows
     tbody.innerHTML = filtered.map(r => {
         const requester = r.requester ? r.requester.full_name : "Unknown";
         const service = r.requester && r.requester.service ? r.requester.service.service_name : "-";
@@ -122,7 +159,7 @@ function renderReqTable() {
             <tr class="hover:bg-white/5 border-b border-slate-700/30">
                 <td class="p-4">
                     <div class="text-white font-medium">${requester}</div>
-                    <div class="text-xs text-slate-500">${service}</div>
+                    <div class="text-xs text-slate-500">${service || '-'}</div>
                 </td>
                 <td class="p-4 text-slate-300 font-mono text-xs">${r.destination || 'N/A'}</td>
                 <td class="p-4 text-slate-400 text-xs">${dep}</td>
@@ -134,41 +171,65 @@ function renderReqTable() {
             </tr>`;
     }).join('');
     
-    if(window.lucide) window.lucide.createIcons();
+    if (window.lucide) window.lucide.createIcons();
 }
 
-// === ADD REQUEST MODAL ===
+// =================================================================
+// 4. ADD REQUEST MODAL
+// =================================================================
 
 window.openAddRequestModal = function() {
-    document.getElementById('reqDestination').value = "";
+    const destEl = getReqEl('reqDestination');
+    const depEl = getReqEl('reqDeparture');
+    const retEl = getReqEl('reqReturn');
+    const descEl = getReqEl('reqDesc');
+    const passEl = getReqEl('reqPassengers');
+    const modal = getReqEl('addRequestModal');
+    
+    if (!modal) return;
+    
+    // Reset form values
+    if (destEl) destEl.value = "";
     
     // Set default dates (now for departure, +3 hours for return)
     const now = new Date();
     const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // 3 hours later
     
-    document.getElementById('reqDeparture').value = now.toISOString().slice(0, 16);
-    document.getElementById('reqReturn').value = later.toISOString().slice(0, 16);
+    if (depEl) depEl.value = now.toISOString().slice(0, 16);
+    if (retEl) retEl.value = later.toISOString().slice(0, 16);
     
-    document.getElementById('reqDesc').value = "";
-    document.getElementById('reqPassengers').value = "";
+    if (descEl) descEl.value = "";
+    if (passEl) passEl.value = "";
     
-    document.getElementById('addRequestModal').classList.remove('hidden');
-    if(window.lucide) window.lucide.createIcons();
+    modal.classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
 }
 
 window.saveRequest = async function() {
-    const dest = document.getElementById('reqDestination').value.trim();
-    const dep = document.getElementById('reqDeparture').value;
-    const ret = document.getElementById('reqReturn').value;
-    const desc = document.getElementById('reqDesc').value.trim();
-    const passStr = document.getElementById('reqPassengers').value;
+    // Get form elements
+    const destEl = getReqEl('reqDestination');
+    const depEl = getReqEl('reqDeparture');
+    const retEl = getReqEl('reqReturn');
+    const descEl = getReqEl('reqDesc');
+    const passEl = getReqEl('reqPassengers');
+    const btn = getReqEl('btnSaveReq');
+    
+    // Get form values
+    const dest = destEl ? destEl.value.trim() : '';
+    const dep = depEl ? depEl.value : '';
+    const ret = retEl ? retEl.value : '';
+    const desc = descEl ? descEl.value.trim() : '';
+    const passStr = passEl ? passEl.value : '';
+    
+    if (!btn) return;
 
-    if(!dest) { 
+    // VALIDATION
+    if (!dest) { 
         showReqErrorAlert("Validation", "Please enter destination."); 
         return; 
     }
     
-    if(!dep || !ret) { 
+    if (!dep || !ret) { 
         showReqErrorAlert("Validation", "Please fill both departure and return dates."); 
         return; 
     }
@@ -176,7 +237,7 @@ window.saveRequest = async function() {
     const departureDate = new Date(dep);
     const returnDate = new Date(ret);
     
-    if(returnDate <= departureDate) {
+    if (returnDate <= departureDate) {
         showReqErrorAlert("Validation", "Return date must be after departure date.");
         return;
     }
@@ -192,7 +253,6 @@ window.saveRequest = async function() {
         passengers: passengers
     };
 
-    const btn = document.getElementById('btnSaveReq');
     btn.disabled = true; 
     btn.innerText = "Sending...";
 
@@ -215,11 +275,19 @@ window.saveRequest = async function() {
     btn.innerText = "Submit Request";
 }
 
-// === VIEW / APPROVE MODAL ===
+// =================================================================
+// 5. VIEW / APPROVE MODAL
+// =================================================================
 
 window.openViewRequestModal = function(id) {
     const r = allRequests.find(req => req.id === id);
     if (!r) return;
+
+    const viewContent = getReqEl('viewRequestContent');
+    const footer = getReqEl('approvalActionsFooter');
+    const modal = getReqEl('viewRequestModal');
+    
+    if (!viewContent || !footer || !modal) return;
 
     // Populate Details
     const requester = r.requester ? r.requester.full_name : "Unknown";
@@ -227,11 +295,11 @@ window.openViewRequestModal = function(id) {
     const passengers = r.passengers ? (Array.isArray(r.passengers) ? r.passengers.join(", ") : r.passengers) : "None";
     
     let rejectionHtml = '';
-    if(r.status === 'denied' && r.rejection_reason) {
+    if (r.status === 'denied' && r.rejection_reason) {
         rejectionHtml = `
             <div class="col-span-2 mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                 <span class="text-red-400 text-xs uppercase font-bold block mb-1">Rejection Reason</span>
-                <p class="text-red-200 text-sm">${r.rejection_reason}</p>
+                <p class="text-red-200 text-sm">${r.rejection_reason || ''}</p>
             </div>`;
     }
 
@@ -240,7 +308,7 @@ window.openViewRequestModal = function(id) {
             <div class="col-span-2 border-b border-slate-700 pb-3 mb-2 flex justify-between items-center">
                 <div>
                     <div class="text-white font-bold text-lg">${requester}</div>
-                    <div class="text-slate-500 text-xs">${service}</div>
+                    <div class="text-slate-500 text-xs">${service || '-'}</div>
                 </div>
                 <div class="text-right">
                     <div class="text-blue-400 font-mono text-sm">ID #${r.id}</div>
@@ -258,10 +326,9 @@ window.openViewRequestModal = function(id) {
             ${rejectionHtml}
         </div>`;
     
-    document.getElementById('viewRequestContent').innerHTML = content;
+    viewContent.innerHTML = content;
 
     // Actions Footer Logic
-    const footer = document.getElementById('approvalActionsFooter');
     let buttons = `<button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg">Close</button>`;
 
     // --- APPROVAL WORKFLOW LOGIC ---
@@ -274,11 +341,11 @@ window.openViewRequestModal = function(id) {
     else if (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && r.status === 'approved_by_logistic') {
         buttons = getApproveRejectButtons(r.id, "Final Approval");
     }
-    // Allow Admin override at any stage (optional, removed to enforce flow)
 
     footer.innerHTML = buttons;
-    document.getElementById('viewRequestModal').classList.remove('hidden');
-    if(window.lucide) window.lucide.createIcons();
+    modal.classList.remove('hidden');
+    
+    if (window.lucide) window.lucide.createIcons();
 }
 
 function getApproveRejectButtons(id, label) {
@@ -289,45 +356,57 @@ function getApproveRejectButtons(id, label) {
     `;
 }
 
-// === CONFIRM APPROVE/REJECT ===
+// =================================================================
+// 6. CONFIRM APPROVE/REJECT
+// =================================================================
 
 window.openApprovalModal = function(id, type) {
     window.closeModal('viewRequestModal'); // Close view
     reqActionId = id;
     reqActionType = type;
-    document.getElementById('approvalComment').value = "";
     
-    const title = document.getElementById('approvalTitle');
-    const btn = document.getElementById('btnExecuteApproval');
-    const iconDiv = document.getElementById('approvalIcon');
+    const commentEl = getReqEl('approvalComment');
+    const titleEl = getReqEl('approvalTitle');
+    const btn = getReqEl('btnExecuteApproval');
+    const iconDiv = getReqEl('approvalIcon');
+    const modal = getReqEl('approvalModal');
+    
+    if (!titleEl || !btn || !modal) return;
+    
+    if (commentEl) commentEl.value = "";
     
     if (type === 'approve') {
-        title.innerText = "Confirm Approval";
+        titleEl.innerText = "Confirm Approval";
         btn.innerText = "Approve";
         btn.className = "px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm w-full font-medium shadow-lg";
         
-        if(iconDiv) {
+        if (iconDiv) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-green-500 bg-green-500/10";
             iconDiv.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6"></i>';
         }
     } else {
-        title.innerText = "Deny Request";
+        titleEl.innerText = "Deny Request";
         btn.innerText = "Reject";
         btn.className = "px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm w-full font-medium shadow-lg";
         
-        if(iconDiv) {
+        if (iconDiv) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 bg-red-500/10";
             iconDiv.innerHTML = '<i data-lucide="x-circle" class="w-6 h-6"></i>';
         }
     }
     
-    document.getElementById('approvalModal').classList.remove('hidden');
-    if(window.lucide) window.lucide.createIcons();
+    modal.classList.remove('hidden');
+    
+    if (window.lucide) window.lucide.createIcons();
 }
 
 async function submitApprovalDecision() {
-    const comment = document.getElementById('approvalComment').value;
-    const btn = document.getElementById('btnExecuteApproval');
+    const commentEl = getReqEl('approvalComment');
+    const btn = getReqEl('btnExecuteApproval');
+    
+    if (!btn) return;
+    
+    const comment = commentEl ? commentEl.value : '';
 
     if (reqActionType === 'reject' && !comment.trim()) { 
         showReqErrorAlert("Validation", "Please provide a rejection reason."); 
@@ -364,23 +443,29 @@ async function submitApprovalDecision() {
     btn.innerText = reqActionType === 'approve' ? "Approve" : "Reject";
 }
 
-// === HELPER FUNCTIONS ===
+// =================================================================
+// 7. HELPER FUNCTIONS
+// =================================================================
 
 window.closeModal = function(id) { 
-    document.getElementById(id).classList.add('hidden'); 
+    const modal = getReqEl(id) || document.getElementById(id);
+    if (modal) modal.classList.add('hidden'); 
 }
 
-// NEW: Custom success alert modal
+// Custom success alert modal
 function showReqSuccessAlert(title, message) {
-    const modal = document.getElementById('reqSuccessAlertModal');
-    if(!modal) {
+    const modal = getReqEl('reqSuccessAlertModal');
+    if (!modal) {
         // Fallback to browser alert if modal doesn't exist
         alert(`${title}: ${message}`);
         return;
     }
     
-    document.getElementById('reqSuccessAlertTitle').innerText = title;
-    document.getElementById('reqSuccessAlertMessage').innerText = message;
+    const titleEl = getReqEl('reqSuccessAlertTitle');
+    const messageEl = getReqEl('reqSuccessAlertMessage');
+    
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerText = message;
     
     modal.classList.remove('hidden');
     
@@ -389,20 +474,23 @@ function showReqSuccessAlert(title, message) {
         modal.classList.add('hidden');
     }, 3000);
     
-    if(window.lucide) window.lucide.createIcons();
+    if (window.lucide) window.lucide.createIcons();
 }
 
-// NEW: Custom error alert modal
+// Custom error alert modal
 function showReqErrorAlert(title, message) {
-    const modal = document.getElementById('reqErrorAlertModal');
-    if(!modal) {
+    const modal = getReqEl('reqErrorAlertModal');
+    if (!modal) {
         // Fallback to browser alert if modal doesn't exist
         alert(`${title}: ${message}`);
         return;
     }
     
-    document.getElementById('reqErrorAlertTitle').innerText = title;
-    document.getElementById('reqErrorAlertMessage').innerText = message;
+    const titleEl = getReqEl('reqErrorAlertTitle');
+    const messageEl = getReqEl('reqErrorAlertMessage');
+    
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerText = message;
     
     modal.classList.remove('hidden');
     
@@ -411,8 +499,12 @@ function showReqErrorAlert(title, message) {
         modal.classList.add('hidden');
     }, 5000);
     
-    if(window.lucide) window.lucide.createIcons();
+    if (window.lucide) window.lucide.createIcons();
 }
+
+// =================================================================
+// 8. INITIALIZATION
+// =================================================================
 
 // Initialize on page load
 if (document.readyState === 'loading') {

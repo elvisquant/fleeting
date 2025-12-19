@@ -9,24 +9,40 @@ let vehicleActionId = null;
 let selectedVehicleIds = new Set();
 
 // =================================================================
+// MOBILE-COMPATIBLE ELEMENT GETTER
+// =================================================================
+function getVehicleEl(id) {
+    // First try mobile container (if we're on mobile)
+    if (window.innerWidth < 768) {
+        const mobileEl = document.querySelector('#app-content-mobile #' + id);
+        if (mobileEl) return mobileEl;
+    }
+    // Then try desktop container
+    const desktopEl = document.querySelector('#app-content #' + id);
+    if (desktopEl) return desktopEl;
+    // Fallback to global search
+    return document.getElementById(id);
+}
+
+// =================================================================
 // 1. INITIALIZATION - FIXED
 // =================================================================
 async function initVehicles() {
     console.log("Vehicles Module: Init");
     vehicleUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // Attach Listeners
-    const searchInput = document.getElementById('vehicleSearch');
-    const statusFilter = document.getElementById('vehicleStatusFilter');
-    const selectAll = document.getElementById('selectAllVehicles');
-    const confirmBtn = document.getElementById('btnVehicleConfirmAction');
-    const bulkBtn = document.getElementById('btnVehicleBulkVerify'); // NEW
+    // Attach Listeners using mobile-compatible getter
+    const searchInput = getVehicleEl('vehicleSearch');
+    const statusFilter = getVehicleEl('vehicleStatusFilter');
+    const selectAll = getVehicleEl('selectAllVehicles');
+    const confirmBtn = getVehicleEl('btnVehicleConfirmAction');
+    const bulkBtn = getVehicleEl('btnVehicleBulkVerify');
     
     if(searchInput) searchInput.addEventListener('input', renderVehiclesTable);
     if(statusFilter) statusFilter.addEventListener('change', renderVehiclesTable);
     if(selectAll) selectAll.addEventListener('change', toggleVehicleSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executeVehicleConfirmAction);
-    if(bulkBtn) { // NEW: Ensure bulk button has correct onclick
+    if(bulkBtn) {
         bulkBtn.onclick = reqVehicleBulkVerify;
     }
 
@@ -37,7 +53,7 @@ async function initVehicles() {
 // 2. DATA LOADING
 // =================================================================
 async function loadVehiclesData() {
-    const tbody = document.getElementById('vehiclesBody');
+    const tbody = getVehicleEl('vehiclesBody');
     if(!tbody) return;
     
     tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500">
@@ -102,11 +118,14 @@ async function fetchVehicleDropdowns() {
 // 3. TABLE RENDERING
 // =================================================================
 function renderVehiclesTable() {
-    const tbody = document.getElementById('vehiclesBody');
+    const tbody = getVehicleEl('vehiclesBody');
     if(!tbody) return;
 
-    const search = document.getElementById('vehicleSearch').value.toLowerCase();
-    const sFilter = document.getElementById('vehicleStatusFilter') ? document.getElementById('vehicleStatusFilter').value : "all";
+    const search = getVehicleEl('vehicleSearch');
+    const statusFilter = getVehicleEl('vehicleStatusFilter');
+    
+    const searchValue = search ? search.value.toLowerCase() : '';
+    const sFilter = statusFilter ? statusFilter.value : "all";
     
     let filtered = allVehicles.filter(v => {
         const makeName = getOptionName(vehicleOptions.makes, v.make, 'vehicle_make').toLowerCase();
@@ -115,10 +134,10 @@ function renderVehiclesTable() {
         const vin = v.vin ? v.vin.toLowerCase() : '';
         
         const matchesSearch = 
-            plate.includes(search) ||
-            vin.includes(search) ||
-            makeName.includes(search) ||
-            modelName.includes(search);
+            plate.includes(searchValue) ||
+            vin.includes(searchValue) ||
+            makeName.includes(searchValue) ||
+            modelName.includes(searchValue);
             
         let matchesStatus = true;
         if (sFilter === 'verified') matchesStatus = v.is_verified === true;
@@ -127,10 +146,11 @@ function renderVehiclesTable() {
         return matchesSearch && matchesStatus;
     });
 
-    document.getElementById('vehiclesCount').innerText = `${filtered.length} vehicle${filtered.length !== 1 ? 's' : ''} found`;
+    const countEl = getVehicleEl('vehiclesCount');
+    if (countEl) countEl.innerText = `${filtered.length} vehicle${filtered.length !== 1 ? 's' : ''} found`;
 
     // Update Select All checkbox
-    const selectAllCheckbox = document.getElementById('selectAllVehicles');
+    const selectAllCheckbox = getVehicleEl('selectAllVehicles');
     if (selectAllCheckbox) {
         selectAllCheckbox.checked = false;
         selectAllCheckbox.indeterminate = false;
@@ -260,7 +280,7 @@ window.toggleVehicleRow = function(id) {
 }
 
 function updateSelectAllCheckbox() {
-    const selectAllCheckbox = document.getElementById('selectAllVehicles');
+    const selectAllCheckbox = getVehicleEl('selectAllVehicles');
     if (!selectAllCheckbox) return;
     
     const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
@@ -287,7 +307,9 @@ function updateSelectAllCheckbox() {
 }
 
 window.toggleVehicleSelectAll = function() {
-    const mainCheck = document.getElementById('selectAllVehicles');
+    const mainCheck = getVehicleEl('selectAllVehicles');
+    if (!mainCheck) return;
+    
     const isChecked = mainCheck.checked;
     
     const canManage = ['admin', 'superadmin', 'charoi'].includes(vehicleUserRole);
@@ -306,12 +328,12 @@ window.toggleVehicleSelectAll = function() {
 }
 
 function updateVehicleBulkUI() {
-    const btn = document.getElementById('btnVehicleBulkVerify');
-    const countSpan = document.getElementById('vehicleSelectedCount');
+    const btn = getVehicleEl('btnVehicleBulkVerify');
+    const countSpan = getVehicleEl('vehicleSelectedCount');
     
     if (!btn || !countSpan) return;
     
-    countSpan.innerText = selectedVehicleIds.size;
+    if (countSpan) countSpan.innerText = selectedVehicleIds.size;
     
     if (selectedVehicleIds.size > 0) {
         btn.classList.remove('hidden');
@@ -392,7 +414,9 @@ window.reqVehicleDelete = function(id) {
 // =================================================================
 
 async function executeVehicleConfirmAction() {
-    const btn = document.getElementById('btnVehicleConfirmAction');
+    const btn = getVehicleEl('btnVehicleConfirmAction');
+    if (!btn) return;
+    
     const originalText = btn.innerHTML;
     
     btn.disabled = true;
@@ -468,16 +492,23 @@ async function executeVehicleConfirmAction() {
 // =================================================================
 
 window.openAddVehicleModal = function() {
-    document.getElementById('vehicleEditId').value = "";
-    document.getElementById('vehicleModalTitle').innerText = "Add New Vehicle";
-    document.getElementById('btnSaveVehicle').innerHTML = `<i data-lucide="plus" class="w-4 h-4 mr-2"></i> Save Vehicle`;
+    const editIdEl = getVehicleEl('vehicleEditId');
+    const modalTitle = getVehicleEl('vehicleModalTitle');
+    const saveBtn = getVehicleEl('btnSaveVehicle');
+    
+    if (editIdEl) editIdEl.value = "";
+    if (modalTitle) modalTitle.innerText = "Add New Vehicle";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4 mr-2"></i> Save Vehicle`;
+    
     resetForm();
     populateVehicleDropdowns();
-    document.getElementById('addVehicleModal').classList.remove('hidden');
+    
+    const modal = getVehicleEl('addVehicleModal');
+    if (modal) modal.classList.remove('hidden');
     
     // Focus first field
     setTimeout(() => {
-        const firstSelect = document.getElementById('vehicleMake');
+        const firstSelect = getVehicleEl('vehicleMake');
         if (firstSelect) firstSelect.focus();
     }, 100);
     
@@ -496,15 +527,20 @@ window.openEditVehicleModal = function(id) {
         return;
     }
 
-    document.getElementById('vehicleEditId').value = vehicle.id;
-    document.getElementById('vehicleModalTitle').innerText = "Edit Vehicle";
-    document.getElementById('btnSaveVehicle').innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> Update Vehicle`;
+    const editIdEl = getVehicleEl('vehicleEditId');
+    const modalTitle = getVehicleEl('vehicleModalTitle');
+    const saveBtn = getVehicleEl('btnSaveVehicle');
+    
+    if (editIdEl) editIdEl.value = vehicle.id;
+    if (modalTitle) modalTitle.innerText = "Edit Vehicle";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> Update Vehicle`;
     
     populateVehicleDropdowns(vehicle);
     
     const setVal = (id, val) => { 
-        if(document.getElementById(id) && val !== null && val !== undefined) {
-            document.getElementById(id).value = val;
+        const el = getVehicleEl(id);
+        if (el && val !== null && val !== undefined) {
+            el.value = val;
         }
     };
     
@@ -517,15 +553,30 @@ window.openEditVehicleModal = function(id) {
     setVal('vehiclePrice', vehicle.purchase_price);
     if(vehicle.purchase_date) setVal('vehicleDate', vehicle.purchase_date.split('T')[0]);
 
-    document.getElementById('addVehicleModal').classList.remove('hidden');
+    const modal = getVehicleEl('addVehicleModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.saveVehicle = async function() {
-    const id = document.getElementById('vehicleEditId').value;
-    const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value.trim() : '';
-    const getInt = (id) => parseInt(document.getElementById(id).value) || null;
-    const getFloat = (id) => parseFloat(document.getElementById(id).value) || null;
+    const editIdEl = getVehicleEl('vehicleEditId');
+    const id = editIdEl ? editIdEl.value : '';
+    
+    const getVal = (id) => {
+        const el = getVehicleEl(id);
+        return el ? el.value.trim() : '';
+    };
+    
+    const getInt = (id) => {
+        const el = getVehicleEl(id);
+        return el && el.value ? parseInt(el.value) || null : null;
+    };
+    
+    const getFloat = (id) => {
+        const el = getVehicleEl(id);
+        return el && el.value ? parseFloat(el.value) || null : null;
+    };
 
     const makeId = getInt('vehicleMake');
     const modelId = getInt('vehicleModel');
@@ -562,7 +613,9 @@ window.saveVehicle = async function() {
         payload.purchase_date = new Date(dateVal).toISOString();
     }
 
-    const btn = document.getElementById('btnSaveVehicle');
+    const btn = getVehicleEl('btnSaveVehicle');
+    if (!btn) return;
+    
     const originalText = btn.innerHTML;
     
     btn.disabled = true;
@@ -621,7 +674,7 @@ window.viewVehicle = function(id) {
                     <i data-lucide="car" class="w-8 h-8"></i>
                 </div>
                 <div>
-                    <h4 class="text-xl font-bold text-white">${make} ${model} ${vehicle.year}</h4>
+                    <h4 class="text-xl font-bold text-white">${make} ${model} ${vehicle.year || ''}</h4>
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-slate-400 font-mono">${vehicle.plate_number || 'No Plate'}</span>
                         <span class="text-slate-500">•</span>
@@ -662,8 +715,11 @@ window.viewVehicle = function(id) {
         </div>
     `;
     
-    document.getElementById('viewVehicleContent').innerHTML = content;
-    document.getElementById('viewVehicleModal').classList.remove('hidden');
+    const viewContent = getVehicleEl('viewVehicleContent');
+    if (viewContent) viewContent.innerHTML = content;
+    
+    const modal = getVehicleEl('viewVehicleModal');
+    if (modal) modal.classList.remove('hidden');
     
     if(window.lucide) window.lucide.createIcons();
 }
@@ -673,11 +729,12 @@ window.viewVehicle = function(id) {
 // =================================================================
 
 window.closeModal = function(id) { 
-    document.getElementById(id).classList.add('hidden'); 
+    const modal = getVehicleEl(id) || document.getElementById(id);
+    if (modal) modal.classList.add('hidden'); 
 }
 
 function showVehicleConfirmModal(title, message, icon, color) {
-    const modal = document.getElementById('vehicleConfirmModal');
+    const modal = getVehicleEl('vehicleConfirmModal');
     if(!modal) {
         // Fallback to browser confirm
         if(confirm(title + ": " + message.replace(/<br>|<span.*?>|<\/span>/g, ' '))) {
@@ -686,14 +743,19 @@ function showVehicleConfirmModal(title, message, icon, color) {
         return;
     }
     
-    document.getElementById('vehicleConfirmTitle').innerText = title;
-    document.getElementById('vehicleConfirmMessage').innerHTML = message;
+    const titleEl = getVehicleEl('vehicleConfirmTitle');
+    const messageEl = getVehicleEl('vehicleConfirmMessage');
     
-    const btn = document.getElementById('btnVehicleConfirmAction');
-    btn.className = `px-4 py-2.5 text-white rounded-lg text-sm w-full font-medium transition-all duration-200 ${color} hover:opacity-90`;
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerHTML = message;
+    
+    const btn = getVehicleEl('btnVehicleConfirmAction');
+    if (btn) {
+        btn.className = `px-4 py-2.5 text-white rounded-lg text-sm w-full font-medium transition-all duration-200 ${color} hover:opacity-90`;
+    }
     
     // Update icon
-    const iconDiv = document.getElementById('vehicleConfirmIcon');
+    const iconDiv = getVehicleEl('vehicleConfirmIcon');
     if(iconDiv) {
         const textColor = color === 'bg-red-600' ? 'text-red-500' :
                          color === 'bg-green-600' ? 'text-green-500' : 'text-emerald-500';
@@ -715,7 +777,7 @@ function showVehicleConfirmModal(title, message, icon, color) {
 }
 
 function showVehicleAlert(title, message, isSuccess) {
-    const modal = document.getElementById('vehicleAlertModal');
+    const modal = getVehicleEl('vehicleAlertModal');
     
     if(!modal) {
         // Fallback to browser alert
@@ -723,10 +785,13 @@ function showVehicleAlert(title, message, isSuccess) {
         return;
     }
     
-    document.getElementById('vehicleAlertTitle').innerText = title;
-    document.getElementById('vehicleAlertMessage').innerHTML = message;
+    const titleEl = getVehicleEl('vehicleAlertTitle');
+    const messageEl = getVehicleEl('vehicleAlertMessage');
     
-    const iconDiv = document.getElementById('vehicleAlertIcon');
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerHTML = message;
+    
+    const iconDiv = getVehicleEl('vehicleAlertIcon');
     if(iconDiv) {
         if(isSuccess) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
@@ -768,7 +833,8 @@ function showVehicleAlert(title, message, isSuccess) {
 
 function resetForm() {
     ['vehicleYear','vehiclePlate','vehicleVin','vehicleColor','vehicleMileage','vehicleEngine','vehiclePrice','vehicleDate'].forEach(id => {
-        if(document.getElementById(id)) document.getElementById(id).value = "";
+        const el = getVehicleEl(id);
+        if (el) el.value = "";
     });
 }
 
@@ -781,7 +847,7 @@ function populateVehicleDropdowns(selectedV = null) {
 }
 
 function populateSelect(id, list, selectedValue, labelKey, defaultText = 'Select...') {
-    const el = document.getElementById(id);
+    const el = getVehicleEl(id);
     if(!el) return;
     
     let options = `<option value="">${defaultText}</option>`;

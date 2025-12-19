@@ -9,15 +9,31 @@ let selectedFuelIds = new Set();
 let fuelActionType = null; 
 let fuelActionId = null;
 
+// =================================================================
+// MOBILE-COMPATIBLE ELEMENT GETTER
+// =================================================================
+function getFuelEl(id) {
+    // First try mobile container (if we're on mobile)
+    if (window.innerWidth < 768) {
+        const mobileEl = document.querySelector('#app-content-mobile #' + id);
+        if (mobileEl) return mobileEl;
+    }
+    // Then try desktop container
+    const desktopEl = document.querySelector('#app-content #' + id);
+    if (desktopEl) return desktopEl;
+    // Fallback to global search
+    return document.getElementById(id);
+}
+
 async function initFuel() {
     console.log("Fuel Module: Init");
     currentUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
     // Listeners
-    const searchInput = document.getElementById('fuelSearch');
-    const vehicleFilter = document.getElementById('fuelVehicleFilter');
-    const statusFilter = document.getElementById('fuelStatusFilter');
-    const selectAllCheckbox = document.getElementById('selectAllFuel');
+    const searchInput = getFuelEl('fuelSearch');
+    const vehicleFilter = getFuelEl('fuelVehicleFilter');
+    const statusFilter = getFuelEl('fuelStatusFilter');
+    const selectAllCheckbox = getFuelEl('selectAllFuel');
     
     if(searchInput) searchInput.addEventListener('input', renderFuelTable);
     if(vehicleFilter) vehicleFilter.addEventListener('change', renderFuelTable);
@@ -25,12 +41,12 @@ async function initFuel() {
     if(selectAllCheckbox) selectAllCheckbox.addEventListener('change', toggleFuelSelectAll);
 
     // Modal listeners
-    const qtyInput = document.getElementById('fuelQuantity');
-    const priceInput = document.getElementById('fuelPrice');
-    const vehicleSelect = document.getElementById('fuelVehicleSelect');
+    const qtyInput = getFuelEl('fuelQuantity');
+    const priceInput = getFuelEl('fuelPrice');
+    const vehicleSelect = getFuelEl('fuelVehicleSelect');
     
     // Confirm Button Listener
-    const confirmBtn = document.getElementById('btnFuelConfirmAction');
+    const confirmBtn = getFuelEl('btnFuelConfirmAction');
 
     if(qtyInput) qtyInput.addEventListener('input', updateCostPreview);
     if(priceInput) priceInput.addEventListener('input', updateCostPreview);
@@ -46,7 +62,7 @@ async function initFuel() {
 }
 
 async function loadFuelData() {
-    const tbody = document.getElementById('fuelLogsBody');
+    const tbody = getFuelEl('fuelLogsBody');
     if(!tbody) return;
     
     tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading logs...</td></tr>`;
@@ -91,27 +107,32 @@ async function fetchFuelDropdowns() {
 }
 
 function renderFuelTable() {
-    const tbody = document.getElementById('fuelLogsBody');
+    const tbody = getFuelEl('fuelLogsBody');
     if (!tbody) return;
 
-    const search = document.getElementById('fuelSearch').value.toLowerCase();
-    const vFilter = document.getElementById('fuelVehicleFilter').value;
-    const sFilter = document.getElementById('fuelStatusFilter').value;
+    const search = getFuelEl('fuelSearch');
+    const vFilter = getFuelEl('fuelVehicleFilter');
+    const sFilter = getFuelEl('fuelStatusFilter');
+    
+    const searchValue = search ? search.value.toLowerCase() : '';
+    const vFilterValue = vFilter ? vFilter.value : '';
+    const sFilterValue = sFilter ? sFilter.value : '';
 
     let filtered = allFuelLogs.filter(log => {
         const vehicle = fuelOptions.vehicles.find(v => v.id === log.vehicle_id);
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
         
-        const matchesSearch = plate.includes(search);
-        const matchesVehicle = vFilter === "" || log.vehicle_id == vFilter;
+        const matchesSearch = plate.includes(searchValue);
+        const matchesVehicle = vFilterValue === "" || log.vehicle_id == vFilterValue;
         let matchesStatus = true;
-        if (sFilter === 'verified') matchesStatus = log.is_verified === true;
-        if (sFilter === 'pending') matchesStatus = log.is_verified !== true;
+        if (sFilterValue === 'verified') matchesStatus = log.is_verified === true;
+        if (sFilterValue === 'pending') matchesStatus = log.is_verified !== true;
 
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
-    document.getElementById('fuelLogsCount').innerText = `${filtered.length} logs found`;
+    const countEl = getFuelEl('fuelLogsCount');
+    if (countEl) countEl.innerText = `${filtered.length} logs found`;
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No fuel logs found.</td></tr>`;
@@ -161,8 +182,8 @@ function renderFuelTable() {
                 <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4 font-mono text-white">${plate}</td>
                 <td class="p-4 text-slate-400">${typeName}</td>
-                <td class="p-4 text-right"><div class="text-slate-200">${log.quantity.toFixed(2)} L</div><div class="text-xs text-slate-500">@ ${log.price_little.toFixed(2)}</div></td>
-                <td class="p-4 text-right font-bold text-emerald-400">${log.cost.toFixed(2)}</td>
+                <td class="p-4 text-right"><div class="text-slate-200">${log.quantity ? log.quantity.toFixed(2) : '0.00'} L</div><div class="text-xs text-slate-500">@ ${log.price_little ? log.price_little.toFixed(2) : '0.00'}</div></td>
+                <td class="p-4 text-right font-bold text-emerald-400">${log.cost ? log.cost.toFixed(2) : '0.00'}</td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-slate-500 text-xs">${date}</td>
                 <td class="p-4 text-right">${actionButtons}</td>
@@ -185,7 +206,9 @@ window.toggleFuelRow = function(id) {
 }
 
 window.toggleFuelSelectAll = function() {
-    const mainCheck = document.getElementById('selectAllFuel');
+    const mainCheck = getFuelEl('selectAllFuel');
+    if (!mainCheck) return;
+    
     const isChecked = mainCheck.checked;
     selectedFuelIds.clear();
     
@@ -200,11 +223,11 @@ window.toggleFuelSelectAll = function() {
 }
 
 function updateFuelBulkUI() {
-    const btn = document.getElementById('btnFuelBulkVerify');
-    const countSpan = document.getElementById('fuelSelectedCount');
+    const btn = getFuelEl('btnFuelBulkVerify');
+    const countSpan = getFuelEl('fuelSelectedCount');
     if (!btn) return;
 
-    countSpan.innerText = selectedFuelIds.size;
+    if (countSpan) countSpan.innerText = selectedFuelIds.size;
     if (selectedFuelIds.size > 0) {
         btn.classList.remove('hidden');
     } else {
@@ -235,8 +258,11 @@ window.reqFuelDelete = function(id) {
 }
 
 async function executeFuelConfirmAction() {
-    const btn = document.getElementById('btnFuelConfirmAction');
-    btn.disabled = true; btn.innerText = "Processing...";
+    const btn = getFuelEl('btnFuelConfirmAction');
+    if (!btn) return;
+    
+    btn.disabled = true; 
+    btn.innerText = "Processing...";
 
     try {
         let result;
@@ -268,22 +294,36 @@ async function executeFuelConfirmAction() {
         showFuelAlert("Error", e.message || "An unexpected error occurred.", false);
     }
     
-    btn.disabled = false; btn.innerText = "Confirm"; 
-    fuelActionId = null; fuelActionType = null;
+    btn.disabled = false; 
+    btn.innerText = "Confirm"; 
+    fuelActionId = null; 
+    fuelActionType = null;
 }
 
 // === ADD/EDIT/VIEW MODALS ===
 
 window.openAddFuelModal = function() {
-    document.getElementById('fuelEditId').value = ""; 
-    document.getElementById('fuelModalTitle').innerText = "Add Fuel Log";
-    document.getElementById('btnSaveFuel').innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Add Log`;
+    const editIdEl = getFuelEl('fuelEditId');
+    const modalTitle = getFuelEl('fuelModalTitle');
+    const saveBtn = getFuelEl('btnSaveFuel');
+    
+    if (editIdEl) editIdEl.value = ""; 
+    if (modalTitle) modalTitle.innerText = "Add Fuel Log";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Add Log`;
     
     populateSelect('fuelVehicleSelect', fuelOptions.vehicles, '', 'plate_number', 'Select Vehicle');
-    document.getElementById('fuelQuantity').value = "";
-    document.getElementById('fuelPrice').value = "";
-    document.getElementById('costPreview').classList.add('hidden');
-    document.getElementById('addFuelModal').classList.remove('hidden');
+    
+    const qtyEl = getFuelEl('fuelQuantity');
+    const priceEl = getFuelEl('fuelPrice');
+    const costPreview = getFuelEl('costPreview');
+    
+    if (qtyEl) qtyEl.value = "";
+    if (priceEl) priceEl.value = "";
+    if (costPreview) costPreview.classList.add('hidden');
+    
+    const modal = getFuelEl('addFuelModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -291,28 +331,43 @@ window.openEditFuelModal = function(id) {
     const log = allFuelLogs.find(l => l.id === id);
     if(!log) return;
     
-    document.getElementById('fuelEditId').value = log.id; 
-    document.getElementById('fuelModalTitle').innerText = "Edit Fuel Log";
-    document.getElementById('btnSaveFuel').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Save Changes`;
+    const editIdEl = getFuelEl('fuelEditId');
+    const modalTitle = getFuelEl('fuelModalTitle');
+    const saveBtn = getFuelEl('btnSaveFuel');
+    
+    if (editIdEl) editIdEl.value = log.id; 
+    if (modalTitle) modalTitle.innerText = "Edit Fuel Log";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Save Changes`;
 
     populateSelect('fuelVehicleSelect', fuelOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, log.fuel_type_id, 'fuel_type', 'Select Type');
     
-    document.getElementById('fuelQuantity').value = log.quantity;
-    document.getElementById('fuelPrice').value = log.price_little;
+    const qtyEl = getFuelEl('fuelQuantity');
+    const priceEl = getFuelEl('fuelPrice');
+    
+    if (qtyEl) qtyEl.value = log.quantity || '';
+    if (priceEl) priceEl.value = log.price_little || '';
     
     updateCostPreview();
 
-    document.getElementById('addFuelModal').classList.remove('hidden');
+    const modal = getFuelEl('addFuelModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.saveFuelLog = async function() {
-    const id = document.getElementById('fuelEditId').value;
-    const vId = document.getElementById('fuelVehicleSelect').value;
-    const typeId = document.getElementById('fuelTypeSelect').value;
-    const qty = document.getElementById('fuelQuantity').value;
-    const price = document.getElementById('fuelPrice').value;
+    const editIdEl = getFuelEl('fuelEditId');
+    const vIdEl = getFuelEl('fuelVehicleSelect');
+    const typeIdEl = getFuelEl('fuelTypeSelect');
+    const qtyEl = getFuelEl('fuelQuantity');
+    const priceEl = getFuelEl('fuelPrice');
+    
+    const id = editIdEl ? editIdEl.value : '';
+    const vId = vIdEl ? vIdEl.value : '';
+    const typeId = typeIdEl ? typeIdEl.value : '';
+    const qty = qtyEl ? qtyEl.value : '';
+    const price = priceEl ? priceEl.value : '';
 
     if(!vId || !typeId || !qty || !price) { 
         showFuelAlert("Validation", "Please fill all required fields.", false); 
@@ -326,7 +381,9 @@ window.saveFuelLog = async function() {
         price_little: parseFloat(price)
     };
 
-    const btn = document.getElementById('btnSaveFuel');
+    const btn = getFuelEl('btnSaveFuel');
+    if (!btn) return;
+    
     btn.innerHTML = "Saving...";
     btn.disabled = true;
 
@@ -350,6 +407,7 @@ window.saveFuelLog = async function() {
     } catch(e) {
         showFuelAlert("System Error", e.message || "Failed to save fuel log.", false);
     }
+    
     btn.disabled = false;
     btn.innerHTML = id ? `<i data-lucide="save" class="w-4 h-4"></i> Save Changes` : `<i data-lucide="plus" class="w-4 h-4"></i> Add Log`;
     if(window.lucide) window.lucide.createIcons();
@@ -365,52 +423,74 @@ window.openViewFuelModal = function(id) {
         <div class="grid grid-cols-2 gap-y-4">
             <div><span class="text-slate-500 text-xs uppercase block">Vehicle</span><span class="text-white font-mono">${vehicle ? vehicle.plate_number : log.vehicle_id}</span></div>
             <div><span class="text-slate-500 text-xs uppercase block">Fuel Type</span><span class="text-white">${type ? type.fuel_type : '-'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Quantity</span><span class="text-white">${log.quantity.toFixed(2)} L</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Price/Unit</span><span class="text-white">${log.price_little.toFixed(2)}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Quantity</span><span class="text-white">${log.quantity ? log.quantity.toFixed(2) : '0.00'} L</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">Price/Unit</span><span class="text-white">${log.price_little ? log.price_little.toFixed(2) : '0.00'}</span></div>
             <div class="col-span-2 border-t border-slate-700 pt-2 flex justify-between items-center">
                 <span class="text-slate-500 text-xs uppercase">Total Cost</span>
-                <span class="text-emerald-400 font-bold text-lg">BIF ${log.cost.toFixed(2)}</span>
+                <span class="text-emerald-400 font-bold text-lg">BIF ${log.cost ? log.cost.toFixed(2) : '0.00'}</span>
             </div>
             <div class="col-span-2 text-xs text-slate-600 text-center mt-2">
-                Date: ${new Date(log.created_at).toLocaleDateString()}
+                Date: ${log.created_at ? new Date(log.created_at).toLocaleDateString() : 'N/A'}
             </div>
         </div>
     `;
-    document.getElementById('viewFuelContent').innerHTML = content;
-    document.getElementById('viewFuelModal').classList.remove('hidden');
+    
+    const viewContent = getFuelEl('viewFuelContent');
+    if (viewContent) viewContent.innerHTML = content;
+    
+    const modal = getFuelEl('viewFuelModal');
+    if (modal) modal.classList.remove('hidden');
 }
 
 // === HELPER FUNCTIONS ===
 
 window.closeModal = function(id) { 
-    document.getElementById(id).classList.add('hidden'); 
+    const modal = getFuelEl(id) || document.getElementById(id);
+    if (modal) modal.classList.add('hidden'); 
 }
 
 function showFuelConfirmModal(title, msg, icon, btnClass) {
-    document.getElementById('fuelConfirmTitle').innerText = title;
-    document.getElementById('fuelConfirmMessage').innerText = msg;
-    const iconDiv = document.getElementById('fuelConfirmIcon');
-    iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${btnClass.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
-    iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
-    const btn = document.getElementById('btnFuelConfirmAction');
-    btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${btnClass} hover:opacity-90`;
-    document.getElementById('fuelConfirmModal').classList.remove('hidden');
+    const titleEl = getFuelEl('fuelConfirmTitle');
+    const messageEl = getFuelEl('fuelConfirmMessage');
+    const iconDiv = getFuelEl('fuelConfirmIcon');
+    const btn = getFuelEl('btnFuelConfirmAction');
+    const modal = getFuelEl('fuelConfirmModal');
+    
+    if (!modal) return;
+    
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerText = msg;
+    
+    if (iconDiv) {
+        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${btnClass.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
+        iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
+    }
+    
+    if (btn) {
+        btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${btnClass} hover:opacity-90`;
+    }
+    
+    modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
 // FIXED: Use the existing fuelAlertModal with isSuccess parameter
 function showFuelAlert(title, message, isSuccess) {
-    const modal = document.getElementById('fuelAlertModal');
+    const modal = getFuelEl('fuelAlertModal');
     if(!modal) { 
         // Fallback to browser alert if modal doesn't exist
         alert(`${title}: ${message}`);
         return; 
     }
     
-    document.getElementById('fuelAlertTitle').innerText = title;
-    document.getElementById('fuelAlertMessage').innerText = message;
+    const titleEl = getFuelEl('fuelAlertTitle');
+    const messageEl = getFuelEl('fuelAlertMessage');
     
-    const iconDiv = document.getElementById('fuelAlertIcon');
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerText = message;
+    
+    const iconDiv = getFuelEl('fuelAlertIcon');
     if(iconDiv) {
         if(isSuccess) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
@@ -433,8 +513,12 @@ function showFuelAlert(title, message, isSuccess) {
 }
 
 function autoSelectFuelType() {
-    const vId = document.getElementById('fuelVehicleSelect').value;
-    const typeSelect = document.getElementById('fuelTypeSelect');
+    const vIdEl = getFuelEl('fuelVehicleSelect');
+    const typeSelect = getFuelEl('fuelTypeSelect');
+    
+    if (!vIdEl || !typeSelect) return;
+    
+    const vId = vIdEl.value;
     
     if(!vId) { 
         typeSelect.innerHTML = '<option value="">Select Vehicle First</option>'; 
@@ -455,21 +539,27 @@ function autoSelectFuelType() {
 }
 
 function updateCostPreview() {
-    const qty = parseFloat(document.getElementById('fuelQuantity').value) || 0;
-    const price = parseFloat(document.getElementById('fuelPrice').value) || 0;
+    const qtyEl = getFuelEl('fuelQuantity');
+    const priceEl = getFuelEl('fuelPrice');
+    const preview = getFuelEl('costPreview');
+    const totalCostDisplay = getFuelEl('totalCostDisplay');
+    
+    if (!qtyEl || !priceEl || !preview || !totalCostDisplay) return;
+    
+    const qty = parseFloat(qtyEl.value) || 0;
+    const price = parseFloat(priceEl.value) || 0;
     const total = qty * price;
-    const preview = document.getElementById('costPreview');
     
     if(total > 0) {
         preview.classList.remove('hidden');
-        document.getElementById('totalCostDisplay').innerText = `BIF ${total.toFixed(2)}`;
+        totalCostDisplay.innerText = `BIF ${total.toFixed(2)}`;
     } else {
         preview.classList.add('hidden');
     }
 }
 
 function populateSelect(elementId, items, selectedValue, labelKey, defaultText) {
-    const el = document.getElementById(elementId);
+    const el = getFuelEl(elementId);
     if (!el) return;
     
     let options = `<option value="">${defaultText}</option>`;

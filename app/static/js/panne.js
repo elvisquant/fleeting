@@ -11,19 +11,35 @@ let panneActionId = null;
 let selectedPanneIds = new Set();
 
 // =================================================================
+// MOBILE-COMPATIBLE ELEMENT GETTER
+// =================================================================
+function getPanneEl(id) {
+    // First try mobile container (if we're on mobile)
+    if (window.innerWidth < 768) {
+        const mobileEl = document.querySelector('#app-content-mobile #' + id);
+        if (mobileEl) return mobileEl;
+    }
+    // Then try desktop container
+    const desktopEl = document.querySelector('#app-content #' + id);
+    if (desktopEl) return desktopEl;
+    // Fallback to global search
+    return document.getElementById(id);
+}
+
+// =================================================================
 // 1. INITIALIZATION
 // =================================================================
 async function initPanne() {
     console.log("Panne Module: Init");
     panneUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
     
-    // DOM Elements
-    const search = document.getElementById('panneSearch');
-    const vFilter = document.getElementById('panneVehicleFilter');
-    const sFilter = document.getElementById('panneStatusFilter');
-    const selectAll = document.getElementById('selectAllPanne');
-    const confirmBtn = document.getElementById('btnPanneConfirmAction');
-    const bulkBtn = document.getElementById('btnPanneBulkVerify'); // NEW
+    // DOM Elements using mobile-compatible getter
+    const search = getPanneEl('panneSearch');
+    const vFilter = getPanneEl('panneVehicleFilter');
+    const sFilter = getPanneEl('panneStatusFilter');
+    const selectAll = getPanneEl('selectAllPanne');
+    const confirmBtn = getPanneEl('btnPanneConfirmAction');
+    const bulkBtn = getPanneEl('btnPanneBulkVerify');
     
     // Attach Listeners
     if(search) search.addEventListener('input', renderPanneTable);
@@ -31,7 +47,7 @@ async function initPanne() {
     if(sFilter) sFilter.addEventListener('change', renderPanneTable);
     if(selectAll) selectAll.addEventListener('change', togglePanneSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executePanneConfirmAction);
-    if(bulkBtn) { // NEW: Ensure bulk button has correct onclick
+    if(bulkBtn) {
         bulkBtn.onclick = triggerPanneBulkVerify;
     }
     
@@ -42,7 +58,7 @@ async function initPanne() {
 // 2. DATA LOADING
 // =================================================================
 async function loadPanneData() {
-    const tbody = document.getElementById('panneLogsBody');
+    const tbody = getPanneEl('panneLogsBody');
     if(!tbody) return;
     
     // Loading State
@@ -106,13 +122,17 @@ async function fetchPanneDropdowns() {
 // 3. TABLE RENDERING
 // =================================================================
 function renderPanneTable() {
-    const tbody = document.getElementById('panneLogsBody');
+    const tbody = getPanneEl('panneLogsBody');
     if(!tbody) return;
 
     // Get Filter Values
-    const search = document.getElementById('panneSearch').value.toLowerCase();
-    const vFilter = document.getElementById('panneVehicleFilter').value;
-    const sFilter = document.getElementById('panneStatusFilter').value;
+    const search = getPanneEl('panneSearch');
+    const vFilter = getPanneEl('panneVehicleFilter');
+    const sFilter = getPanneEl('panneStatusFilter');
+    
+    const searchValue = search ? search.value.toLowerCase() : '';
+    const vFilterValue = vFilter ? vFilter.value : '';
+    const sFilterValue = sFilter ? sFilter.value : '';
 
     // Filter Data
     let filtered = allPannes.filter(log => {
@@ -120,21 +140,22 @@ function renderPanneTable() {
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
         const desc = log.description ? log.description.toLowerCase() : "";
         
-        const matchesSearch = plate.includes(search) || desc.includes(search);
-        const matchesVehicle = vFilter === "" || log.vehicle_id == vFilter;
+        const matchesSearch = plate.includes(searchValue) || desc.includes(searchValue);
+        const matchesVehicle = vFilterValue === "" || log.vehicle_id == vFilterValue;
         
         let matchesStatus = true;
-        if (sFilter === 'verified') matchesStatus = log.is_verified === true;
-        if (sFilter === 'pending') matchesStatus = log.is_verified !== true;
+        if (sFilterValue === 'verified') matchesStatus = log.is_verified === true;
+        if (sFilterValue === 'pending') matchesStatus = log.is_verified !== true;
 
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
     // Update Counts
-    document.getElementById('panneCount').innerText = `${filtered.length} record${filtered.length !== 1 ? 's' : ''} found`;
+    const countEl = getPanneEl('panneCount');
+    if (countEl) countEl.innerText = `${filtered.length} record${filtered.length !== 1 ? 's' : ''} found`;
 
     // Update Select All checkbox
-    const selectAllCheckbox = document.getElementById('selectAllPanne');
+    const selectAllCheckbox = getPanneEl('selectAllPanne');
     if (selectAllCheckbox) {
         selectAllCheckbox.checked = false;
         selectAllCheckbox.indeterminate = false;
@@ -261,7 +282,7 @@ window.togglePanneRow = function(id) {
 }
 
 function updateSelectAllCheckbox() {
-    const selectAllCheckbox = document.getElementById('selectAllPanne');
+    const selectAllCheckbox = getPanneEl('selectAllPanne');
     if (!selectAllCheckbox) return;
     
     const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
@@ -288,7 +309,9 @@ function updateSelectAllCheckbox() {
 }
 
 window.togglePanneSelectAll = function() {
-    const mainCheck = document.getElementById('selectAllPanne');
+    const mainCheck = getPanneEl('selectAllPanne');
+    if (!mainCheck) return;
+    
     const isChecked = mainCheck.checked;
     
     const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
@@ -307,8 +330,8 @@ window.togglePanneSelectAll = function() {
 }
 
 function updatePanneBulkUI() {
-    const btn = document.getElementById('btnPanneBulkVerify');
-    const countSpan = document.getElementById('panneSelectedCount');
+    const btn = getPanneEl('btnPanneBulkVerify');
+    const countSpan = getPanneEl('panneSelectedCount');
     
     if (!btn || !countSpan) return;
     
@@ -389,7 +412,9 @@ window.reqPanneDelete = function(id) {
 // =================================================================
 
 async function executePanneConfirmAction() {
-    const btn = document.getElementById('btnPanneConfirmAction');
+    const btn = getPanneEl('btnPanneConfirmAction');
+    if (!btn) return;
+    
     const originalText = btn.innerHTML;
     
     btn.disabled = true;
@@ -465,21 +490,29 @@ async function executePanneConfirmAction() {
 // =================================================================
 
 window.openAddPanneModal = function() {
-    document.getElementById('panneEditId').value = "";
-    document.getElementById('panneModalTitle').innerText = "Report Breakdown";
-    document.getElementById('btnSavePanne').innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save Report`;
+    const editIdEl = getPanneEl('panneEditId');
+    const modalTitle = getPanneEl('panneModalTitle');
+    const saveBtn = getPanneEl('btnSavePanne');
+    
+    if (editIdEl) editIdEl.value = "";
+    if (modalTitle) modalTitle.innerText = "Report Breakdown";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save Report`;
     
     populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', 'Select Vehicle');
     populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', 'Select Category');
     
-    document.getElementById('panneDesc').value = "";
-    document.getElementById('panneDate').value = new Date().toISOString().split('T')[0];
+    const descEl = getPanneEl('panneDesc');
+    const dateEl = getPanneEl('panneDate');
     
-    document.getElementById('addPanneModal').classList.remove('hidden');
+    if (descEl) descEl.value = "";
+    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+    
+    const modal = getPanneEl('addPanneModal');
+    if (modal) modal.classList.remove('hidden');
     
     // Focus first field
     setTimeout(() => {
-        const firstSelect = document.getElementById('panneVehicleSelect');
+        const firstSelect = getPanneEl('panneVehicleSelect');
         if (firstSelect) firstSelect.focus();
     }, 100);
     
@@ -498,26 +531,41 @@ window.openEditPanneModal = function(id) {
         return;
     }
 
-    document.getElementById('panneEditId').value = log.id;
-    document.getElementById('panneModalTitle').innerText = "Edit Breakdown Report";
-    document.getElementById('btnSavePanne').innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update Report`;
+    const editIdEl = getPanneEl('panneEditId');
+    const modalTitle = getPanneEl('panneModalTitle');
+    const saveBtn = getPanneEl('btnSavePanne');
+    
+    if (editIdEl) editIdEl.value = log.id;
+    if (modalTitle) modalTitle.innerText = "Edit Breakdown Report";
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update Report`;
 
     populateSelect('panneVehicleSelect', panneOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('panneCatSelect', panneOptions.cats, log.category_panne_id, 'panne_name', 'Category');
     
-    document.getElementById('panneDesc').value = log.description || '';
-    document.getElementById('panneDate').value = new Date(log.panne_date).toISOString().split('T')[0];
+    const descEl = getPanneEl('panneDesc');
+    const dateEl = getPanneEl('panneDate');
+    
+    if (descEl) descEl.value = log.description || '';
+    if (dateEl) dateEl.value = new Date(log.panne_date).toISOString().split('T')[0];
 
-    document.getElementById('addPanneModal').classList.remove('hidden');
+    const modal = getPanneEl('addPanneModal');
+    if (modal) modal.classList.remove('hidden');
+    
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.savePanne = async function() {
-    const id = document.getElementById('panneEditId').value;
-    const vId = document.getElementById('panneVehicleSelect').value;
-    const catId = document.getElementById('panneCatSelect').value;
-    const desc = document.getElementById('panneDesc').value.trim();
-    const date = document.getElementById('panneDate').value;
+    const editIdEl = getPanneEl('panneEditId');
+    const vIdEl = getPanneEl('panneVehicleSelect');
+    const catIdEl = getPanneEl('panneCatSelect');
+    const descEl = getPanneEl('panneDesc');
+    const dateEl = getPanneEl('panneDate');
+    
+    const id = editIdEl ? editIdEl.value : '';
+    const vId = vIdEl ? vIdEl.value : '';
+    const catId = catIdEl ? catIdEl.value : '';
+    const desc = descEl ? descEl.value.trim() : '';
+    const date = dateEl ? dateEl.value : '';
 
     // Validation
     const errors = [];
@@ -538,7 +586,9 @@ window.savePanne = async function() {
         panne_date: new Date(date).toISOString()
     };
 
-    const btn = document.getElementById('btnSavePanne');
+    const btn = getPanneEl('btnSavePanne');
+    if (!btn) return;
+    
     const originalText = btn.innerHTML;
     
     btn.disabled = true;
@@ -630,8 +680,11 @@ window.openViewPanneModal = function(id) {
             </div>` : ''}
         </div>`;
     
-    document.getElementById('viewPanneContent').innerHTML = content;
-    document.getElementById('viewPanneModal').classList.remove('hidden');
+    const viewContent = getPanneEl('viewPanneContent');
+    if (viewContent) viewContent.innerHTML = content;
+    
+    const modal = getPanneEl('viewPanneModal');
+    if (modal) modal.classList.remove('hidden');
     
     if(window.lucide) window.lucide.createIcons();
 }
@@ -641,14 +694,14 @@ window.openViewPanneModal = function(id) {
 // =================================================================
 
 window.closeModal = function(id) {
-    const modal = document.getElementById(id);
+    const modal = getPanneEl(id) || document.getElementById(id);
     if (modal) {
         modal.classList.add('hidden');
     }
 }
 
 function showPanneConfirmModal(title, message, icon, color) {
-    const modal = document.getElementById('panneConfirmModal');
+    const modal = getPanneEl('panneConfirmModal');
     if(!modal) {
         // Fallback to browser confirm
         if(confirm(title + ": " + message.replace(/<br>|<span.*?>|<\/span>/g, ' '))) {
@@ -658,14 +711,19 @@ function showPanneConfirmModal(title, message, icon, color) {
     }
     
     // Update modal content
-    document.getElementById('panneConfirmTitle').innerText = title;
-    document.getElementById('panneConfirmMessage').innerHTML = message;
+    const titleEl = getPanneEl('panneConfirmTitle');
+    const messageEl = getPanneEl('panneConfirmMessage');
     
-    const btn = document.getElementById('btnPanneConfirmAction');
-    btn.className = `px-4 py-2.5 text-white rounded-lg text-sm w-full font-medium transition-all duration-200 ${color} hover:opacity-90`;
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerHTML = message;
+    
+    const btn = getPanneEl('btnPanneConfirmAction');
+    if (btn) {
+        btn.className = `px-4 py-2.5 text-white rounded-lg text-sm w-full font-medium transition-all duration-200 ${color} hover:opacity-90`;
+    }
     
     // Update icon
-    const iconDiv = document.getElementById('panneConfirmIcon');
+    const iconDiv = getPanneEl('panneConfirmIcon');
     if(iconDiv) {
         const textColor = color === 'bg-red-600' ? 'text-red-500' :
                          color === 'bg-green-600' ? 'text-green-500' : 'text-emerald-500';
@@ -687,7 +745,7 @@ function showPanneConfirmModal(title, message, icon, color) {
 }
 
 function showPanneAlert(title, message, isSuccess) {
-    const modal = document.getElementById('panneAlertModal');
+    const modal = getPanneEl('panneAlertModal');
     
     if(!modal) {
         // Fallback to browser alert
@@ -695,10 +753,13 @@ function showPanneAlert(title, message, isSuccess) {
         return;
     }
     
-    document.getElementById('panneAlertTitle').innerText = title;
-    document.getElementById('panneAlertMessage').innerHTML = message;
+    const titleEl = getPanneEl('panneAlertTitle');
+    const messageEl = getPanneEl('panneAlertMessage');
     
-    const iconDiv = document.getElementById('panneAlertIcon');
+    if (titleEl) titleEl.innerText = title;
+    if (messageEl) messageEl.innerHTML = message;
+    
+    const iconDiv = getPanneEl('panneAlertIcon');
     if(iconDiv) {
         if(isSuccess) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
@@ -739,7 +800,7 @@ function showPanneAlert(title, message, isSuccess) {
 }
 
 function populateSelect(id, list, selectedValue, labelKey, defaultText) {
-    const el = document.getElementById(id);
+    const el = getPanneEl(id);
     if(!el) return;
     
     let options = `<option value="">${defaultText}</option>`;
