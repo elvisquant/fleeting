@@ -54,17 +54,24 @@ async function loadRequestsData() {
     if (window.lucide) window.lucide.createIcons();
 
     // FIX: Added trailing slash to prevent 307 Redirect
-    const data = await window.fetchWithAuth('/requests/'); 
-
-    // Handle pagination or list response
-    const items = data.items || data;
-    
-    if (Array.isArray(items)) {
-        allRequests = items;
-        renderReqTable();
-    } else {
-        const msg = data && data.detail ? data.detail : "Failed to load requests.";
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+    // Note: If token is expired, fetchWithAuth usually redirects to login.
+    try {
+        const data = await window.fetchWithAuth('/requests/'); 
+        
+        // Handle pagination or list response
+        const items = data.items || data;
+        
+        if (Array.isArray(items)) {
+            allRequests = items;
+            renderReqTable();
+        } else {
+            const msg = data && data.detail ? data.detail : "Failed to load requests.";
+            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+        }
+    } catch (error) {
+        console.error("Load Error:", error);
+        // If 401, the redirection happens automatically via fetchWithAuth usually.
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Session expired or connection failed.</td></tr>`;
     }
 }
 
@@ -195,8 +202,14 @@ window.openAddRequestModal = function() {
     const now = new Date();
     const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // 3 hours later
     
-    if (depEl) depEl.value = now.toISOString().slice(0, 16);
-    if (retEl) retEl.value = later.toISOString().slice(0, 16);
+    // Format to YYYY-MM-DDTHH:MM for datetime-local input
+    const toLocalISO = (date) => {
+        const offset = date.getTimezoneOffset() * 60000;
+        return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+    };
+
+    if (depEl) depEl.value = toLocalISO(now);
+    if (retEl) retEl.value = toLocalISO(later);
     
     if (descEl) descEl.value = "";
     if (passEl) passEl.value = "";
@@ -259,12 +272,17 @@ window.saveRequest = async function() {
     try {
         // FIX: Added trailing slash
         const result = await window.fetchWithAuth('/requests/', 'POST', payload);
+        
+        // Check if result is undefined (redirect happened) or has error
         if (result && !result.detail) {
             window.closeModal('addRequestModal');
             await loadRequestsData();
             showReqSuccessAlert("Success", "Request submitted successfully.");
         } else {
-            const err = result?.detail ? JSON.stringify(result.detail) : "Failed to submit request.";
+            // Handle error response
+            const err = result?.detail 
+                ? (typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail) 
+                : "Failed to submit request.";
             showReqErrorAlert("Error", err);
         }
     } catch(e) { 
@@ -416,14 +434,12 @@ async function submitApprovalDecision() {
     btn.disabled = true; 
     btn.innerText = "Processing...";
 
-    // FIX: Changed payload structure to match backend expectations
     const payload = { 
         status: reqActionType === 'approve' ? 'approved' : 'denied',
         comment: comment.trim() || null 
     };
 
     try {
-        // FIX: Added trailing slash
         const result = await window.fetchWithAuth(`/approvals/${reqActionId}/`, 'POST', payload);
         window.closeModal('approvalModal');
         
@@ -431,7 +447,7 @@ async function submitApprovalDecision() {
             await loadRequestsData();
             showReqSuccessAlert("Success", `Request ${reqActionType === 'approve' ? 'approved' : 'rejected'} successfully.`);
         } else {
-            const msg = result?.detail ? JSON.stringify(result.detail) : "Action failed.";
+            const msg = result?.detail ? (typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail) : "Action failed.";
             showReqErrorAlert("Error", msg);
         }
     } catch(e) {
@@ -452,61 +468,65 @@ window.closeModal = function(id) {
     if (modal) modal.classList.add('hidden'); 
 }
 
-// Custom success alert modal
-function showReqSuccessAlert(title, message) {
-    const modal = getReqEl('reqSuccessAlertModal');
+// =================================================================
+// FIXED ALERT FUNCTIONS (Using Generic reqAlertModal)
+// =================================================================
+
+function showReqAlert(title, message, isError = false) {
+    // We use the SINGLE generic modal found in request.html: 'reqAlertModal'
+    const modal = getReqEl('reqAlertModal'); 
+    
     if (!modal) {
-        // Fallback to browser alert if modal doesn't exist
+        // Fallback only if modal is truly missing from HTML
         alert(`${title}: ${message}`);
         return;
     }
     
-    const titleEl = getReqEl('reqSuccessAlertTitle');
-    const messageEl = getReqEl('reqSuccessAlertMessage');
+    const titleEl = getReqEl('reqAlertTitle');
+    const messageEl = getReqEl('reqAlertMessage');
+    const iconEl = getReqEl('reqAlertIcon'); // The div wrapping the icon
     
     if (titleEl) titleEl.innerText = title;
     if (messageEl) messageEl.innerText = message;
     
+    // Dynamic Styling based on Success vs Error
+    if (iconEl) {
+        if (isError) {
+            // Red Error Style
+            iconEl.innerHTML = '<i data-lucide="alert-circle" class="w-6 h-6 text-red-500"></i>';
+            iconEl.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10";
+        } else {
+            // Green Success Style
+            iconEl.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>';
+            iconEl.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10";
+        }
+    }
+    
     modal.classList.remove('hidden');
     
-    // Auto close after 3 seconds
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 3000);
-    
+    // Refresh icons
     if (window.lucide) window.lucide.createIcons();
+
+    // Auto-close success alerts after 3 seconds, keep errors until clicked
+    if (!isError) {
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 3000);
+    }
 }
 
-// Custom error alert modal
+function showReqSuccessAlert(title, message) {
+    showReqAlert(title, message, false);
+}
+
 function showReqErrorAlert(title, message) {
-    const modal = getReqEl('reqErrorAlertModal');
-    if (!modal) {
-        // Fallback to browser alert if modal doesn't exist
-        alert(`${title}: ${message}`);
-        return;
-    }
-    
-    const titleEl = getReqEl('reqErrorAlertTitle');
-    const messageEl = getReqEl('reqErrorAlertMessage');
-    
-    if (titleEl) titleEl.innerText = title;
-    if (messageEl) messageEl.innerText = message;
-    
-    modal.classList.remove('hidden');
-    
-    // Auto close after 5 seconds for errors
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 5000);
-    
-    if (window.lucide) window.lucide.createIcons();
+    showReqAlert(title, message, true);
 }
 
 // =================================================================
 // 8. INITIALIZATION
 // =================================================================
 
-// Initialize on page load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initRequests);
 } else {
