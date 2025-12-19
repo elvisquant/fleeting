@@ -22,15 +22,32 @@ def create_request(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user_from_header)
 ):
-    # 1. VALIDATE PASSENGERS (Matricules)
-    if request_data.passengers:
+    # --- LOGIC START: AUTO-ADD REQUESTER ---
+    
+    # 1. Get the list provided by the user (or empty list if None)
+    passenger_list = request_data.passengers if request_data.passengers else []
+
+    # 2. Add the Current User's Matricule if not already in the list
+    if current_user.matricule:
+        # Avoid duplicates
+        if current_user.matricule not in passenger_list:
+            passenger_list.append(current_user.matricule)
+    else:
+        # Optional: If the current user has no matricule, you might want to warn them
+        # or just proceed. For now, we proceed.
+        pass
+
+    # 3. VALIDATE PASSENGERS (Matricules)
+    if passenger_list:
         # Check against 'matricule' in DB
         existing_users = db.query(models.User).filter(
-            models.User.matricule.in_(request_data.passengers)
+            models.User.matricule.in_(passenger_list)
         ).all()
         
         found_matricules = {u.matricule for u in existing_users}
-        missing = [m for m in request_data.passengers if m not in found_matricules]
+        
+        # Find which ones are missing
+        missing = [m for m in passenger_list if m not in found_matricules]
         
         if missing:
             raise HTTPException(
@@ -38,16 +55,17 @@ def create_request(
                 detail=f"The following passenger matricules do not exist: {', '.join(missing)}"
             )
 
+    # 4. Create the Request
     new_request = models.VehicleRequest(
         destination=request_data.destination,
         description=request_data.description,
         
-        # --- FIX: Use the new attribute names defined in the model ---
+        # Mapping frontend names to DB names
         departure_time=request_data.departure_time, 
         return_time=request_data.return_time,      
-        # -----------------------------------------------------------
         
-        passengers=request_data.passengers,
+        # Use the updated list including the requester
+        passengers=passenger_list,
         requester_id=current_user.id,
         status="pending"
     )

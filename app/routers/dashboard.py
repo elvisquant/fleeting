@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends
+# app/routers/dashboard.py
+
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, desc, or_
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
 from calendar import monthrange
 
@@ -14,21 +16,22 @@ router = APIRouter(
     dependencies=[Depends(oauth2.get_current_user_from_header)]
 )
 
+# 1. KPIs
 @router.get("/kpis", response_model=schemas.KPIStats)
 async def get_dashboard_kpis_data(db: Session = Depends(get_db)):
-    # 1. Total Vehicles
+    # Total Vehicles
     total_vehicles = db.query(func.count(models.Vehicle.id)).scalar() or 0
 
-    # 2. Active Requests (Replacing Planned Trips)
-    # Counts requests that are approved or ongoing
+    # Active Requests (Approved or In Progress)
     active_requests = db.query(func.count(models.VehicleRequest.id)).filter(
         or_(
             models.VehicleRequest.status == "approved_by_logistic",
-            models.VehicleRequest.status == "in_progress" # Updated to match likely Enum value
+            models.VehicleRequest.status == "fully_approved",
+            models.VehicleRequest.status == "in_progress"
         )
     ).scalar() or 0
 
-    # 3. Repairs This Month
+    # Repairs This Month
     today = datetime.utcnow()
     start_month = today.replace(day=1, hour=0, minute=0, second=0)
     if start_month.month == 12:
@@ -41,7 +44,7 @@ async def get_dashboard_kpis_data(db: Session = Depends(get_db)):
         models.Reparation.repair_date < next_month
     ).scalar() or 0
 
-    # 4. Fuel Cost Week
+    # Fuel Cost Week
     start_week = today - timedelta(days=today.weekday())
     start_week = start_week.replace(hour=0, minute=0, second=0)
     
@@ -56,6 +59,7 @@ async def get_dashboard_kpis_data(db: Session = Depends(get_db)):
         fuel_cost_this_week=round(fuel_cost, 2)
     )
 
+# 2. PERFORMANCE INSIGHTS
 @router.get("/performance-insights", response_model=schemas.PerformanceInsightsResponse)
 async def get_dashboard_performance_insights(db: Session = Depends(get_db)):
     today_dt = datetime.utcnow()
@@ -87,8 +91,9 @@ async def get_dashboard_performance_insights(db: Session = Depends(get_db)):
         maintenance_compliance=schemas.MaintenanceComplianceData(total_maintenance_records=maintenance_count)
     )
 
+# 3. ALERTS (SUMMARY)
 @router.get("/alerts", response_model=schemas.AlertsResponse)
-async def get_dashboard_alerts_data(db: Session = Depends(get_db)):
+async def get_dashboard_alerts_summary(db: Session = Depends(get_db)):
     alert_panne = None
     last_panne = db.query(models.Panne).options(joinedload(models.Panne.vehicle), joinedload(models.Panne.category_panne)).order_by(desc(models.Panne.panne_date)).first()
     if last_panne:
@@ -103,34 +108,61 @@ async def get_dashboard_alerts_data(db: Session = Depends(get_db)):
         alert_maint = schemas.AlertItem(plate_number=plate, message="Maintenance Due", entity_type="maintenance", status="Scheduled")
 
     alert_trip = None
-    # Now checking Requests instead of Trips
-    # FIXED: start_time -> departure_time
+    # FIX: Uses departure_time and destination
     last_req = db.query(models.VehicleRequest).options(joinedload(models.VehicleRequest.vehicle)).order_by(desc(models.VehicleRequest.departure_time)).first()
     if last_req:
         plate = last_req.vehicle.plate_number if (last_req.vehicle) else "Pending"
-        # FIXED: destination -> to_location
-        alert_trip = schemas.AlertItem(plate_number=plate, message=f"Mission to {last_req.to_location}", entity_type="trip", status=last_req.status)
+        # FIX: Changed 'to_location' to 'destination'
+        alert_trip = schemas.AlertItem(plate_number=plate, message=f"Mission to {last_req.destination}", entity_type="trip", status=last_req.status)
     
     total = sum(1 for x in [alert_panne, alert_maint, alert_trip] if x)
     return schemas.AlertsResponse(critical_panne=alert_panne, maintenance_alert=alert_maint, trip_alert=alert_trip, total_alerts=total)
 
+# 4. RECENT ALERTS LIST (Was missing, causing 404s)
+@router.get("/recent-alerts", response_model=List[schemas.AlertItem])
+def get_recent_alerts_list(
+    limit: int = 5,
+    db: Session = Depends(get_db)
+):
+    alerts = []
+    
+    # Get recent request
+    # FIX: Uses departure_time and destination
+    last_req = db.query(models.VehicleRequest).options(joinedload(models.VehicleRequest.vehicle))\
+        .order_by(desc(models.VehicleRequest.departure_time)).first()
+
+    if last_req:
+        plate = last_req.vehicle.plate_number if last_req.vehicle else "Pending"
+        # FIX: Changed 'to_location' to 'destination'
+        alert_trip = schemas.AlertItem(
+            plate_number=plate, 
+            message=f"Mission to {last_req.destination}", 
+            entity_type="trip", 
+            status=last_req.status
+        )
+        alerts.append(alert_trip)
+    
+    # You can append more alerts here from Maintenance/Panne if needed for the list
+    return alerts
+
+# 5. UPCOMING TRIPS
 @router.get("/upcoming-trips", response_model=List[schemas.VehicleRequestOut])
 async def get_upcoming_missions(db: Session = Depends(get_db)):
     today = datetime.utcnow()
-    # Fetch Approved Requests that are upcoming
     requests = db.query(models.VehicleRequest).options(
         joinedload(models.VehicleRequest.vehicle).selectinload(models.Vehicle.make_ref),
         joinedload(models.VehicleRequest.vehicle).selectinload(models.Vehicle.model_ref),
         joinedload(models.VehicleRequest.driver),
         joinedload(models.VehicleRequest.requester)
     ).filter(
-        # FIXED: start_time -> departure_time
+        # FIX: Uses departure_time
         models.VehicleRequest.departure_time >= today,
-        models.VehicleRequest.status.in_(["approved_by_logistic", "in_progress"]) # Ensure matches Enum
+        models.VehicleRequest.status.in_(["approved_by_logistic", "fully_approved", "in_progress"])
     ).order_by(models.VehicleRequest.departure_time.asc()).limit(5).all()
 
     return requests
 
+# 6. MONTHLY ACTIVITY CHART
 @router.get("/charts/monthly-activity", response_model=schemas.MonthlyActivityChartData)
 async def get_monthly_activity(db: Session = Depends(get_db), months_to_display: int = 12):
     labels, req_counts, maint_counts, panne_counts = [], [], [], []
@@ -147,7 +179,7 @@ async def get_monthly_activity(db: Session = Depends(get_db), months_to_display:
         labels.append(start_date.strftime("%b"))
 
         # Count Requests
-        # FIXED: start_time -> departure_time
+        # FIX: Uses departure_time
         c_req = db.query(func.count(models.VehicleRequest.id)).filter(
             models.VehicleRequest.departure_time >= start_date, 
             models.VehicleRequest.departure_time < end_date
@@ -162,6 +194,7 @@ async def get_monthly_activity(db: Session = Depends(get_db), months_to_display:
 
     return schemas.MonthlyActivityChartData(labels=labels, trips=req_counts, maintenances=maint_counts, pannes=panne_counts)
 
+# 7. VEHICLE STATUS CHART
 @router.get("/charts/vehicle-status", response_model=schemas.VehicleStatusChartData)
 async def get_vehicle_status_chart_data(db: Session = Depends(get_db)):
     data = db.query(models.Vehicle.status, func.count(models.Vehicle.id)).group_by(models.Vehicle.status).all()

@@ -440,7 +440,7 @@ async function submitApprovalDecision() {
     };
 
     try {
-        const result = await window.fetchWithAuth(`/approvals/${reqActionId}/`, 'POST', payload);
+        const result = await window.fetchWithAuth(`/approvals/${reqActionId}`, 'POST', payload);
         window.closeModal('approvalModal');
         
         if (result && !result.detail) {
