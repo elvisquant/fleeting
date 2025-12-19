@@ -6,43 +6,44 @@ from urllib.parse import quote_plus
 
 class Settings(BaseSettings):
     # App Config
-    APP_NAME: str = "Vehicle Management"
-    DEBUG: bool = False
-    FRONTEND_HOST: str = "http://localhost:3000"
+    # Pydantic reads uppercase ENV vars (APP_NAME) into lowercase fields (app_name)
+    app_name: str = "Vehicle Management"
+    debug: bool = False
+    frontend_host: str = "http://localhost:3000"
 
     # Database Config (Granular)
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "secret"
-    POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str = "fastapi"
+    postgres_host: str = "localhost"
+    postgres_user: str = "postgres"
+    postgres_password: str = "secret"
+    postgres_port: int = 5432
+    postgres_db: str = "fastapi"
 
     # Security
-    SECRET_KEY: str  # App secret
-    JWT_SECRET: str  # Specific to JWT signing
-    JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_MINUTES: int = 1440 # 24 hours
+    secret_key: str
+    jwt_secret: str
+    # Renamed to match your .env (ACCESS_TOKEN_ALGORITHM)
+    access_token_algorithm: str = "HS256" 
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_minutes: int = 1440
 
     # Email Settings
-    MAIL_USERNAME: str = ""
-    MAIL_PASSWORD: str = ""
-    MAIL_FROM: str = "noreply@example.com"
-    MAIL_FROM_NAME: str = "Vehicle App"
-    MAIL_PORT: int = 587
-    MAIL_SERVER: str = "smtp.gmail.com"
-    MAIL_STARTTLS: bool = True
-    MAIL_SSL_TLS: bool = False
-    USE_CREDENTIALS: bool = True
+    mail_username: str = ""
+    mail_password: str = ""
+    mail_from: str = "noreply@example.com"
+    mail_from_name: str = "Vehicle App"
+    mail_port: int = 587
+    mail_server: str = "smtp.gmail.com"
+    mail_starttls: bool = True
+    mail_ssl_tls: bool = False
+    use_credentials: bool = True
 
     # Automatic Database URI Construction
     @computed_field
     @property
-    def DATABASE_URL(self) -> str:
-        # If DATABASE_URL is manually set in env, usage of this property might vary,
-        # but this constructs it from the individual fields.
-        password = quote_plus(self.POSTGRES_PASSWORD)
-        return f"postgresql://{self.POSTGRES_USER}:{password}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    def database_url(self) -> str:
+        # Constructs URL from the individual fields above
+        password = quote_plus(self.postgres_password)
+        return f"postgresql://{self.postgres_user}:{password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
     model_config = SettingsConfigDict(
         env_file=".env", 
@@ -54,7 +55,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     return Settings()
 
-
-
-
-
+# --- THE MISSING LINE: Create the instance ---
+settings = get_settings()
