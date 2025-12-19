@@ -26,7 +26,6 @@ class VehicleRequest(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     
-    # FIX: Point to 'user.id' (singular table name from users.py)
     requester_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
     vehicle_id = Column(Integer, ForeignKey("vehicle.id", ondelete="SET NULL"), nullable=True, index=True)
     driver_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -34,8 +33,10 @@ class VehicleRequest(Base):
     destination = Column(String)
     description = Column(Text, nullable=True)
     
-    start_time = Column(DateTime) 
-    end_time = Column(DateTime)
+    # --- FIX: Rename attributes to match Schema/Dashboard, but map to DB columns ---
+    departure_time = Column("start_time", DateTime) 
+    return_time = Column("end_time", DateTime)
+    # -------------------------------------------------------------------------------
     
     status = Column(Enum(RequestStatus, name='request_status_enum'), nullable=False, default=RequestStatus.PENDING, index=True)
     passengers = Column(JSON, default=[]) 

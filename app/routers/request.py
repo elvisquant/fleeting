@@ -24,12 +24,11 @@ def create_request(
 ):
     # 1. VALIDATE PASSENGERS (Matricules)
     if request_data.passengers:
-        
+        # Check against 'matricule' in DB
         existing_users = db.query(models.User).filter(
             models.User.matricule.in_(request_data.passengers)
         ).all()
         
-      
         found_matricules = {u.matricule for u in existing_users}
         missing = [m for m in request_data.passengers if m not in found_matricules]
         
@@ -39,14 +38,14 @@ def create_request(
                 detail=f"The following passenger matricules do not exist: {', '.join(missing)}"
             )
 
-    
     new_request = models.VehicleRequest(
         destination=request_data.destination,
         description=request_data.description,
         
-        # Mapping frontend names to DB names
-        start_time=request_data.departure_time, 
-        end_time=request_data.return_time,      
+        # --- FIX: Use the new attribute names defined in the model ---
+        departure_time=request_data.departure_time, 
+        return_time=request_data.return_time,      
+        # -----------------------------------------------------------
         
         passengers=request_data.passengers,
         requester_id=current_user.id,
@@ -109,7 +108,7 @@ def get_all_requests(
         query = query.filter(models.VehicleRequest.status.in_(["approved_by_logistic", "fully_approved", "in_progress", "completed"]))
     elif user_role == "driver":
         query = query.filter(models.VehicleRequest.driver_id == current_user.id)
-    # Regular users see their own (or all if you prefer, but usually own)
+    # Regular users see their own
     elif user_role == "user":
         query = query.filter(models.VehicleRequest.requester_id == current_user.id)
     
