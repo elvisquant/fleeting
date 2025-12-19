@@ -1,9 +1,11 @@
 # app/utils/mailer.py
 
+import os
+import tempfile
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from app.config import settings
 
-# Configure using UPPERCASE attributes to match app/config.py
+# Configure using UPPERCASE attributes
 conf = ConnectionConfig(
     MAIL_USERNAME=settings.MAIL_USERNAME,
     MAIL_PASSWORD=settings.MAIL_PASSWORD,
@@ -20,6 +22,7 @@ conf = ConnectionConfig(
 async def send_mission_order_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
     """
     Sends email with the official Mission Order PDF attached.
+    Uses a temporary file to avoid Pydantic validation errors.
     """
     
     html = f"""
@@ -39,24 +42,32 @@ async def send_mission_order_email(email_to: str, requester_name: str, pdf_file:
     </html>
     """
 
-    # --- FIX IS HERE: Use a Dictionary for attachments, not a Tuple ---
-    message = MessageSchema(
-        subject=f"OFFICIAL: Mission Order - {filename.replace('.pdf', '')}",
-        recipients=[email_to],
-        body=html,
-        subtype=MessageType.html,
-        attachments=[
-            {
-                "file": pdf_file,           # The bytes
-                "filename": filename,       # The name string
-                "mime_type": "application/pdf",
-                "headers": {}
-            }
-        ]
-    )
+    # --- FIX: Save to Temp File Strategy ---
+    # 1. Create a temporary file path
+    tmp_dir = tempfile.gettempdir()
+    tmp_path = os.path.join(tmp_dir, filename)
 
-    fm = FastMail(conf)
-    await fm.send_message(message)
+    try:
+        # 2. Write the PDF bytes to the temp file
+        with open(tmp_path, 'wb') as f:
+            f.write(pdf_file)
+
+        # 3. Create message using the FILE PATH (This is 100% supported by all versions)
+        message = MessageSchema(
+            subject=f"OFFICIAL: Mission Order - {filename.replace('.pdf', '')}",
+            recipients=[email_to],
+            body=html,
+            subtype=MessageType.html,
+            attachments=[tmp_path] # List of strings (paths)
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)
+
+    finally:
+        # 4. Clean up: Delete the temp file immediately after sending
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 async def send_rejection_email(email_to: str, requester_name: str, request_id: int, reason: str, approver_name: str):
     """
