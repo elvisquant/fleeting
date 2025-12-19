@@ -24,13 +24,13 @@ def create_request(
 ):
     # 1. VALIDATE PASSENGERS (Matricules)
     if request_data.passengers:
-        # Fetch all users whose matricule is in the list
-        # Note: 'username' column stores the matricule based on your User model
+        
         existing_users = db.query(models.User).filter(
-            models.User.username.in_(request_data.passengers)
+            models.User.matricule.in_(request_data.passengers)
         ).all()
         
-        found_matricules = {u.username for u in existing_users}
+      
+        found_matricules = {u.matricule for u in existing_users}
         missing = [m for m in request_data.passengers if m not in found_matricules]
         
         if missing:
