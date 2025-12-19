@@ -53,6 +53,12 @@ async function initAnalytics() {
         // Create icons
         if (window.lucide) window.lucide.createIcons();
         
+        // Debug: Check if report libraries are loaded
+        console.log("Report libraries status:");
+        console.log("XLSX loaded:", !!window.XLSX);
+        console.log("jsPDF loaded:", !!window.jspdf);
+        console.log("jsPDF.jsPDF available:", !!(window.jspdf && window.jspdf.jsPDF));
+        
         console.log("Analytics module initialized");
     }, 100);
 }
@@ -657,68 +663,159 @@ function updateAlertsUI(data) {
 }
 
 // =================================================================
-// 6. REPORT GENERATION (Global function)
+// 6. REPORT GENERATION (Global function) - FIXED VERSION
 // =================================================================
 
-// FIX: Improved generateReport function with better error handling
+// Helper function to check and load required libraries
+async function ensureReportLibraries() {
+    return new Promise((resolve, reject) => {
+        // Check if libraries are already loaded
+        const isXlsxLoaded = !!window.XLSX;
+        const isJspdfLoaded = !!(window.jspdf && window.jspdf.jsPDF);
+        
+        console.log("Library check - XLSX:", isXlsxLoaded, "jsPDF:", isJspdfLoaded);
+        
+        if (isXlsxLoaded && isJspdfLoaded) {
+            resolve();
+            return;
+        }
+        
+        // If libraries aren't loaded, we need to wait for them
+        // Since they're already in index.html, they should load eventually
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds total
+        const checkInterval = 100; // Check every 100ms
+        
+        const checkLibraries = () => {
+            attempts++;
+            const xlsxReady = !!window.XLSX;
+            const jspdfReady = !!(window.jspdf && window.jspdf.jsPDF);
+            
+            console.log(`Library check attempt ${attempts}: XLSX=${xlsxReady}, jsPDF=${jspdfReady}`);
+            
+            if (xlsxReady && jspdfReady) {
+                resolve();
+            } else if (attempts >= maxAttempts) {
+                reject(new Error("Report libraries failed to load. Please refresh the page."));
+            } else {
+                setTimeout(checkLibraries, checkInterval);
+            }
+        };
+        
+        checkLibraries();
+    });
+}
+
+// Improved generateReport function
 window.generateReport = async function() { 
     console.log("Generate report function called");
     
-    // Check for required libraries
-    if (!window.XLSX && !window.jspdf) {
-        showToast("Report generation requires libraries to be loaded. Please wait and try again.", 5000, "error");
-        console.error("Required libraries not loaded");
-        return;
-    }
-    
-    const period = getAnalyticsEl('reportPeriod');
-    const periodValue = period ? period.value : 'last12months';
-    
-    const range = getPeriodDateRange(periodValue); 
-    if (!range) {
-        showToast("Invalid date range selected", 3000, "error");
-        return;
-    } 
-    
-    // Get selected categories
-    const fuelCheck = getAnalyticsEl('reportCatFuel');
-    const reparationCheck = getAnalyticsEl('reportCatReparation');
-    const maintenanceCheck = getAnalyticsEl('reportCatMaintenance');
-    const purchasesCheck = getAnalyticsEl('reportCatPurchases');
-    
-    const categoryMap = { 
-        fuel: { name: 'Fuel', checked: fuelCheck ? fuelCheck.checked : false }, 
-        reparation: { name: 'Reparations', checked: reparationCheck ? reparationCheck.checked : false }, 
-        maintenance: { name: 'Maintenance', checked: maintenanceCheck ? maintenanceCheck.checked : false }, 
-        purchases: { name: 'Vehicle Purchases', checked: purchasesCheck ? purchasesCheck.checked : false } 
-    }; 
-    
-    const selectedCategoriesInput = []; 
-    for (const key in categoryMap) { 
-        if (categoryMap[key].checked) { selectedCategoriesInput.push(key); } 
-    } 
-    
-    if (selectedCategoriesInput.length === 0) { 
-        showToast("Please select at least one expense category.", 3000, "error"); 
-        return; 
-    } 
-    
-    const formatSelect = getAnalyticsEl('reportFormat');
-    const format = formatSelect ? formatSelect.value : 'pdf';
-    
-    const periodString = periodValue === 'custom' ? 
-        `${range.startDate.toLocaleDateString().replace(/\//g, '-')}_to_${range.endDate.toLocaleDateString().replace(/\//g, '-')}` : periodValue; 
-    const fileNameBase = `Detailed_Expense_Report_${periodString}`; 
-    
-    const authToken = localStorage.getItem('access_token'); 
-    if (!authToken) { 
-        showToast("Authentication token not found. Please log in.", 5000, "error"); 
-        return; 
-    } 
-    
-    showToast("Generating detailed report... This may take a moment.", 5000, "info"); 
-    
-    try { 
+    try {
+        // First, check the format to see what we need
+        const formatSelect = getAnalyticsEl('reportFormat');
+        const format = formatSelect ? formatSelect.value : 'pdf';
+        
+        console.log("Selected format:", format);
+        
+        // Show loading state
+        const generateBtn = getAnalyticsEl('generateReportBtn');
+        const originalText = generateBtn ? generateBtn.innerHTML : '';
+        
+        if (generateBtn) {
+            generateBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Loading libraries...';
+            generateBtn.disabled = true;
+            if (window.lucide) window.lucide.createIcons();
+        }
+        
+        // Ensure libraries are loaded
+        try {
+            await ensureReportLibraries();
+            console.log("Report libraries confirmed loaded");
+        } catch (error) {
+            console.error("Failed to load libraries:", error);
+            showToast("Failed to load report libraries. Please refresh the page and try again.", 5000, "error");
+            
+            // Restore button state
+            if (generateBtn) {
+                generateBtn.innerHTML = originalText;
+                generateBtn.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
+            return;
+        }
+        
+        // Update button text
+        if (generateBtn) {
+            generateBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Generating report...';
+            if (window.lucide) window.lucide.createIcons();
+        }
+        
+        // Get period
+        const period = getAnalyticsEl('reportPeriod');
+        const periodValue = period ? period.value : 'last12months';
+        
+        const range = getPeriodDateRange(periodValue); 
+        if (!range) {
+            showToast("Invalid date range selected", 3000, "error");
+            
+            // Restore button state
+            if (generateBtn) {
+                generateBtn.innerHTML = originalText;
+                generateBtn.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
+            return;
+        } 
+        
+        // Get selected categories
+        const fuelCheck = getAnalyticsEl('reportCatFuel');
+        const reparationCheck = getAnalyticsEl('reportCatReparation');
+        const maintenanceCheck = getAnalyticsEl('reportCatMaintenance');
+        const purchasesCheck = getAnalyticsEl('reportCatPurchases');
+        
+        const categoryMap = { 
+            fuel: { name: 'Fuel', checked: fuelCheck ? fuelCheck.checked : false }, 
+            reparation: { name: 'Reparations', checked: reparationCheck ? reparationCheck.checked : false }, 
+            maintenance: { name: 'Maintenance', checked: maintenanceCheck ? maintenanceCheck.checked : false }, 
+            purchases: { name: 'Vehicle Purchases', checked: purchasesCheck ? purchasesCheck.checked : false } 
+        }; 
+        
+        const selectedCategoriesInput = []; 
+        for (const key in categoryMap) { 
+            if (categoryMap[key].checked) { selectedCategoriesInput.push(key); } 
+        } 
+        
+        if (selectedCategoriesInput.length === 0) { 
+            showToast("Please select at least one expense category.", 3000, "error"); 
+            
+            // Restore button state
+            if (generateBtn) {
+                generateBtn.innerHTML = originalText;
+                generateBtn.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
+            return; 
+        } 
+        
+        const periodString = periodValue === 'custom' ? 
+            `${range.startDate.toLocaleDateString().replace(/\//g, '-')}_to_${range.endDate.toLocaleDateString().replace(/\//g, '-')}` : periodValue; 
+        const fileNameBase = `Detailed_Expense_Report_${periodString}`; 
+        
+        const authToken = localStorage.getItem('access_token'); 
+        if (!authToken) { 
+            showToast("Authentication token not found. Please log in.", 5000, "error"); 
+            
+            // Restore button state
+            if (generateBtn) {
+                generateBtn.innerHTML = originalText;
+                generateBtn.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
+            return; 
+        } 
+        
+        showToast("Generating detailed report... This may take a moment.", 5000, "info"); 
+        
         const startDateString = range.startDate.toISOString().split('T')[0]; 
         const endDateString = range.endDate.toISOString().split('T')[0]; 
         const categoryParams = selectedCategoriesInput.map(cat => `categories=${encodeURIComponent(cat)}`).join('&'); 
@@ -750,12 +847,26 @@ window.generateReport = async function() {
         
         if (!hasData) {
             showToast("No detailed records found for the selected categories and period.", 3000, "info"); 
+            
+            // Restore button state
+            if (generateBtn) {
+                generateBtn.innerHTML = originalText;
+                generateBtn.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
             return;
         }
         
         if (format === 'excel') { 
             if (!window.XLSX) {
-                showToast("Excel library not loaded. Please refresh the page.", 5000, "error");
+                showToast("Excel library (XLSX) not loaded. Please refresh the page.", 5000, "error");
+                
+                // Restore button state
+                if (generateBtn) {
+                    generateBtn.innerHTML = originalText;
+                    generateBtn.disabled = false;
+                    if (window.lucide) window.lucide.createIcons();
+                }
                 return;
             }
             
@@ -823,8 +934,15 @@ window.generateReport = async function() {
             XLSX.writeFile(wb, `${fileNameBase}.xlsx`); 
             showToast("Excel report generated and download started.", 3000, "success"); 
         } else { 
-            if (!window.jspdf) {
-                showToast("PDF library not loaded. Please refresh the page.", 5000, "error");
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                showToast("PDF library (jsPDF) not loaded. Please refresh the page.", 5000, "error");
+                
+                // Restore button state
+                if (generateBtn) {
+                    generateBtn.innerHTML = originalText;
+                    generateBtn.disabled = false;
+                    if (window.lucide) window.lucide.createIcons();
+                }
                 return;
             }
             
@@ -938,10 +1056,19 @@ window.generateReport = async function() {
             doc.save(`${fileNameBase}.pdf`); 
             showToast("PDF report generated and download started.", 3000, "success"); 
         } 
+        
     } catch (error) { 
         console.error('Failed to generate detailed report:', error); 
         showToast(`Report Generation Error: ${error.message}`, 5000, "error"); 
-    } 
+    } finally {
+        // Always restore button state
+        const generateBtn = getAnalyticsEl('generateReportBtn');
+        if (generateBtn) {
+            generateBtn.innerHTML = '<i data-lucide="download" class="w-5 h-5"></i> Genere Report';
+            generateBtn.disabled = false;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
 }
 
 // =================================================================
