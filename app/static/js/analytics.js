@@ -89,6 +89,13 @@ function attachAnalyticsListeners() {
     // Custom date apply button
     const applyCustomDateBtn = getAnalyticsEl('applyCustomDateBtn');
     if (applyCustomDateBtn) applyCustomDateBtn.addEventListener('click', () => fetchAndDisplayDataForPeriod('custom'));
+
+    // Generate report button - FIX: Add listener for generate report button
+    const generateReportBtn = getAnalyticsEl('generateReportBtn');
+    if (generateReportBtn) {
+        generateReportBtn.addEventListener('click', window.generateReport);
+        console.log("Generate report button listener attached");
+    }
 }
 
 // =================================================================
@@ -113,12 +120,39 @@ function showToast(message, duration = 3000, type = 'info') {
     }, duration);
 }
 
-// Format BIF currency
+// Format BIF currency - FIX: Add compact formatting for large numbers
 function formatBIF(amount) {
-    return `BIF ${(amount || 0).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })}`;
+    const numAmount = Number(amount) || 0;
+    
+    // If amount is very large, use compact notation
+    if (numAmount >= 1000000000) {
+        return `BIF ${(numAmount / 1000000000).toFixed(1)}B`;
+    } else if (numAmount >= 1000000) {
+        return `BIF ${(numAmount / 1000000).toFixed(1)}M`;
+    } else if (numAmount >= 1000) {
+        return `BIF ${(numAmount / 1000).toFixed(1)}K`;
+    } else {
+        return `BIF ${numAmount.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`;
+    }
+}
+
+// New function: Format BIF with compact display for KPI boxes
+function formatBIFCompact(amount) {
+    const numAmount = Number(amount) || 0;
+    
+    // More aggressive compact formatting for KPI boxes
+    if (numAmount >= 1000000000) {
+        return `BIF ${(numAmount / 1000000000).toFixed(2)}B`;
+    } else if (numAmount >= 1000000) {
+        return `BIF ${(numAmount / 1000000).toFixed(2)}M`;
+    } else if (numAmount >= 1000) {
+        return `BIF ${(numAmount / 1000).toFixed(1)}K`;
+    } else {
+        return `BIF ${numAmount.toFixed(2)}`;
+    }
 }
 
 // Theme functions
@@ -281,7 +315,7 @@ async function fetchAndDisplayDataForPeriod(period) {
     } 
 }
 
-// Update KPI elements
+// Update KPI elements - FIX: Use compact formatting to prevent overflow
 function updateExpenseKPIs(data) { 
     const fuelTotalEl = getAnalyticsEl('kpiFuelTotal');
     const reparationTotalEl = getAnalyticsEl('kpiReparationTotal');
@@ -289,19 +323,24 @@ function updateExpenseKPIs(data) {
     const purchaseTotalEl = getAnalyticsEl('kpiVehiclePurchaseTotal');
     
     if (fuelTotalEl) {
-        fuelTotalEl.textContent = formatBIF(data.fuel.total || 0); 
+        fuelTotalEl.textContent = formatBIFCompact(data.fuel.total || 0); 
+        // Add title with full amount for hover
+        fuelTotalEl.setAttribute('title', formatBIF(data.fuel.total || 0));
     }
     
     if (reparationTotalEl) {
-        reparationTotalEl.textContent = formatBIF(data.reparation.total || 0); 
+        reparationTotalEl.textContent = formatBIFCompact(data.reparation.total || 0); 
+        reparationTotalEl.setAttribute('title', formatBIF(data.reparation.total || 0));
     }
     
     if (maintenanceTotalEl) {
-        maintenanceTotalEl.textContent = formatBIF(data.maintenance.total || 0); 
+        maintenanceTotalEl.textContent = formatBIFCompact(data.maintenance.total || 0); 
+        maintenanceTotalEl.setAttribute('title', formatBIF(data.maintenance.total || 0));
     }
     
     if (purchaseTotalEl) {
-        purchaseTotalEl.textContent = formatBIF(data.purchases.total || 0); 
+        purchaseTotalEl.textContent = formatBIFCompact(data.purchases.total || 0); 
+        purchaseTotalEl.setAttribute('title', formatBIF(data.purchases.total || 0));
     }
 }
 
@@ -375,19 +414,29 @@ function initializeStatisticsCharts(data = currentExpenseData, labels = generate
                                     if (value >= 1000000) return `BIF ${(value/1000000).toFixed(1)}M`;
                                     if (value >= 1000) return `BIF ${(value/1000).toFixed(1)}k`;
                                     return `BIF ${value}`;
-                                }
+                                },
+                                maxTicksLimit: 8 // Limit number of ticks
                             } 
                         }, 
                         x: { 
                             stacked: true, 
                             grid: { display: false }, 
-                            ticks: { color: labelColor } 
+                            ticks: { 
+                                color: labelColor,
+                                maxRotation: 45, // Rotate labels if needed
+                                minRotation: 45
+                            } 
                         } 
                     }, 
                     plugins: { 
                         legend: { 
                             position: 'top', 
-                            labels: { color: labelColor, boxWidth: 12, padding: 15 } 
+                            labels: { 
+                                color: labelColor, 
+                                boxWidth: 12, 
+                                padding: 15,
+                                font: { size: 11 } // Smaller font for legend
+                            } 
                         }, 
                         tooltip: { 
                             mode: 'index', 
@@ -435,7 +484,12 @@ function initializeStatisticsCharts(data = currentExpenseData, labels = generate
                         legend: { 
                             display: hasData, 
                             position: 'bottom', 
-                            labels: { color: labelColor, boxWidth: 12, padding: 15 } 
+                            labels: { 
+                                color: labelColor, 
+                                boxWidth: 12, 
+                                padding: 15,
+                                font: { size: 11 }
+                            } 
                         }, 
                         tooltip: { 
                             enabled: hasData, 
@@ -606,12 +660,25 @@ function updateAlertsUI(data) {
 // 6. REPORT GENERATION (Global function)
 // =================================================================
 
+// FIX: Improved generateReport function with better error handling
 window.generateReport = async function() { 
+    console.log("Generate report function called");
+    
+    // Check for required libraries
+    if (!window.XLSX && !window.jspdf) {
+        showToast("Report generation requires libraries to be loaded. Please wait and try again.", 5000, "error");
+        console.error("Required libraries not loaded");
+        return;
+    }
+    
     const period = getAnalyticsEl('reportPeriod');
     const periodValue = period ? period.value : 'last12months';
     
     const range = getPeriodDateRange(periodValue); 
-    if (!range) return; 
+    if (!range) {
+        showToast("Invalid date range selected", 3000, "error");
+        return;
+    } 
     
     // Get selected categories
     const fuelCheck = getAnalyticsEl('reportCatFuel');
@@ -674,7 +741,24 @@ window.generateReport = async function() {
         
         const detailedData = await response.json(); 
         
+        // Check if we have any data
+        let hasData = false;
+        if (categoryMap.fuel.checked && detailedData.fuel_records && detailedData.fuel_records.length > 0) hasData = true;
+        if (categoryMap.reparation.checked && detailedData.reparation_records && detailedData.reparation_records.length > 0) hasData = true;
+        if (categoryMap.maintenance.checked && detailedData.maintenance_records && detailedData.maintenance_records.length > 0) hasData = true;
+        if (categoryMap.purchases.checked && detailedData.purchase_records && detailedData.purchase_records.length > 0) hasData = true;
+        
+        if (!hasData) {
+            showToast("No detailed records found for the selected categories and period.", 3000, "info"); 
+            return;
+        }
+        
         if (format === 'excel') { 
+            if (!window.XLSX) {
+                showToast("Excel library not loaded. Please refresh the page.", 5000, "error");
+                return;
+            }
+            
             const wb = XLSX.utils.book_new(); 
             let sheetsAdded = 0; 
             
@@ -739,6 +823,11 @@ window.generateReport = async function() {
             XLSX.writeFile(wb, `${fileNameBase}.xlsx`); 
             showToast("Excel report generated and download started.", 3000, "success"); 
         } else { 
+            if (!window.jspdf) {
+                showToast("PDF library not loaded. Please refresh the page.", 5000, "error");
+                return;
+            }
+            
             const { jsPDF } = window.jspdf; 
             const doc = new jsPDF(); 
             let yPos = 20; 
@@ -868,6 +957,12 @@ window.cleanupAnalytics = function() {
     if (expenseDistributionChartInstance) {
         expenseDistributionChartInstance.destroy();
         expenseDistributionChartInstance = null;
+    }
+    
+    // Remove event listeners
+    const generateReportBtn = getAnalyticsEl('generateReportBtn');
+    if (generateReportBtn) {
+        generateReportBtn.removeEventListener('click', window.generateReport);
     }
     
     console.log("Analytics cleanup complete");
