@@ -39,12 +39,20 @@ async def send_mission_order_email(email_to: str, requester_name: str, pdf_file:
     </html>
     """
 
+    # --- FIX IS HERE: Use a Dictionary for attachments, not a Tuple ---
     message = MessageSchema(
         subject=f"OFFICIAL: Mission Order - {filename.replace('.pdf', '')}",
         recipients=[email_to],
         body=html,
         subtype=MessageType.html,
-        attachments=[(filename, pdf_file, "application/pdf")]
+        attachments=[
+            {
+                "file": pdf_file,           # The bytes
+                "filename": filename,       # The name string
+                "mime_type": "application/pdf",
+                "headers": {}
+            }
+        ]
     )
 
     fm = FastMail(conf)
