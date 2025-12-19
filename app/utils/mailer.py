@@ -1,35 +1,37 @@
-# app/utils/email.py
+# app/utils/mailer.py
 
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from app.config import settings
 
-# Configure using variables from .env
+# Configure using UPPERCASE attributes to match app/config.py
 conf = ConnectionConfig(
-    MAIL_USERNAME=settings.mail_username,
-    MAIL_PASSWORD=settings.mail_password,
-    MAIL_FROM=settings.mail_from,
-    MAIL_PORT=settings.mail_port,
-    MAIL_SERVER=settings.mail_server,
-    MAIL_STARTTLS=settings.mail_starttls,
-    MAIL_SSL_TLS=settings.mail_ssl_tls,
-    USE_CREDENTIALS=settings.use_credentials,
+    MAIL_USERNAME=settings.MAIL_USERNAME,
+    MAIL_PASSWORD=settings.MAIL_PASSWORD,
+    MAIL_FROM=settings.MAIL_FROM,
+    MAIL_PORT=settings.MAIL_PORT,
+    MAIL_SERVER=settings.MAIL_SERVER,
+    MAIL_STARTTLS=settings.MAIL_STARTTLS,
+    MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
+    USE_CREDENTIALS=settings.USE_CREDENTIALS,
     VALIDATE_CERTS=True,
-    MAIL_FROM_NAME=settings.mail_from_name if hasattr(settings, 'mail_from_name') else "Fleet Management"
+    MAIL_FROM_NAME=settings.MAIL_FROM_NAME
 )
 
 async def send_mission_order_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
     """
-    Sends email with the official Mission Order PDF attached (For Approval).
+    Sends email with the official Mission Order PDF attached.
     """
+    
     html = f"""
     <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-                <h2 style="color: #27ae60;">Mission Order Approved</h2>
+                <h2 style="color: #2c3e50;">Mission Order Approved</h2>
                 <p>Dear <strong>{requester_name}</strong>,</p>
                 <p>Your vehicle request has been <strong>fully approved</strong>.</p>
                 <p>Attached to this email is the official <strong>Mission Order</strong>.</p>
                 <p>Please print this document or keep a digital copy accessible during your mission.</p>
+                <br>
                 <hr style="border: 0; border-top: 1px solid #eee;">
                 <p style="font-size: 12px; color: #888;">FleetDash Automated System</p>
             </div>
@@ -38,7 +40,7 @@ async def send_mission_order_email(email_to: str, requester_name: str, pdf_file:
     """
 
     message = MessageSchema(
-        subject=f"APPROVED: Mission Order - {filename.replace('.pdf', '')}",
+        subject=f"OFFICIAL: Mission Order - {filename.replace('.pdf', '')}",
         recipients=[email_to],
         body=html,
         subtype=MessageType.html,
@@ -48,10 +50,9 @@ async def send_mission_order_email(email_to: str, requester_name: str, pdf_file:
     fm = FastMail(conf)
     await fm.send_message(message)
 
-# --- NEW FUNCTION FOR DENIAL ---
 async def send_rejection_email(email_to: str, requester_name: str, request_id: int, reason: str, approver_name: str):
     """
-    Sends an email notifying the user their request was denied and why.
+    Sends an email notifying the user their request was denied.
     """
     html = f"""
     <html>
@@ -67,7 +68,6 @@ async def send_rejection_email(email_to: str, requester_name: str, request_id: i
                 </div>
 
                 <p><strong>Reviewer:</strong> {approver_name}</p>
-                <p>If you have questions, please contact the fleet management department or submit a new request with corrections.</p>
                 <hr style="border: 0; border-top: 1px solid #fab1a0;">
                 <p style="font-size: 12px; color: #888;">FleetDash Automated System</p>
             </div>

@@ -8,7 +8,7 @@ from app import models, schemas, oauth2
 from app.database import get_db
 from app.utils.pdf_generator import generate_mission_order_pdf
 # --- IMPORT BOTH EMAIL FUNCTIONS ---
-from app.utils.request_notification import send_mission_order_email, send_rejection_email
+from app.utils.mailer import send_mission_order_email, send_rejection_email
 
 router = APIRouter(
     prefix="/api/v1/approvals",
