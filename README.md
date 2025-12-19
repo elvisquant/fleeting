@@ -151,7 +151,7 @@ The project utilizes a fully automated **GitHub Actions** pipeline (`deploy.yml`
 
 I built this project to demonstrate my ability to handle **Complex System Architecture**, **Database Design**, and **DevOps Automation**.
 
-If you are looking for a **Senior Full-Stack Engineer** who understands the full lifecycle of software development—from database schema to production deployment—let's talk.
+If you are looking for a **Senior Full-Stack Engineer** who understands the full lifecycle of software development—from database schema to production deployment—let's talk.I am always open to share with others my skills and tech experience.
 
 *   **Portfolio:** [elvisquant.com](https://elvisquant.com)
 *   **LinkedIn:** [linkedin.com/in/elvisquant](https://linkedin.com/in/elvisquant)
