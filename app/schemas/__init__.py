@@ -21,7 +21,7 @@ from .vehicles import (
 )
 from .operations import (
     VehicleRequestBase, VehicleRequestCreate,RequestApprovalUpdate, RequestApprovalOut,VehicleRequestReject,
-    DriverNestedInRequest, VehicleRequestOut,PendingRequestsCount
+    DriverNestedInRequest, VehicleRequestOut,PendingRequestsCount, RequestAssignment
 )
 from .maintenance import (
     GarageBase, GarageCreate, GarageOut, GarageOutForReparation,
