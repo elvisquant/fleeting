@@ -162,9 +162,14 @@ function renderRepTable() {
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Completed</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">In Progress</span>`;
 
-        // Checkbox Logic
+        // --- NEW LOCK LOGIC ---
+        // Lock row ONLY if verified AND Completed.
+        // If it is verified but NOT Completed (e.g. In Progress), allow editing.
+        const isLocked = log.is_verified && log.status === 'Completed';
+
+        // Checkbox Logic (Disable if Locked OR user cannot manage)
         let checkboxHtml = '';
-        if (canManage && !log.is_verified) {
+        if (canManage && !isLocked) {
             const isChecked = selectedRepIds.has(log.id) ? 'checked' : '';
             checkboxHtml = `<input type="checkbox" onchange="toggleRepRow(${log.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`;
         } else {
@@ -175,13 +180,15 @@ function renderRepTable() {
         let actions = '';
         const viewBtn = `<button onclick="openViewRepModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
-        if (log.is_verified) {
-             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}<span class="text-slate-600 cursor-not-allowed" title="Locked"><i data-lucide="lock" class="w-4 h-4"></i></span></div>`;
+        if (isLocked) {
+             // Show Lock Icon if Completed + Verified
+             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}<span class="text-slate-600 cursor-not-allowed" title="Locked (Verified & Completed)"><i data-lucide="lock" class="w-4 h-4"></i></span></div>`;
         } else if (canManage) {
+             // Allow actions if NOT locked (even if verified, as long as it's not completed)
              actions = `
                 <div class="flex items-center justify-end gap-2">
                     ${viewBtn}
-                    <button onclick="reqRepVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                    ${!log.is_verified ? `<button onclick="reqRepVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
                     <button onclick="openEditRepModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
                     <button onclick="reqRepDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
@@ -190,7 +197,7 @@ function renderRepTable() {
         }
 
         return `
-            <tr class="hover:bg-white/5 border-b border-slate-700/30">
+            <tr class="hover:bg-white/5 border-b border-slate-700/30 ${isLocked ? 'opacity-70 bg-slate-800/30' : ''}">
                 <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4">
                     <div class="text-white font-mono text-xs">Pan #${log.panne_id}</div>
@@ -227,7 +234,9 @@ window.toggleRepSelectAll = function() {
     if (isChecked) {
         const canManage = ['admin', 'superadmin', 'charoi'].includes(repUserRole);
         allRepLogs.forEach(log => {
-             if(canManage && !log.is_verified) selectedRepIds.add(log.id);
+             // Only select items that are NOT locked
+             const isLocked = log.is_verified && log.status === 'Completed';
+             if(canManage && !isLocked && !log.is_verified) selectedRepIds.add(log.id);
         });
     }
     renderRepTable();
@@ -265,7 +274,7 @@ window.executeRepBulkVerify = async function() {
 window.reqRepVerify = function(id) {
     repActionType = 'verify'; 
     repActionId = id;
-    showRepConfirmModal("Verify Reparation?", "This locks the record permanently.", "check-circle", "bg-green-600");
+    showRepConfirmModal("Verify Reparation?", "This marks the record as verified.", "check-circle", "bg-green-600");
 }
 
 window.reqRepDelete = function(id) {

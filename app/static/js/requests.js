@@ -20,16 +20,12 @@ let reqActionType = null;   // 'approve' or 'reject'
 // 0. HELPER: DOM ELEMENT GETTER
 // =================================================================
 function getReqEl(id) {
-    // 1. Try Mobile Container
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // 2. Try Desktop Container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    
-    // 3. Global Fallback (For Modals which are outside content containers)
     return document.getElementById(id);
 }
 
@@ -74,7 +70,7 @@ async function loadRequestsData() {
 
     try {
         const data = await window.fetchWithAuth('/requests/'); 
-        const items = data.items || data; // Handle pagination if present
+        const items = data.items || data;
         
         if (Array.isArray(items)) {
             allRequests = items;
@@ -91,7 +87,6 @@ async function loadRequestsData() {
 
 /**
  * Fetches Vehicles and Drivers for the assignment dropdowns.
- * Only runs for roles that have permission to assign.
  */
 async function loadAssignmentResources() {
     // Only Admin, Superadmin, and Charoi need this data
@@ -151,14 +146,26 @@ function renderReqTable() {
         return;
     }
 
+    // Time Check for Locking
+    const now = new Date();
+
     // Render Rows
     tbody.innerHTML = filtered.map(r => {
         const requester = r.requester ? r.requester.full_name : "Unknown";
         const service = r.requester && r.requester.service ? r.requester.service.service_name : "-";
         
-        const dep = r.departure_time ? new Date(r.departure_time).toLocaleString() : 'N/A';
+        const depDate = new Date(r.departure_time);
+        const dep = r.departure_time ? depDate.toLocaleString() : 'N/A';
         const ret = r.return_time ? new Date(r.return_time).toLocaleString() : 'N/A';
 
+        // --- LOCK LOGIC (Row Visuals) ---
+        // Lock if Current Time >= Departure Time
+        const isLocked = now >= depDate;
+        
+        const rowClass = isLocked 
+            ? "hover:bg-white/5 border-b border-slate-700/30 opacity-60 bg-slate-900/30" 
+            : "hover:bg-white/5 border-b border-slate-700/30";
+            
         // --- PROGRESS BAR LOGIC ---
         let statusHtml = '';
         if (r.status === 'denied') {
@@ -182,7 +189,7 @@ function renderReqTable() {
                 </div>`;
         }
 
-        // --- STATUS BADGE LOGIC (New Column) ---
+        // --- STATUS BADGE LOGIC ---
         let badgeClass = 'bg-slate-700 text-slate-400 border border-slate-600';
         if(r.status === 'pending') badgeClass = 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20';
         else if(r.status === 'denied') badgeClass = 'bg-red-500/10 text-red-400 border border-red-500/20';
@@ -190,9 +197,12 @@ function renderReqTable() {
         else if(r.status.includes('approved')) badgeClass = 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
 
         return `
-            <tr class="hover:bg-white/5 border-b border-slate-700/30">
+            <tr class="${rowClass}">
                 <td class="p-4">
-                    <div class="text-white font-medium">${requester}</div>
+                    <div class="text-white font-medium flex items-center gap-2">
+                        ${isLocked ? '<i data-lucide="lock" class="w-3 h-3 text-slate-500"></i>' : ''}
+                        ${requester}
+                    </div>
                     <div class="text-xs text-slate-500">${service || '-'}</div>
                 </td>
                 <td class="p-4 text-slate-300 font-mono text-xs">${r.destination || 'N/A'}</td>
@@ -200,7 +210,7 @@ function renderReqTable() {
                 <td class="p-4 text-slate-400 text-xs">${ret}</td>
                 <td class="p-4">${statusHtml}</td>
                 
-                <!-- NEW STATUS COLUMN -->
+                <!-- STATUS COLUMN -->
                 <td class="p-4">
                     <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase whitespace-nowrap ${badgeClass}">
                         ${r.status.replace(/_/g, ' ')}
@@ -208,7 +218,9 @@ function renderReqTable() {
                 </td>
 
                 <td class="p-4 text-right">
-                    <button onclick="openViewRequestModal(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                    <button onclick="openViewRequestModal(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="${isLocked ? 'View Locked' : 'View / Edit'}">
+                        <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
                 </td>
             </tr>`;
     }).join('');
@@ -224,16 +236,13 @@ window.openAddRequestModal = function() {
     const modal = getReqEl('addRequestModal');
     if (!modal) return;
     
-    // Reset Form
     ['reqDestination', 'reqDesc', 'reqPassengers'].forEach(id => {
         const el = getReqEl(id);
         if (el) el.value = "";
     });
     
-    // Set Dates
     const now = new Date();
-    const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // Default +3 hours
-    
+    const later = new Date(now.getTime() + 3 * 60 * 60 * 1000);
     const toLocalISO = (date) => {
         const offset = date.getTimezoneOffset() * 60000;
         return new Date(date.getTime() - offset).toISOString().slice(0, 16);
@@ -252,14 +261,12 @@ window.saveRequest = async function() {
     const btn = getReqEl('btnSaveReq');
     if (!btn) return;
 
-    // Get Values
     const dest = getReqEl('reqDestination')?.value.trim();
     const dep = getReqEl('reqDeparture')?.value;
     const ret = getReqEl('reqReturn')?.value;
     const desc = getReqEl('reqDesc')?.value.trim();
     const passStr = getReqEl('reqPassengers')?.value;
 
-    // Validation
     if (!dest || !dep || !ret) { 
         showReqErrorAlert("Validation", "Please fill required fields (Destination, Dates)."); 
         return; 
@@ -272,7 +279,6 @@ window.saveRequest = async function() {
         return;
     }
 
-    // Convert comma string to array
     const passengers = passStr ? passStr.split(',').map(s => s.trim()).filter(s => s) : [];
 
     btn.disabled = true; 
@@ -287,16 +293,13 @@ window.saveRequest = async function() {
             passengers: passengers
         });
         
-        // Success
         if (result && !result.detail) {
             window.closeModal('addRequestModal');
             await loadRequestsData();
             showReqSuccessAlert("Success", "Request submitted successfully.");
         } else {
-            // Failure (e.g. wrong matricule)
             let errorMsg = "Failed to submit request.";
             if (result.detail) {
-                // Handle different error formats
                 errorMsg = typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail;
             }
             showReqErrorAlert("Error", errorMsg);
@@ -323,12 +326,17 @@ window.openViewRequestModal = function(id) {
     
     if (!viewContent || !footer || !modal) return;
 
+    // --- LOCK LOGIC ---
+    // If Now >= Departure Time, action buttons are hidden.
+    // Otherwise, you can still Assign/Approve/Reject.
+    const isLocked = new Date() >= new Date(r.departure_time);
+
     // --- RENDER DETAILS ---
     const requester = r.requester ? r.requester.full_name : "Unknown";
     const service = r.requester && r.requester.service ? r.requester.service.service_name : "-";
     const passengers = r.passengers ? (Array.isArray(r.passengers) ? r.passengers.join(", ") : r.passengers) : "None";
     
-    // --- DRIVER NAME ROBUST LOGIC ---
+    // Robust Driver Name
     let driverName = 'Not assigned';
     if (r.driver) {
         if (r.driver.full_name) {
@@ -340,7 +348,6 @@ window.openViewRequestModal = function(id) {
         }
     }
 
-    // Assignment Info (if exists)
     let assignmentHtml = '';
     if (r.vehicle || r.driver) {
         assignmentHtml = `
@@ -371,8 +378,15 @@ window.openViewRequestModal = function(id) {
             <p class="text-red-200 text-sm">${r.rejection_reason || ''}</p>
         </div>` : '';
 
+    let lockNotice = isLocked ? `
+        <div class="col-span-2 mb-2 p-2 bg-slate-800/50 border border-slate-700 rounded text-xs text-slate-400 flex items-center gap-2">
+            <i data-lucide="lock" class="w-3 h-3"></i>
+            Request Locked: Departure time has passed.
+        </div>` : '';
+
     viewContent.innerHTML = `
         <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+            ${lockNotice}
             <div class="col-span-2 border-b border-slate-700 pb-3 mb-2 flex justify-between items-center">
                 <div>
                     <div class="text-white font-bold text-lg">${requester}</div>
@@ -398,28 +412,30 @@ window.openViewRequestModal = function(id) {
     // --- FOOTER BUTTON LOGIC ---
     let buttons = `<button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg">Close</button>`;
 
-    // 1. APPROVAL WORKFLOW
-    if (reqUserRole === 'chef' && r.status === 'pending') {
-        buttons = getApproveRejectButtons(r.id, "Chef Approval");
-    }
-    else if (reqUserRole === 'logistic' && r.status === 'approved_by_chef') {
-        buttons = getApproveRejectButtons(r.id, "Logistic Approval");
-    }
-    else if (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && r.status === 'approved_by_logistic') {
-        buttons = getApproveRejectButtons(r.id, "Final Approval");
-    }
+    // Only show action buttons if NOT locked
+    if (!isLocked) {
+        if (reqUserRole === 'chef' && r.status === 'pending') {
+            buttons = getApproveRejectButtons(r.id, "Chef Approval");
+        }
+        else if (reqUserRole === 'logistic' && r.status === 'approved_by_chef') {
+            buttons = getApproveRejectButtons(r.id, "Logistic Approval");
+        }
+        else if (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && r.status === 'approved_by_logistic') {
+            buttons = getApproveRejectButtons(r.id, "Final Approval");
+        }
 
-    // 2. ASSIGNMENT ACTION
-    // Show Assign button if user is Admin/Charoi AND request is in a state ready for assignment
-    if (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && 
-        ['approved_by_logistic', 'fully_approved', 'in_progress'].includes(r.status)) {
-        
-        const assignBtn = `
-            <button onclick="openAssignmentModal(${r.id})" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center gap-2 mr-2">
-                <i data-lucide="steering-wheel" class="w-4 h-4"></i> Assign Resources
-            </button>
-        `;
-        buttons = assignBtn + buttons;
+        // ASSIGN BUTTON: Show if authorized AND request is ready (approved by logistic, approved, or in_progress)
+        if (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && 
+            ['approved_by_logistic', 'fully_approved', 'in_progress'].includes(r.status)) {
+            
+            const assignBtn = `
+                <button onclick="openAssignmentModal(${r.id})" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center gap-2 mr-2">
+                    <i data-lucide="steering-wheel" class="w-4 h-4"></i> Assign Resources
+                </button>
+            `;
+            // Add Assign button to the left of existing buttons
+            buttons = assignBtn + buttons;
+        }
     }
 
     footer.innerHTML = buttons;
