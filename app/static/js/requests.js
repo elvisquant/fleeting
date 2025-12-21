@@ -13,8 +13,8 @@ let allRequests = [];
 let availableVehicles = [];
 let availableDrivers = [];
 let reqUserRole = 'user';
-let reqActionId = null;     // ID of request being processed (Approve/Reject)
-let reqActionType = null;   // 'approve' or 'reject'
+let reqActionId = null;
+let reqActionType = null;
 
 // =================================================================
 // 0. HELPER: DOM ELEMENT GETTER
@@ -40,20 +40,19 @@ async function initRequests() {
     // Attach Listeners
     const search = getReqEl('reqSearch');
     const filter = getReqEl('reqStatusFilter');
-    const btnExecute = getReqEl('btnExecuteApproval'); // In Approval Modal
-    const btnAssign = getReqEl('btnExecuteAssign');     // In Assignment Modal
+    const btnExecute = getReqEl('btnExecuteApproval');
+    const btnAssign = getReqEl('btnExecuteAssign');
 
     if (search) search.addEventListener('input', renderReqTable);
     if (filter) filter.addEventListener('change', renderReqTable);
     
-    // Modal Action Buttons
     if (btnExecute) btnExecute.addEventListener('click', submitApprovalDecision);
     if (btnAssign) btnAssign.addEventListener('click', submitAssignment);
 
     // Load Data
     await Promise.all([
         loadRequestsData(),
-        loadAssignmentResources() // Pre-fetch vehicles/drivers if admin/charoi
+        loadAssignmentResources()
     ]);
 }
 
@@ -85,24 +84,17 @@ async function loadRequestsData() {
     }
 }
 
-/**
- * Fetches Vehicles and Drivers for the assignment dropdowns.
- */
 async function loadAssignmentResources() {
-    // Only Admin, Superadmin, and Charoi need this data
     if (!['admin', 'superadmin', 'charoi'].includes(reqUserRole)) return;
 
     try {
-        // 1. Fetch Vehicles
         const vData = await window.fetchWithAuth('/vehicles/?limit=1000');
         availableVehicles = Array.isArray(vData) ? vData : (vData.items || []);
 
-        // 2. Fetch Drivers (Using the dedicated endpoint for accuracy)
         const dData = await window.fetchWithAuth('/requests/drivers'); 
         availableDrivers = Array.isArray(dData) ? dData : [];
 
         console.log(`Loaded ${availableVehicles.length} vehicles and ${availableDrivers.length} drivers.`);
-
     } catch (e) {
         console.warn("Failed to load assignment resources", e);
     }
@@ -121,7 +113,6 @@ function renderReqTable() {
     const searchValue = search ? search.value.toLowerCase() : '';
     const filterValue = filter ? filter.value : '';
 
-    // Client-side Filtering
     let filtered = allRequests.filter(r => {
         const requesterName = r.requester ? r.requester.full_name.toLowerCase() : "";
         const dest = r.destination ? r.destination.toLowerCase() : "";
@@ -137,7 +128,6 @@ function renderReqTable() {
         return matchSearch && matchFilter;
     });
 
-    // Update Counter
     const countEl = getReqEl('reqCount');
     if (countEl) countEl.innerText = `${filtered.length} requests found`;
 
@@ -146,27 +136,26 @@ function renderReqTable() {
         return;
     }
 
-    // Time Check for Locking
     const now = new Date();
 
-    // Render Rows
     tbody.innerHTML = filtered.map(r => {
         const requester = r.requester ? r.requester.full_name : "Unknown";
         const service = r.requester && r.requester.service ? r.requester.service.service_name : "-";
         
-        const depDate = new Date(r.departure_time);
-        const dep = r.departure_time ? depDate.toLocaleString() : 'N/A';
+        // --- FIX: Ensure Date is parsed as UTC if 'Z' is missing ---
+        const safeDepString = r.departure_time.endsWith('Z') ? r.departure_time : r.departure_time + 'Z';
+        const departureDate = new Date(safeDepString);
+        
+        const dep = departureDate.toLocaleString();
         const ret = r.return_time ? new Date(r.return_time).toLocaleString() : 'N/A';
 
-        // --- LOCK LOGIC (Row Visuals) ---
-        // Lock if Current Time >= Departure Time
-        const isLocked = now >= depDate;
-        
+        // Lock Logic
+        const isLocked = now >= departureDate;
         const rowClass = isLocked 
             ? "hover:bg-white/5 border-b border-slate-700/30 opacity-60 bg-slate-900/30" 
             : "hover:bg-white/5 border-b border-slate-700/30";
-            
-        // --- PROGRESS BAR LOGIC ---
+
+        // Progress Bar
         let statusHtml = '';
         if (r.status === 'denied') {
             statusHtml = `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-red-500/10 text-red-400 border border-red-500/20">Denied</span>`;
@@ -189,7 +178,7 @@ function renderReqTable() {
                 </div>`;
         }
 
-        // --- STATUS BADGE LOGIC ---
+        // Status Badge
         let badgeClass = 'bg-slate-700 text-slate-400 border border-slate-600';
         if(r.status === 'pending') badgeClass = 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20';
         else if(r.status === 'denied') badgeClass = 'bg-red-500/10 text-red-400 border border-red-500/20';
@@ -209,14 +198,11 @@ function renderReqTable() {
                 <td class="p-4 text-slate-400 text-xs">${dep}</td>
                 <td class="p-4 text-slate-400 text-xs">${ret}</td>
                 <td class="p-4">${statusHtml}</td>
-                
-                <!-- STATUS COLUMN -->
                 <td class="p-4">
                     <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase whitespace-nowrap ${badgeClass}">
                         ${r.status.replace(/_/g, ' ')}
                     </span>
                 </td>
-
                 <td class="p-4 text-right">
                     <button onclick="openViewRequestModal(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="${isLocked ? 'View Locked' : 'View / Edit'}">
                         <i data-lucide="eye" class="w-4 h-4"></i>
@@ -326,10 +312,10 @@ window.openViewRequestModal = function(id) {
     
     if (!viewContent || !footer || !modal) return;
 
-    // --- LOCK LOGIC ---
-    // If Now >= Departure Time, action buttons are hidden.
-    // Otherwise, you can still Assign/Approve/Reject.
-    const isLocked = new Date() >= new Date(r.departure_time);
+    // --- FIX: FORCE UTC COMPARISON ---
+    const safeDepString = r.departure_time.endsWith('Z') ? r.departure_time : r.departure_time + 'Z';
+    const departureDate = new Date(safeDepString);
+    const isLocked = new Date() >= departureDate;
 
     // --- RENDER DETAILS ---
     const requester = r.requester ? r.requester.full_name : "Unknown";
@@ -412,7 +398,7 @@ window.openViewRequestModal = function(id) {
     // --- FOOTER BUTTON LOGIC ---
     let buttons = `<button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg">Close</button>`;
 
-    // Only show action buttons if NOT locked
+    // Only allow actions if NOT Locked
     if (!isLocked) {
         if (reqUserRole === 'chef' && r.status === 'pending') {
             buttons = getApproveRejectButtons(r.id, "Chef Approval");
@@ -424,7 +410,7 @@ window.openViewRequestModal = function(id) {
             buttons = getApproveRejectButtons(r.id, "Final Approval");
         }
 
-        // ASSIGN BUTTON: Show if authorized AND request is ready (approved by logistic, approved, or in_progress)
+        // Assign Button Logic
         if (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && 
             ['approved_by_logistic', 'fully_approved', 'in_progress'].includes(r.status)) {
             
@@ -433,7 +419,6 @@ window.openViewRequestModal = function(id) {
                     <i data-lucide="steering-wheel" class="w-4 h-4"></i> Assign Resources
                 </button>
             `;
-            // Add Assign button to the left of existing buttons
             buttons = assignBtn + buttons;
         }
     }

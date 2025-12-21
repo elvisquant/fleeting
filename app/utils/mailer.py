@@ -19,6 +19,33 @@ conf = ConnectionConfig(
     MAIL_FROM_NAME=settings.MAIL_FROM_NAME
 )
 
+
+async def send_mission_update_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
+    """
+    Sends an email notifying the requester that details (Vehicle/Driver) have changed.
+    """
+    html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #3498db; border-radius: 8px;">
+                <h2 style="color: #2980b9;">Mission Details Updated</h2>
+                <p>Dear <strong>{requester_name}</strong>,</p>
+                <p>The resources (Vehicle or Driver) for your approved mission have been <strong>updated</strong>.</p>
+                <p>Please find attached the <strong>Revised Mission Order</strong>.</p>
+                <p style="background-color: #f0f8ff; padding: 10px; border-left: 4px solid #3498db;">
+                    <strong>Note:</strong> Please discard previous versions of this document.
+                </p>
+                <br>
+                <hr style="border: 0; border-top: 1px solid #eee;">
+                <p style="font-size: 12px; color: #888;">FleetDash Automated System</p>
+            </div>
+        </body>
+    </html>
+    """
+    await _send_email_with_pdf(email_to, f"UPDATED: Mission Order - {filename}", html, pdf_file, filename)
+
+
+
 async def send_mission_order_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
     """
     Sends email to the REQUESTER with the official Mission Order PDF attached.
@@ -126,3 +153,6 @@ async def _send_email_with_pdf(email_to, subject, html_body, pdf_bytes, filename
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+ 

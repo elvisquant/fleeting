@@ -88,15 +88,21 @@ def create_request(
 def assign_vehicle_and_driver(
     id: int,
     assignment_data: schemas.RequestAssignment, 
+    background_tasks: BackgroundTasks, # <--- Added BackgroundTasks
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.require_role(["admin", "superadmin", "charoi"]))
 ):
     """
-    Assigns a Vehicle and a Driver to a request.
-    Validates that the driver is active and has the correct role.
+    Assigns a Vehicle and a Driver.
+    If the request was already fully approved, it resends notifications with updated details.
     """
-    # 1. Fetch Request
-    req = db.query(models.VehicleRequest).filter(models.VehicleRequest.id == id).first()
+    # 1. Fetch Request with relationships needed for PDF
+    req = db.query(models.VehicleRequest).options(
+        joinedload(models.VehicleRequest.requester).joinedload(models.User.service),
+        joinedload(models.VehicleRequest.vehicle),
+        joinedload(models.VehicleRequest.driver)
+    ).filter(models.VehicleRequest.id == id).first()
+
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
 
@@ -105,24 +111,69 @@ def assign_vehicle_and_driver(
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     
-    # 3. Verify Driver (Must be a User with role 'driver')
+    # 3. Verify Driver
     driver = db.query(models.User).options(joinedload(models.User.role)).filter(models.User.id == assignment_data.driver_id).first()
-    
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-    
-    if not driver.is_active:
-        raise HTTPException(status_code=400, detail="Selected driver is currently inactive.")
-        
-    if not driver.role or driver.role.name.lower() != "driver":
-        raise HTTPException(status_code=400, detail=f"Selected user '{driver.full_name}' does not have the 'driver' role.")
+    if not driver or not driver.is_active or (driver.role and driver.role.name.lower() != "driver"):
+        raise HTTPException(status_code=400, detail="Invalid or inactive driver selected.")
 
     # 4. Apply Assignment
     req.vehicle_id = assignment_data.vehicle_id
     req.driver_id = assignment_data.driver_id
     
+    # Refresh the relationship objects explicitly for PDF generation
+    req.vehicle = vehicle
+    req.driver = driver
+
     db.commit()
     db.refresh(req)
+
+    # ==============================================================================
+    # NOTIFICATION LOGIC (Only if request is in an approved state)
+    # ==============================================================================
+    if req.status in ["fully_approved", "in_progress", "completed"]:
+        
+        # A. Fetch Passenger Details for PDF
+        passenger_matricules = req.passengers if req.passengers else []
+        passenger_details = []
+        if passenger_matricules:
+            passenger_details = db.query(models.User).options(
+                joinedload(models.User.agency),
+                joinedload(models.User.service),
+                joinedload(models.User.role)
+            ).filter(models.User.matricule.in_(passenger_matricules)).all()
+
+        # B. Regenerate PDF with NEW details
+        # We use the current user (Charoi/Admin) as the "Approver/Modifier" name on the PDF
+        pdf_buffer = generate_mission_order_pdf(
+            request=req, 
+            approver_name=f"{current_user.full_name} (Update)",
+            passenger_details=passenger_details
+        )
+        pdf_bytes = pdf_buffer.getvalue()
+        filename = f"Mission_Order_{req.id}_Rev.pdf"
+
+        # C. Send Update Email to Requester
+        if req.requester.email:
+            background_tasks.add_task(
+                send_mission_update_email,
+                email_to=req.requester.email,
+                requester_name=req.requester.full_name,
+                pdf_file=pdf_bytes,
+                filename=filename
+            )
+
+        # D. Send Assignment Email to NEW Driver
+        if driver.email:
+            background_tasks.add_task(
+                send_driver_assignment_email,
+                email_to=driver.email,
+                driver_name=driver.full_name,
+                requester_name=req.requester.full_name,
+                destination=req.destination,
+                pdf_file=pdf_bytes,
+                filename=filename
+            )
+
     return req
 
 # =================================================================================
@@ -210,3 +261,34 @@ def get_all_requests(
         query = query.filter(models.VehicleRequest.requester_id == current_user.id)
     
     return query.order_by(models.VehicleRequest.created_at.desc()).limit(limit).offset(skip).all()
+
+
+
+
+
+
+# app/routers/request.py
+
+from fastapi import APIRouter, Depends, status, HTTPException, Response, BackgroundTasks
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, or_
+from typing import List
+from datetime import datetime
+
+# Import Schemas and Models
+from app.schemas import operations as schemas
+from app import models, oauth2
+from app.database import get_db
+
+# --- NEW IMPORTS FOR PDF & EMAIL ---
+from app.utils.pdf_generator import generate_mission_order_pdf
+from app.utils.mailer import send_mission_update_email, send_driver_assignment_email
+
+router = APIRouter(
+    prefix="/api/v1/requests",
+    tags=['Requests API']
+)
+
+
+
+
