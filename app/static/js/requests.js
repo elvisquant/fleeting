@@ -102,7 +102,7 @@ async function loadAssignmentResources() {
         const vData = await window.fetchWithAuth('/vehicles/?limit=1000');
         availableVehicles = Array.isArray(vData) ? vData : (vData.items || []);
 
-        // 2. Fetch Drivers (Using the NEW dedicated endpoint)
+        // 2. Fetch Drivers (Using the dedicated endpoint for accuracy)
         const dData = await window.fetchWithAuth('/requests/drivers'); 
         availableDrivers = Array.isArray(dData) ? dData : [];
 
@@ -294,9 +294,9 @@ window.saveRequest = async function() {
             showReqSuccessAlert("Success", "Request submitted successfully.");
         } else {
             // Failure (e.g. wrong matricule)
-            // Parse detail object or string
             let errorMsg = "Failed to submit request.";
             if (result.detail) {
+                // Handle different error formats
                 errorMsg = typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail;
             }
             showReqErrorAlert("Error", errorMsg);
@@ -328,6 +328,18 @@ window.openViewRequestModal = function(id) {
     const service = r.requester && r.requester.service ? r.requester.service.service_name : "-";
     const passengers = r.passengers ? (Array.isArray(r.passengers) ? r.passengers.join(", ") : r.passengers) : "None";
     
+    // --- DRIVER NAME ROBUST LOGIC ---
+    let driverName = 'Not assigned';
+    if (r.driver) {
+        if (r.driver.full_name) {
+            driverName = r.driver.full_name;
+        } else if (r.driver.first_name) {
+            driverName = `${r.driver.first_name} ${r.driver.last_name || ''}`;
+        } else {
+            driverName = r.driver.username || 'Unknown Driver';
+        }
+    }
+
     // Assignment Info (if exists)
     let assignmentHtml = '';
     if (r.vehicle || r.driver) {
@@ -346,7 +358,7 @@ window.openViewRequestModal = function(id) {
                     <i data-lucide="user" class="w-5 h-5 text-blue-400"></i>
                     <div>
                         <p class="text-xs text-slate-500">Driver</p>
-                        <p class="text-sm font-medium text-white">${r.driver ? r.driver.full_name : 'Not assigned'}</p>
+                        <p class="text-sm font-medium text-white">${driverName}</p>
                     </div>
                 </div>
             </div>
@@ -429,10 +441,8 @@ function getApproveRejectButtons(id, label) {
 // =================================================================
 
 window.openAssignmentModal = function(requestId) {
-    // 1. Close the View modal first
     window.closeModal('viewRequestModal');
     
-    // 2. Get Elements
     const modal = getReqEl('assignmentModal');
     const vSelect = getReqEl('assignVehicle');
     const dSelect = getReqEl('assignDriver');
@@ -440,20 +450,16 @@ window.openAssignmentModal = function(requestId) {
     
     if (!modal) return;
 
-    // 3. Set Request ID
     idInput.value = requestId;
 
-    // 4. Populate Vehicles (From Global Cache)
     vSelect.innerHTML = '<option value="">Select Vehicle...</option>';
     availableVehicles.forEach(v => {
         const option = document.createElement('option');
         option.value = v.id;
-        // Display Plate + Make (e.g., "H4123A (Toyota)")
         option.text = `${v.plate_number} ${v.make_ref ? '('+v.make_ref.make_name+')' : ''}`;
         vSelect.appendChild(option);
     });
 
-    // 5. Populate Drivers (From Global Cache)
     dSelect.innerHTML = '<option value="">Select Driver...</option>';
     availableDrivers.forEach(d => {
         const option = document.createElement('option');
@@ -462,7 +468,6 @@ window.openAssignmentModal = function(requestId) {
         dSelect.appendChild(option);
     });
 
-    // 6. Show Modal
     modal.classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 }
@@ -482,16 +487,12 @@ async function submitAssignment() {
     btn.innerText = "Assigning...";
 
     try {
-        const payload = { 
-            vehicle_id: parseInt(vId), 
-            driver_id: parseInt(dId) 
-        };
-
+        const payload = { vehicle_id: parseInt(vId), driver_id: parseInt(dId) };
         const result = await window.fetchWithAuth(`/requests/${reqId}/assign`, 'PUT', payload);
         
         if (result && !result.detail) {
             window.closeModal('assignmentModal');
-            await loadRequestsData(); // Refresh table to show assigned status if needed
+            await loadRequestsData(); 
             showReqSuccessAlert("Success", "Resources assigned successfully.");
         } else {
             const msg = result?.detail ? (typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail) : "Assignment failed.";
@@ -506,7 +507,7 @@ async function submitAssignment() {
 }
 
 // =================================================================
-// 7. CONFIRM APPROVE/REJECT (Approval Modal #3)
+// 7. CONFIRM APPROVE/REJECT
 // =================================================================
 
 window.openApprovalModal = function(id, type) {
@@ -588,7 +589,7 @@ async function submitApprovalDecision() {
 }
 
 // =================================================================
-// 8. HELPER: MODAL CLOSING & ALERTS
+// 8. HELPERS
 // =================================================================
 
 window.closeModal = function(id) { 
@@ -597,7 +598,6 @@ window.closeModal = function(id) {
 }
 
 function showReqAlert(title, message, isError = false) {
-    // Uses #reqAlertModal defined in HTML
     const modal = getReqEl('reqAlertModal'); 
     
     if (!modal) {
@@ -634,7 +634,7 @@ function showReqSuccessAlert(title, message) { showReqAlert(title, message, fals
 function showReqErrorAlert(title, message) { showReqAlert(title, message, true); }
 
 // =================================================================
-// 9. STARTUP TRIGGER
+// 9. STARTUP
 // =================================================================
 
 if (document.readyState === 'loading') {

@@ -13,6 +13,9 @@ class DriverNestedInRequest(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     username: Optional[str] = None
+    # --- FIX: Add this line so full_name is sent to frontend ---
+    full_name: Optional[str] = None 
+    
     class Config: 
         from_attributes = True
 
