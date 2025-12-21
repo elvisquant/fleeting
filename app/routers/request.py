@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, status, HTTPException, Response, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from typing import List
 from datetime import datetime
 
@@ -17,6 +17,21 @@ router = APIRouter(
 )
 
 # =================================================================================
+# 0. HELPER ENDPOINT: GET DRIVERS
+# =================================================================================
+@router.get("/drivers", response_model=List[schemas.UserSimpleOut])
+def get_active_drivers(db: Session = Depends(get_db)):
+    """
+    Fetches all users who have the 'driver' role and are active.
+    Used to populate the assignment dropdown.
+    """
+    drivers = db.query(models.User).join(models.Role).filter(
+        func.lower(models.Role.name) == "driver",
+        models.User.is_active == True
+    ).all()
+    return drivers
+
+# =================================================================================
 # 1. CREATE REQUEST
 # =================================================================================
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.VehicleRequestOut)
@@ -27,25 +42,15 @@ def create_request(
 ):
     """
     Creates a new Vehicle Request.
-    
-    Logic:
-    1. Accepts a list of passenger matricules.
-    2. Automatically adds the Requester's own matricule to the list if not present.
-    3. Validates that ALL matricules exist in the User database.
-    4. Saves the request with status 'pending'.
     """
-    
     # 1. Prepare Passenger List
-    # Start with the list provided by user (or empty list if None)
     passenger_list = request_data.passengers if request_data.passengers else []
 
     # 2. Auto-add Requester
-    # Ensure the current user is in the list (if they have a matricule set)
     if current_user.matricule and current_user.matricule not in passenger_list:
         passenger_list.append(current_user.matricule)
 
     # 3. Validate Passengers
-    # We query the DB to ensure every matricule in the list corresponds to a real user.
     if passenger_list:
         existing_users = db.query(models.User).filter(
             models.User.matricule.in_(passenger_list)
@@ -64,7 +69,6 @@ def create_request(
     new_request = models.VehicleRequest(
         destination=request_data.destination,
         description=request_data.description,
-        # Map Pydantic 'departure_time' -> DB 'departure_time' (mapped to start_time col)
         departure_time=request_data.departure_time, 
         return_time=request_data.return_time,      
         passengers=passenger_list,
@@ -75,7 +79,6 @@ def create_request(
     db.add(new_request)
     db.commit()
     db.refresh(new_request)
-    
     return new_request
 
 # =================================================================================
@@ -90,30 +93,29 @@ def assign_vehicle_and_driver(
 ):
     """
     Assigns a Vehicle and a Driver to a request.
-    
-    Permissions:
-    - Only Charoi, Admin, or Superadmin can perform this action.
-    
-    Logic:
-    - Verifies request exists.
-    - Verifies vehicle exists.
-    - Verifies driver (User) exists.
-    - Updates the request record.
+    Validates that the driver is active and has the correct role.
     """
     # 1. Fetch Request
     req = db.query(models.VehicleRequest).filter(models.VehicleRequest.id == id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
 
-    # 2. Verify Vehicle Existence
+    # 2. Verify Vehicle
     vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == assignment_data.vehicle_id).first()
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     
-    # 3. Verify Driver Existence
-    driver = db.query(models.User).filter(models.User.id == assignment_data.driver_id).first()
+    # 3. Verify Driver (Must be a User with role 'driver')
+    driver = db.query(models.User).options(joinedload(models.User.role)).filter(models.User.id == assignment_data.driver_id).first()
+    
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
+    
+    if not driver.is_active:
+        raise HTTPException(status_code=400, detail="Selected driver is currently inactive.")
+        
+    if not driver.role or driver.role.name.lower() != "driver":
+        raise HTTPException(status_code=400, detail=f"Selected user '{driver.full_name}' does not have the 'driver' role.")
 
     # 4. Apply Assignment
     req.vehicle_id = assignment_data.vehicle_id
@@ -133,10 +135,6 @@ def reject_request(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.require_role(["admin", "superadmin", "logistic", "charoi", "chef"]))
 ):
-    """
-    Denies a request and records the reason.
-    Accessible by any role involved in the approval chain.
-    """
     req = db.query(models.VehicleRequest).filter(models.VehicleRequest.id == id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -152,10 +150,6 @@ def reject_request(
 # =================================================================================
 @router.get("/count/pending", response_model=schemas.PendingRequestsCount)
 def get_pending_requests_count(db: Session = Depends(get_db)):
-    """
-    Helper endpoint to get the total number of pending requests.
-    Used for dashboard badges.
-    """
     count = db.query(models.VehicleRequest).filter(models.VehicleRequest.status == "pending").count()
     return {"count": count}
 
@@ -168,26 +162,6 @@ def get_all_requests(
     current_user: models.User = Depends(oauth2.get_current_user_from_header),
     limit: int = 100, skip: int = 0
 ):
-    """
-    Fetches requests with STRICT visibility rules based on User Role:
-    
-    1. Admin / Superadmin:
-       - Sees ALL requests.
-       
-    2. Charoi:
-       - Sees requests that have passed Logistic approval.
-       
-    3. Logistic:
-       - Sees requests that have passed Chef approval.
-       
-    4. Chef:
-       - Sees requests made by users in THEIR Service (Department).
-       
-    5. Everyone Else (Driver, Operateur, Technicien, User):
-       - Sees ONLY requests where they are the REQUESTER.
-    """
-    
-    # 1. Base Query with eager loading for relationships
     query = db.query(models.VehicleRequest).options(
         joinedload(models.VehicleRequest.requester).joinedload(models.User.service),
         joinedload(models.VehicleRequest.approvals),
@@ -197,45 +171,42 @@ def get_all_requests(
 
     user_role = current_user.role.name.lower() if current_user.role else "user"
 
-    # --- ROLE BASED FILTERING ---
-
-    # CASE A: ADMINS (See All)
+    # --- ADMIN / SUPERADMIN ---
     if user_role in ["admin", "superadmin"]:
-        pass # No filter applied
+        pass 
 
-    # CASE B: CHAROI (See downstream approvals)
+    # --- CHAROI ---
     elif user_role == "charoi":
         query = query.filter(models.VehicleRequest.status.in_([
-            "approved_by_logistic", 
-            "fully_approved", 
-            "in_progress", 
-            "completed"
+            "approved_by_logistic", "fully_approved", "in_progress", "completed"
         ]))
 
-    # CASE C: LOGISTIC (See downstream approvals)
+    # --- LOGISTIC ---
     elif user_role == "logistic":
         query = query.filter(models.VehicleRequest.status.in_([
-            "approved_by_chef", 
-            "approved_by_logistic", 
-            "fully_approved", 
-            "in_progress", 
-            "completed"
+            "approved_by_chef", "approved_by_logistic", "fully_approved", "in_progress", "completed"
         ]))
 
-    # CASE D: CHEF (See Service-based requests)
+    # --- CHEF ---
     elif user_role == "chef":
         if current_user.service_id:
-            # Join with User table to filter by Service ID
             query = query.join(models.User, models.VehicleRequest.requester_id == models.User.id)\
                          .filter(models.User.service_id == current_user.service_id)
         else:
-            # Fallback: If Chef has no service, only see own requests
             query = query.filter(models.VehicleRequest.requester_id == current_user.id)
 
-    # CASE E: EVERYONE ELSE (Driver, User, Operateur, Technicien)
-    # They only see what they requested themselves.
+    # --- DRIVER ---
+    elif user_role == "driver":
+        # Driver sees assigned tasks OR their own requests
+        query = query.filter(
+            or_(
+                models.VehicleRequest.driver_id == current_user.id,
+                models.VehicleRequest.requester_id == current_user.id
+            )
+        )
+
+    # --- EVERYONE ELSE (User, Operateur, Technicien) ---
     else:
         query = query.filter(models.VehicleRequest.requester_id == current_user.id)
     
-    # 3. Order and Paginate
     return query.order_by(models.VehicleRequest.created_at.desc()).limit(limit).offset(skip).all()
