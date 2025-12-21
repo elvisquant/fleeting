@@ -69,7 +69,7 @@ async function loadRequestsData() {
     const tbody = getReqEl('reqLogsBody');
     if (!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
     if (window.lucide) window.lucide.createIcons();
 
     try {
@@ -81,11 +81,11 @@ async function loadRequestsData() {
             renderReqTable();
         } else {
             const msg = data && data.detail ? data.detail : "Failed to load requests.";
-            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
         }
     } catch (error) {
         console.error("Load Error:", error);
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Connection failed.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Connection failed.</td></tr>`;
     }
 }
 
@@ -150,7 +150,7 @@ function renderReqTable() {
     if (countEl) countEl.innerText = `${filtered.length} requests found`;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No requests found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No requests found.</td></tr>`;
         return;
     }
 
@@ -162,7 +162,7 @@ function renderReqTable() {
         const dep = r.departure_time ? new Date(r.departure_time).toLocaleString() : 'N/A';
         const ret = r.return_time ? new Date(r.return_time).toLocaleString() : 'N/A';
 
-        // Badge Logic
+        // --- PROGRESS BAR LOGIC ---
         let statusHtml = '';
         if (r.status === 'denied') {
             statusHtml = `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-red-500/10 text-red-400 border border-red-500/20">Denied</span>`;
@@ -185,6 +185,13 @@ function renderReqTable() {
                 </div>`;
         }
 
+        // --- NEW: STATUS BADGE LOGIC (Text Column) ---
+        let badgeClass = 'bg-slate-700 text-slate-400 border border-slate-600';
+        if(r.status === 'pending') badgeClass = 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20';
+        else if(r.status === 'denied') badgeClass = 'bg-red-500/10 text-red-400 border border-red-500/20';
+        else if(r.status === 'fully_approved' || r.status === 'completed') badgeClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+        else if(r.status.includes('approved')) badgeClass = 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
+
         return `
             <tr class="hover:bg-white/5 border-b border-slate-700/30">
                 <td class="p-4">
@@ -195,6 +202,14 @@ function renderReqTable() {
                 <td class="p-4 text-slate-400 text-xs">${dep}</td>
                 <td class="p-4 text-slate-400 text-xs">${ret}</td>
                 <td class="p-4">${statusHtml}</td>
+                
+                <!-- NEW STATUS COLUMN -->
+                <td class="p-4">
+                    <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase whitespace-nowrap ${badgeClass}">
+                        ${r.status.replace(/_/g, ' ')}
+                    </span>
+                </td>
+
                 <td class="p-4 text-right">
                     <button onclick="openViewRequestModal(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>
                 </td>
