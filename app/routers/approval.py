@@ -7,8 +7,8 @@ from datetime import datetime
 from app import models, schemas, oauth2
 from app.database import get_db
 from app.utils.pdf_generator import generate_mission_order_pdf
-# --- IMPORT BOTH EMAIL FUNCTIONS ---
-from app.utils.mailer import send_mission_order_email, send_rejection_email
+# --- IMPORT ALL 3 EMAIL FUNCTIONS ---
+from app.utils.mailer import send_mission_order_email, send_rejection_email, send_driver_assignment_email
 
 router = APIRouter(
     prefix="/api/v1/approvals",
@@ -102,10 +102,10 @@ def submit_approval(
         if new_status:
             db_request.status = new_status
             
-            # Send Approval Email (Only if Fully Approved)
+            # Send Notification Emails (Only if Fully Approved)
             if new_status == "fully_approved":
                 
-                # Fetch Passengers
+                # Fetch Passengers for PDF
                 passenger_matricules = db_request.passengers if db_request.passengers else []
                 passenger_details = []
                 if passenger_matricules:
@@ -115,22 +115,36 @@ def submit_approval(
                         joinedload(models.User.role)
                     ).filter(models.User.matricule.in_(passenger_matricules)).all()
 
-                # Generate PDF
+                # Generate PDF (once for both emails)
                 pdf_buffer = generate_mission_order_pdf(
                     request=db_request, 
                     approver_name=current_user.full_name,
                     passenger_details=passenger_details
                 )
                 
-                # Send Email
-                recipient = db_request.requester.email
-                if recipient:
+                pdf_bytes = pdf_buffer.getvalue()
+                filename = f"Mission_Order_{db_request.id}.pdf"
+
+                # 1. Send to Requester
+                if db_request.requester.email:
                     background_tasks.add_task(
                         send_mission_order_email,
-                        email_to=recipient,
+                        email_to=db_request.requester.email,
                         requester_name=db_request.requester.full_name,
-                        pdf_file=pdf_buffer.getvalue(),
-                        filename=f"Mission_Order_{db_request.id}.pdf"
+                        pdf_file=pdf_bytes,
+                        filename=filename
+                    )
+
+                # 2. Send to Driver (If assigned and has email)
+                if db_request.driver and db_request.driver.email:
+                    background_tasks.add_task(
+                        send_driver_assignment_email,
+                        email_to=db_request.driver.email,
+                        driver_name=db_request.driver.full_name,
+                        requester_name=db_request.requester.full_name,
+                        destination=db_request.destination,
+                        pdf_file=pdf_bytes,
+                        filename=filename
                     )
 
     db.commit()

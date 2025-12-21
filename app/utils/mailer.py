@@ -21,15 +21,13 @@ conf = ConnectionConfig(
 
 async def send_mission_order_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
     """
-    Sends email with the official Mission Order PDF attached.
-    Uses a temporary file to avoid Pydantic validation errors.
+    Sends email to the REQUESTER with the official Mission Order PDF attached.
     """
-    
     html = f"""
     <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-                <h2 style="color: #2c3e50;">Mission Order Approved</h2>
+                <h2 style="color: #27ae60;">Mission Order Approved</h2>
                 <p>Dear <strong>{requester_name}</strong>,</p>
                 <p>Your vehicle request has been <strong>fully approved</strong>.</p>
                 <p>Attached to this email is the official <strong>Mission Order</strong>.</p>
@@ -41,33 +39,34 @@ async def send_mission_order_email(email_to: str, requester_name: str, pdf_file:
         </body>
     </html>
     """
+    await _send_email_with_pdf(email_to, f"APPROVED: Mission Order - {filename}", html, pdf_file, filename)
 
-    # --- FIX: Save to Temp File Strategy ---
-    # 1. Create a temporary file path
-    tmp_dir = tempfile.gettempdir()
-    tmp_path = os.path.join(tmp_dir, filename)
+async def send_driver_assignment_email(email_to: str, driver_name: str, requester_name: str, destination: str, pdf_file: bytes, filename: str):
+    """
+    Sends email to the DRIVER notifying them of the assignment.
+    """
+    html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #3498db; border-radius: 8px;">
+                <h2 style="color: #2980b9;">New Mission Assignment</h2>
+                <p>Hello <strong>{driver_name}</strong>,</p>
+                <p>You have been assigned as the driver for a new mission.</p>
+                
+                <div style="background-color: #f0f8ff; padding: 15px; margin: 15px 0; border-left: 4px solid #3498db;">
+                    <p style="margin: 5px 0;"><strong>Requester:</strong> {requester_name}</p>
+                    <p style="margin: 5px 0;"><strong>Destination:</strong> {destination}</p>
+                </div>
 
-    try:
-        # 2. Write the PDF bytes to the temp file
-        with open(tmp_path, 'wb') as f:
-            f.write(pdf_file)
-
-        # 3. Create message using the FILE PATH (This is 100% supported by all versions)
-        message = MessageSchema(
-            subject=f"OFFICIAL: Mission Order - {filename.replace('.pdf', '')}",
-            recipients=[email_to],
-            body=html,
-            subtype=MessageType.html,
-            attachments=[tmp_path] # List of strings (paths)
-        )
-
-        fm = FastMail(conf)
-        await fm.send_message(message)
-
-    finally:
-        # 4. Clean up: Delete the temp file immediately after sending
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+                <p>The official <strong>Mission Order</strong> is attached. Please review the details regarding departure time and passengers.</p>
+                <br>
+                <hr style="border: 0; border-top: 1px solid #eee;">
+                <p style="font-size: 12px; color: #888;">FleetDash Automated System</p>
+            </div>
+        </body>
+    </html>
+    """
+    await _send_email_with_pdf(email_to, f"ASSIGNMENT: New Mission to {destination}", html, pdf_file, filename)
 
 async def send_rejection_email(email_to: str, requester_name: str, request_id: int, reason: str, approver_name: str):
     """
@@ -103,3 +102,27 @@ async def send_rejection_email(email_to: str, requester_name: str, request_id: i
 
     fm = FastMail(conf)
     await fm.send_message(message)
+
+# --- INTERNAL HELPER TO AVOID CODE DUPLICATION ---
+async def _send_email_with_pdf(email_to, subject, html_body, pdf_bytes, filename):
+    tmp_dir = tempfile.gettempdir()
+    tmp_path = os.path.join(tmp_dir, filename)
+
+    try:
+        with open(tmp_path, 'wb') as f:
+            f.write(pdf_bytes)
+
+        message = MessageSchema(
+            subject=subject,
+            recipients=[email_to],
+            body=html_body,
+            subtype=MessageType.html,
+            attachments=[tmp_path]
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)
+
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)

@@ -3,7 +3,8 @@
 /**
  * ==============================================================================
  * FLEETDASH REQUESTS MODULE
- * Handles fetching, displaying, approving, and assigning resources to vehicle requests.
+ * Handles fetching, displaying, approving, and assigning resources.
+ * Matches the updated requests.html structure.
  * ==============================================================================
  */
 
@@ -12,23 +13,23 @@ let allRequests = [];
 let availableVehicles = [];
 let availableDrivers = [];
 let reqUserRole = 'user';
-let reqActionId = null;     // ID of request being processed
+let reqActionId = null;     // ID of request being processed (Approve/Reject)
 let reqActionType = null;   // 'approve' or 'reject'
 
 // =================================================================
-// 0. HELPER: DOM ELEMENT GETTER (Mobile/Desktop Compatibility)
+// 0. HELPER: DOM ELEMENT GETTER
 // =================================================================
 function getReqEl(id) {
-    // Priority 1: Mobile container (if viewport is small)
+    // 1. Try Mobile Container
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Priority 2: Desktop container
+    // 2. Try Desktop Container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
     
-    // Priority 3: Global document search (for modals)
+    // 3. Global Fallback (For Modals which are outside content containers)
     return document.getElementById(id);
 }
 
@@ -38,77 +39,26 @@ function getReqEl(id) {
 async function initRequests() {
     console.log("Requests Module: Initializing...");
     
-    // 1. Get User Role
     reqUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // 2. Inject the Assignment Modal (Dynamic HTML generation)
-    injectAssignmentModal();
-
-    // 3. Attach Event Listeners
+    // Attach Listeners
     const search = getReqEl('reqSearch');
     const filter = getReqEl('reqStatusFilter');
-    const btnExecute = getReqEl('btnExecuteApproval');
-    const btnAssign = getReqEl('btnExecuteAssign'); // New button in the dynamic modal
+    const btnExecute = getReqEl('btnExecuteApproval'); // In Approval Modal
+    const btnAssign = getReqEl('btnExecuteAssign');     // In Assignment Modal
 
     if (search) search.addEventListener('input', renderReqTable);
     if (filter) filter.addEventListener('change', renderReqTable);
+    
+    // Modal Action Buttons
     if (btnExecute) btnExecute.addEventListener('click', submitApprovalDecision);
     if (btnAssign) btnAssign.addEventListener('click', submitAssignment);
 
-    // 4. Load Data
+    // Load Data
     await Promise.all([
         loadRequestsData(),
-        loadAssignmentResources() // Fetch vehicles/drivers in background
+        loadAssignmentResources() // Pre-fetch vehicles/drivers if admin/charoi
     ]);
-}
-
-/**
- * Injects the "Assign Vehicle/Driver" modal into the DOM if it doesn't exist.
- * This prevents the need to manually edit the HTML file.
- */
-function injectAssignmentModal() {
-    if (document.getElementById('assignmentModal')) return;
-
-    const modalHTML = `
-    <div id="assignmentModal" class="fixed inset-0 z-[80] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300">
-        <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-xl shadow-2xl overflow-hidden animate-up">
-            <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i data-lucide="steering-wheel" class="w-5 h-5 text-blue-500"></i> Assign Resources
-                </h3>
-                <button onclick="closeModal('assignmentModal')" class="text-slate-400 hover:text-white transition">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="p-6 space-y-5">
-                <input type="hidden" id="assignReqId">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Select Vehicle</label>
-                    <select id="assignVehicle" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 outline-none">
-                        <option value="">Loading vehicles...</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Select Driver</label>
-                    <select id="assignDriver" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 outline-none">
-                        <option value="">Loading drivers...</option>
-                    </select>
-                </div>
-                <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-200">
-                    <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
-                    Assigning resources will update the request status.
-                </div>
-            </div>
-            <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-                <button onclick="closeModal('assignmentModal')" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition">Cancel</button>
-                <button id="btnExecuteAssign" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg flex items-center gap-2">
-                    <i data-lucide="save" class="w-4 h-4"></i> Save Assignment
-                </button>
-            </div>
-        </div>
-    </div>`;
-
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
 // =================================================================
@@ -119,13 +69,12 @@ async function loadRequestsData() {
     const tbody = getReqEl('reqLogsBody');
     if (!tbody) return;
     
-    // Loading State
     tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
     if (window.lucide) window.lucide.createIcons();
 
     try {
         const data = await window.fetchWithAuth('/requests/'); 
-        const items = data.items || data;
+        const items = data.items || data; // Handle pagination if present
         
         if (Array.isArray(items)) {
             allRequests = items;
@@ -136,28 +85,31 @@ async function loadRequestsData() {
         }
     } catch (error) {
         console.error("Load Error:", error);
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Session expired or connection failed.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-400">Connection failed.</td></tr>`;
     }
 }
 
 /**
- * Fetches Vehicles and Users (Drivers) for the assignment dropdowns.
+ * Fetches Vehicles and Drivers for the assignment dropdowns.
  * Only runs for roles that have permission to assign.
  */
 async function loadAssignmentResources() {
+    // Only Admin, Superadmin, and Charoi need this data
     if (!['admin', 'superadmin', 'charoi'].includes(reqUserRole)) return;
 
     try {
-        // Fetch Vehicles
+        // 1. Fetch Vehicles
         const vData = await window.fetchWithAuth('/vehicles/?limit=1000');
         availableVehicles = Array.isArray(vData) ? vData : (vData.items || []);
 
-        // Fetch Users (We filter for drivers client-side for simplicity, or backend can support filtering)
-        const uData = await window.fetchWithAuth('/users/'); // Assuming this returns all users
+        // 2. Fetch Users (Drivers)
+        const uData = await window.fetchWithAuth('/users/'); 
         const users = Array.isArray(uData) ? uData : (uData.items || []);
         
         // Filter specifically for users with 'driver' role
         availableDrivers = users.filter(u => u.role && u.role.name.toLowerCase() === 'driver');
+
+        console.log(`Loaded ${availableVehicles.length} vehicles and ${availableDrivers.length} drivers.`);
 
     } catch (e) {
         console.warn("Failed to load assignment resources", e);
@@ -177,7 +129,7 @@ function renderReqTable() {
     const searchValue = search ? search.value.toLowerCase() : '';
     const filterValue = filter ? filter.value : '';
 
-    // Filter Logic
+    // Client-side Filtering
     let filtered = allRequests.filter(r => {
         const requesterName = r.requester ? r.requester.full_name.toLowerCase() : "";
         const dest = r.destination ? r.destination.toLowerCase() : "";
@@ -193,6 +145,7 @@ function renderReqTable() {
         return matchSearch && matchFilter;
     });
 
+    // Update Counter
     const countEl = getReqEl('reqCount');
     if (countEl) countEl.innerText = `${filtered.length} requests found`;
 
@@ -209,7 +162,7 @@ function renderReqTable() {
         const dep = r.departure_time ? new Date(r.departure_time).toLocaleString() : 'N/A';
         const ret = r.return_time ? new Date(r.return_time).toLocaleString() : 'N/A';
 
-        // Status Badge Logic
+        // Badge Logic
         let statusHtml = '';
         if (r.status === 'denied') {
             statusHtml = `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-red-500/10 text-red-400 border border-red-500/20">Denied</span>`;
@@ -252,7 +205,7 @@ function renderReqTable() {
 }
 
 // =================================================================
-// 4. ADD REQUEST MODAL
+// 4. ADD REQUEST MODAL (Creation)
 // =================================================================
 
 window.openAddRequestModal = function() {
@@ -267,7 +220,7 @@ window.openAddRequestModal = function() {
     
     // Set Dates
     const now = new Date();
-    const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // +3 hours
+    const later = new Date(now.getTime() + 3 * 60 * 60 * 1000); // Default +3 hours
     
     const toLocalISO = (date) => {
         const offset = date.getTimezoneOffset() * 60000;
@@ -307,6 +260,7 @@ window.saveRequest = async function() {
         return;
     }
 
+    // Convert comma string to array
     const passengers = passStr ? passStr.split(',').map(s => s.trim()).filter(s => s) : [];
 
     btn.disabled = true; 
@@ -351,7 +305,7 @@ window.openViewRequestModal = function(id) {
     
     if (!viewContent || !footer || !modal) return;
 
-    // --- RENDER DETAILS ---
+    // --- RENDER CONTENT ---
     const requester = r.requester ? r.requester.full_name : "Unknown";
     const service = r.requester && r.requester.service ? r.requester.service.service_name : "-";
     const passengers = r.passengers ? (Array.isArray(r.passengers) ? r.passengers.join(", ") : r.passengers) : "None";
@@ -412,6 +366,7 @@ window.openViewRequestModal = function(id) {
         </div>`;
 
     // --- FOOTER BUTTON LOGIC ---
+    // Start with a generic Close button
     let buttons = `<button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg">Close</button>`;
 
     // 1. APPROVAL WORKFLOW
@@ -425,25 +380,19 @@ window.openViewRequestModal = function(id) {
         buttons = getApproveRejectButtons(r.id, "Final Approval");
     }
 
-    // 2. ASSIGNMENT ACTION (Updated Feature)
-    // Only show if approved by logistic or fully approved, AND user has permission
+    // 2. ASSIGNMENT ACTION (New Feature)
+    // Show Assign button if user is Admin/Charoi AND request is in a state ready for assignment (approved by logistic or fully approved)
     if (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && 
         ['approved_by_logistic', 'fully_approved', 'in_progress'].includes(r.status)) {
         
-        // Add "Assign" button alongside existing buttons (or replace Close if view only)
         const assignBtn = `
-            <button onclick="openAssignmentModal(${r.id})" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center gap-2">
+            <button onclick="openAssignmentModal(${r.id})" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center gap-2 mr-2">
                 <i data-lucide="steering-wheel" class="w-4 h-4"></i> Assign Resources
             </button>
         `;
         
-        // If it's pure view mode (Close button only), add Assign before it
-        if (buttons.includes('Close')) {
-            buttons = assignBtn + buttons;
-        } else {
-            // If there are approval buttons, add Assign as well (edge case)
-            buttons = assignBtn + buttons;
-        }
+        // Inject Assign button before the existing buttons
+        buttons = assignBtn + buttons;
     }
 
     footer.innerHTML = buttons;
@@ -461,13 +410,14 @@ function getApproveRejectButtons(id, label) {
 }
 
 // =================================================================
-// 6. RESOURCE ASSIGNMENT LOGIC (NEW)
+// 6. RESOURCE ASSIGNMENT LOGIC (Assignment Modal #4)
 // =================================================================
 
 window.openAssignmentModal = function(requestId) {
-    // Close the View modal first
+    // 1. Close the View modal first
     window.closeModal('viewRequestModal');
     
+    // 2. Get Elements
     const modal = getReqEl('assignmentModal');
     const vSelect = getReqEl('assignVehicle');
     const dSelect = getReqEl('assignDriver');
@@ -475,19 +425,20 @@ window.openAssignmentModal = function(requestId) {
     
     if (!modal) return;
 
-    // 1. Set ID
+    // 3. Set Request ID
     idInput.value = requestId;
 
-    // 2. Populate Vehicles
+    // 4. Populate Vehicles (From Global Cache)
     vSelect.innerHTML = '<option value="">Select Vehicle...</option>';
     availableVehicles.forEach(v => {
         const option = document.createElement('option');
         option.value = v.id;
-        option.text = `${v.plate_number} (${v.make_ref ? v.make_ref.make_name : ''})`;
+        // Display Plate + Make (e.g., "H4123A (Toyota)")
+        option.text = `${v.plate_number} ${v.make_ref ? '('+v.make_ref.make_name+')' : ''}`;
         vSelect.appendChild(option);
     });
 
-    // 3. Populate Drivers
+    // 5. Populate Drivers (From Global Cache)
     dSelect.innerHTML = '<option value="">Select Driver...</option>';
     availableDrivers.forEach(d => {
         const option = document.createElement('option');
@@ -496,7 +447,7 @@ window.openAssignmentModal = function(requestId) {
         dSelect.appendChild(option);
     });
 
-    // 4. Show Modal
+    // 6. Show Modal
     modal.classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 }
@@ -525,7 +476,7 @@ async function submitAssignment() {
         
         if (result && !result.detail) {
             window.closeModal('assignmentModal');
-            await loadRequestsData();
+            await loadRequestsData(); // Refresh table to show assigned status if needed
             showReqSuccessAlert("Success", "Resources assigned successfully.");
         } else {
             const msg = result?.detail ? (typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail) : "Assignment failed.";
@@ -540,7 +491,7 @@ async function submitAssignment() {
 }
 
 // =================================================================
-// 7. CONFIRM APPROVE/REJECT
+// 7. CONFIRM APPROVE/REJECT (Approval Modal #3)
 // =================================================================
 
 window.openApprovalModal = function(id, type) {
@@ -562,12 +513,18 @@ window.openApprovalModal = function(id, type) {
         titleEl.innerText = "Confirm Approval";
         btn.innerText = "Approve";
         btn.className = "px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm w-full font-medium shadow-lg";
-        if (iconDiv) iconDiv.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6 text-green-500"></i>';
+        if (iconDiv) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-green-500 bg-green-500/10";
+            iconDiv.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6"></i>';
+        }
     } else {
         titleEl.innerText = "Deny Request";
         btn.innerText = "Reject";
         btn.className = "px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm w-full font-medium shadow-lg";
-        if (iconDiv) iconDiv.innerHTML = '<i data-lucide="x-circle" class="w-6 h-6 text-red-500"></i>';
+        if (iconDiv) {
+            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 bg-red-500/10";
+            iconDiv.innerHTML = '<i data-lucide="x-circle" class="w-6 h-6"></i>';
+        }
     }
     
     modal.classList.remove('hidden');
@@ -616,7 +573,7 @@ async function submitApprovalDecision() {
 }
 
 // =================================================================
-// 8. UTILS & ALERTS
+// 8. HELPER: MODAL CLOSING & ALERTS
 // =================================================================
 
 window.closeModal = function(id) { 
@@ -625,8 +582,14 @@ window.closeModal = function(id) {
 }
 
 function showReqAlert(title, message, isError = false) {
+    // Uses #reqAlertModal defined in HTML
     const modal = getReqEl('reqAlertModal'); 
-    if (!modal) { alert(`${title}: ${message}`); return; }
+    
+    if (!modal) {
+        // Fallback
+        alert(`${title}: ${message}`);
+        return;
+    }
     
     const titleEl = getReqEl('reqAlertTitle');
     const messageEl = getReqEl('reqAlertMessage');
@@ -657,7 +620,7 @@ function showReqSuccessAlert(title, message) { showReqAlert(title, message, fals
 function showReqErrorAlert(title, message) { showReqAlert(title, message, true); }
 
 // =================================================================
-// 9. STARTUP
+// 9. STARTUP TRIGGER
 // =================================================================
 
 if (document.readyState === 'loading') {
