@@ -38,11 +38,21 @@ from app.oauth2 import (
 )
 
 # Email Services
+
+""" # OLD
 from app.email import (
     send_account_verification_email,
     send_account_activation_confirmation_email,
     send_password_reset_email
+) """
+
+# NEW (Correct)
+from app.utils.mailer import (
+    send_account_verification_email,
+    send_account_activation_confirmation_email,
+    send_password_reset_email
 )
+
 
 # Load settings
 settings = get_settings()
