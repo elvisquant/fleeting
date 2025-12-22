@@ -81,9 +81,6 @@ async def signup(request: Request):
 def forgot_password(request: Request):
     return templates.TemplateResponse("forgot-password.html", {"request": request})
 
-@app.get("/reset-password.html", response_class=HTMLResponse)
-def reset_password(request: Request):
-    return templates.TemplateResponse("reset-password.html", {"request": request})
 
 @app.get("/user/index.html", response_class=HTMLResponse)
 async def spa_shell(request: Request):
