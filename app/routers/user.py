@@ -358,7 +358,14 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin_role_for_api)
 ):
-    user = db.query(models.User).filter(models.User.id == id).first()
+    # 1. Fetch user with joinedload to ensure relationships are available
+    query = db.query(models.User).options(
+        joinedload(models.User.role),
+        joinedload(models.User.agency),
+        joinedload(models.User.service)
+    ).filter(models.User.id == id)
+    
+    user = query.first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -369,12 +376,20 @@ def update_user(
 
     try:
         db.commit()
+        # 2. Refresh ensures the DB state is synced, 
+        # but we re-query to ensure relationships are fully populated for the response
         db.refresh(user)
+        
+        # Final fetch to ensure the Pydantic model gets the NEW related objects
+        return db.query(models.User).options(
+            joinedload(models.User.role),
+            joinedload(models.User.agency),
+            joinedload(models.User.service)
+        ).filter(models.User.id == id).first()
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Could not update user: {str(e)}")
-
-    return user
+        raise HTTPException(status_code=400, detail=f"Database error: {str(e)}")
 
 @router.delete("/users/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(

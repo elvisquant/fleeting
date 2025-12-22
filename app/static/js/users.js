@@ -9,15 +9,12 @@ let deleteTargetId = null;
 // MOBILE-COMPATIBLE ELEMENT GETTER
 // =================================================================
 function getUserEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
@@ -29,9 +26,7 @@ async function initUsers() {
     if(searchInput) searchInput.addEventListener('input', renderUsersTable);
     if(roleFilter) roleFilter.addEventListener('change', renderUsersTable);
 
-    // Inject Modals HTML dynamically if not present
     injectUserModals();
-
     await Promise.all([loadUsersData(), fetchDropdownData()]);
 }
 
@@ -140,7 +135,8 @@ function renderUsersTable() {
                         <button onclick="openEditUserModal(${u.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit User">
                             <i data-lucide="edit-2" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="confirmDeleteUser(${u.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete User">
+                        <!-- DELETE DISABLED IN JS: Removed onclick and added disabled class/attribute -->
+                        <button disabled class="p-1.5 bg-slate-800/50 text-slate-600 cursor-not-allowed rounded-md border border-slate-700" title="Delete Disabled">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -152,7 +148,7 @@ function renderUsersTable() {
     if(window.lucide) window.lucide.createIcons();
 }
 
-// === VIEW LOGIC (Fixed Layout) ===
+// === VIEW LOGIC ===
 window.openViewUserModal = function(id) {
     const user = allUsers.find(u => u.id === id);
     if (!user) return;
@@ -161,35 +157,16 @@ window.openViewUserModal = function(id) {
         <div class="grid grid-cols-2 gap-x-4 gap-y-6 text-sm">
             <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Full Name</span><span class="text-white font-medium text-base">${user.full_name}</span></div>
             <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Matricule</span><span class="text-white font-mono bg-slate-800 px-2 py-0.5 rounded">${user.matricule}</span></div>
-            
             <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Role</span><span class="text-blue-400 font-bold">${user.role ? user.role.name.toUpperCase() : 'N/A'}</span></div>
             <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Status</span><span class="${user.is_active ? 'text-green-400' : 'text-red-400'} font-medium">${user.is_active ? 'Active' : 'Inactive'}</span></div>
-            
-            <!-- FIXED: Email spans full width to prevent overlap -->
-            <div class="col-span-2 border-t border-slate-700/50 pt-3">
-                <span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Email Address</span>
-                <span class="text-white break-all">${user.email}</span>
-            </div>
-            
-            <div class="col-span-2">
-                <span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Phone Number</span>
-                <span class="text-slate-300">${user.telephone || '-'}</span>
-            </div>
-
-            <div class="col-span-2 border-t border-slate-700/50 pt-3">
-                <span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Organization</span>
-                <div class="flex items-center gap-2">
-                    <span class="text-white font-medium">${user.agency ? user.agency.agency_name : '-'}</span> 
-                    <span class="text-slate-600">/</span> 
-                    <span class="text-slate-400">${user.service ? user.service.service_name : '-'}</span>
-                </div>
-            </div>
+            <div class="col-span-2 border-t border-slate-700/50 pt-3"><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Email Address</span><span class="text-white break-all">${user.email}</span></div>
+            <div class="col-span-2"><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Phone Number</span><span class="text-slate-300">${user.telephone || '-'}</span></div>
+            <div class="col-span-2 border-t border-slate-700/50 pt-3"><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Organization</span><div class="flex items-center gap-2"><span class="text-white font-medium">${user.agency ? user.agency.agency_name : '-'}</span> <span class="text-slate-600">/</span> <span class="text-slate-400">${user.service ? user.service.service_name : '-'}</span></div></div>
         </div>
     `;
     
     const viewContent = getUserEl('viewUserContent');
     if (viewContent) viewContent.innerHTML = content;
-    
     const modal = getUserEl('viewUserModal');
     if (modal) modal.classList.remove('hidden');
 }
@@ -216,13 +193,7 @@ window.openEditUserModal = function(id) {
 
     const modal = getUserEl('editUserModal');
     if (modal) modal.classList.remove('hidden');
-    
     if(window.lucide) window.lucide.createIcons();
-}
-
-window.closeEditUserModal = function() { 
-    const modal = getUserEl('editUserModal');
-    if (modal) modal.classList.add('hidden'); 
 }
 
 window.closeModal = function(id) { 
@@ -230,6 +201,7 @@ window.closeModal = function(id) {
     if (modal) modal.classList.add('hidden'); 
 }
 
+// FIX: Improved update logic to ensure service_id and agency_id work
 window.saveUserChanges = async function() {
     const editIdEl = getUserEl('editUserId');
     const roleEl = getUserEl('editUserRoleSelect');
@@ -239,114 +211,84 @@ window.saveUserChanges = async function() {
     const activeEl = getUserEl('editUserActive');
     const btn = getUserEl('btnSaveUser');
     
-    if (!btn) return;
+    if (!btn || !editIdEl.value) return;
     
-    const id = editIdEl ? editIdEl.value : '';
-    const roleId = roleEl ? roleEl.value : '';
-    const agencyId = agencyEl ? agencyEl.value : '';
-    const serviceId = serviceEl ? serviceEl.value : '';
-    const phone = phoneEl ? phoneEl.value : '';
-    const isActive = activeEl ? activeEl.checked : false;
+    const id = editIdEl.value;
+
+    // Helper to safely parse numbers (avoids NaN which breaks Pydantic)
+    const safeParse = (val) => {
+        const p = parseInt(val);
+        return isNaN(p) ? null : p;
+    };
 
     const payload = {
-        role_id: parseInt(roleId),
-        agency_id: parseInt(agencyId),
-        service_id: parseInt(serviceId),
-        telephone: phone,
-        is_active: isActive
+        role_id: safeParse(roleEl.value),
+        agency_id: safeParse(agencyEl.value),
+        service_id: safeParse(serviceEl.value),
+        telephone: phoneEl ? phoneEl.value.trim() : '',
+        is_active: activeEl ? activeEl.checked : false
     };
+
+    // Clean payload: Remove nulls so we don't try to send null to required DB fields
+    Object.keys(payload).forEach(key => payload[key] === null && delete payload[key]);
 
     const originalText = btn.innerHTML;
     btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...`;
     btn.disabled = true;
-    if(window.lucide) window.lucide.createIcons();
 
     try {
         const result = await window.fetchWithAuth(`/users/${id}`, 'PUT', payload);
+        
         if (result && !result.detail) {
+            // Update local state immediately so UI refreshes
+            const idx = allUsers.findIndex(u => u.id == id);
+            if (idx !== -1) allUsers[idx] = result;
+            
             window.closeModal('editUserModal');
-            await loadUsersData();
-            // Optional success feedback
+            renderUsersTable();
         } else {
             const msg = result && result.detail ? JSON.stringify(result.detail) : "Unknown error";
             alert("Update Failed:\n" + msg);
         }
     } catch (e) {
         alert("System Error: " + e.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        if(window.lucide) window.lucide.createIcons();
     }
-
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-    if(window.lucide) window.lucide.createIcons();
 }
 
+// DELETE DISABLED: Logic commented out to prevent execution
 window.confirmDeleteUser = function(id) {
-    deleteTargetId = id;
-    
-    const titleEl = getUserEl('confirmTitle');
-    const messageEl = getUserEl('confirmMessage');
-    const btn = getUserEl('btnConfirmAction');
-    const modal = getUserEl('confirmModal');
-    
-    if (!modal) return;
-    
-    if (titleEl) titleEl.innerText = "Delete User?";
-    if (messageEl) messageEl.innerText = "This action cannot be undone. Are you sure?";
-    
-    if (btn) {
-        btn.onclick = performDelete;
-        btn.innerHTML = "Delete";
-        btn.className = "btn-danger w-full"; 
-    }
-    
-    modal.classList.remove('hidden');
+    console.warn("Delete functionality is currently disabled.");
+    alert("User deletion is disabled for security reasons.");
+    return false;
 }
 
 async function performDelete() {
-    if(!deleteTargetId) return;
-    
-    const btn = getUserEl('btnConfirmAction');
-    if (!btn) return;
-    
-    btn.innerHTML = "Deleting...";
-    btn.disabled = true;
-
-    try {
-        const result = await window.fetchWithAuth(`/users/${deleteTargetId}`, 'DELETE');
-        window.closeModal('confirmModal');
-        if (result !== null) await loadUsersData();
-        else alert("Failed to delete user.");
-    } catch(e) {
-        window.closeModal('confirmModal');
-        alert("Error: " + e.message);
-    }
-    
-    btn.disabled = false;
-    deleteTargetId = null;
+    return false; // Action disabled
 }
 
 function populateSelect(elementId, items, selectedValue, labelKey) {
     const el = getUserEl(elementId);
     if (!el) return;
     if(!items || items.length === 0) { 
-        el.innerHTML = '<option disabled>No options</option>'; 
+        el.innerHTML = '<option value="">No options</option>'; 
         return; 
     }
     el.innerHTML = items.map(item => {
-        const isSelected = item.id === selectedValue ? 'selected' : '';
+        const isSelected = item.id == selectedValue ? 'selected' : '';
         const label = item[labelKey] || item.name || item.id; 
         return `<option value="${item.id}" ${isSelected}>${label}</option>`;
     }).join('');
 }
 
-// Helper to inject modals dynamically so users.html stays clean
 function injectUserModals() {
-    // Check if modal already exists in either container
     const existingModal = getUserEl('editUserModal') || document.getElementById('editUserModal');
-    if(existingModal) return; // Already injected
+    if(existingModal) return;
 
     const modalHTML = `
-    <!-- 1. EDIT USER MODAL -->
     <div id="editUserModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
             <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
@@ -379,8 +321,6 @@ function injectUserModals() {
             </div>
         </div>
     </div>
-
-    <!-- 2. VIEW USER MODAL -->
     <div id="viewUserModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
             <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
@@ -388,36 +328,15 @@ function injectUserModals() {
                 <button onclick="closeModal('viewUserModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-6" id="viewUserContent"></div>
-            <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-                <button onclick="closeModal('viewUserModal')" class="btn-secondary">Close</button>
-            </div>
+            <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end"><button onclick="closeModal('viewUserModal')" class="btn-secondary">Close</button></div>
         </div>
     </div>
-
-    <!-- 3. CONFIRM MODAL -->
-    <div id="confirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
-            <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500"><i data-lucide="alert-triangle" class="w-6 h-6"></i></div>
-            <h3 class="text-lg font-bold text-white mb-2" id="confirmTitle">Confirm</h3>
-            <p class="text-slate-400 text-sm mb-6" id="confirmMessage">Are you sure?</p>
-            <div class="flex gap-3 justify-center">
-                <button onclick="closeModal('confirmModal')" class="btn-secondary w-full">Cancel</button>
-                <button id="btnConfirmAction" class="btn-danger w-full">Confirm</button>
-            </div>
-        </div>
-    </div>
-    
     <style>
         .label-text { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 0.25rem; }
         .input-field { width: 100%; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; outline: none; }
-        .input-field:focus { border-color: #3b82f6; }
         .input-disabled { width: 100%; background: #0f172a; border: 1px solid #1e293b; color: #94a3b8; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; cursor: not-allowed; }
-        .btn-primary { background: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-secondary { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: all 0.2s; }
-        .btn-secondary:hover { border-color: #94a3b8; color: white; }
-        .btn-danger { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: background 0.2s; }
-        .btn-danger:hover { background: #dc2626; }
+        .btn-primary { background: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; display: flex; align-items: center; }
+        .btn-secondary { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 0.5rem 1rem; border-radius: 0.5rem; }
     </style>
     `;
     
@@ -426,7 +345,6 @@ function injectUserModals() {
     document.body.appendChild(container);
 }
 
-// Initialize on page load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initUsers);
 } else {
