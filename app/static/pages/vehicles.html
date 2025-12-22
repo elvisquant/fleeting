@@ -7,7 +7,7 @@
         </div>
         
         <!-- BULK VERIFY BUTTON -->
-        <button id="btnVehicleBulkVerify" onclick="reqVehicleBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
+        <button id="btnVehicleBulkVerify" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
             <i data-lucide="check-circle-2" class="w-4 h-4"></i>
             <span><span data-i18n="btn_verify_selected">Verify Selected</span> (<span id="vehicleSelectedCount">0</span>)</span>
         </button>
@@ -15,15 +15,15 @@
     
     <div class="flex items-center gap-3">
         <div class="flex bg-slate-800/50 rounded-lg p-1 border border-white/5">
-            <button onclick="exportVehiclesExcel()" class="p-2 hover:bg-white/10 rounded-md text-green-400 transition" title="Export Excel">
+            <button id="exportExcelBtn" class="p-2 hover:bg-white/10 rounded-md text-green-400 transition" title="Export Excel">
                 <i data-lucide="sheet" class="w-4 h-4"></i>
             </button>
-            <button onclick="exportVehiclesPDF()" class="p-2 hover:bg-white/10 rounded-md text-red-400 transition" title="Export PDF">
+            <button id="exportPdfBtn" class="p-2 hover:bg-white/10 rounded-md text-red-400 transition" title="Export PDF">
                 <i data-lucide="file-text" class="w-4 h-4"></i>
             </button>
         </div>
         
-        <button onclick="openAddVehicleModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
+        <button id="btnAddVehicle" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
             <i data-lucide="plus" class="w-4 h-4"></i>
             <span data-i18n="btn_add_vehicle">Add Vehicle</span>
         </button>
@@ -88,7 +88,7 @@
                 <h3 class="text-lg font-bold text-white" id="vehicleModalTitle" data-i18n="btn_add_vehicle">Add Vehicle</h3>
                 <p class="text-xs text-slate-400" data-i18n="lbl_manage_fleet">Enter technical specifications.</p>
             </div>
-            <button onclick="closeModal('addVehicleModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
+            <button data-close-modal="addVehicleModal" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -136,8 +136,8 @@
         </div>
 
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeModal('addVehicleModal')" class="btn-secondary" data-i18n="btn_cancel">Cancel</button>
-            <button id="btnSaveVehicle" onclick="saveVehicle()" class="btn-primary">
+            <button data-close-modal="addVehicleModal" class="btn-secondary" data-i18n="btn_cancel">Cancel</button>
+            <button id="btnSaveVehicle" class="btn-primary">
                 <i data-lucide="save" class="w-4 h-4 mr-2"></i> <span data-i18n="btn_save">Save Vehicle</span>
             </button>
         </div>
@@ -149,11 +149,11 @@
     <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
             <h3 class="text-lg font-bold text-white" data-i18n="lbl_vehicle_details">Vehicle Details</h3>
-            <button onclick="closeModal('viewVehicleModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <button data-close-modal="viewVehicleModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="p-6 overflow-y-auto" id="viewVehicleContent"></div>
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-             <button onclick="closeModal('viewVehicleModal')" class="btn-secondary" data-i18n="btn_close">Close</button>
+            <button data-close-modal="viewVehicleModal" class="btn-secondary" data-i18n="btn_close">Close</button>
         </div>
     </div>
 </div>
@@ -167,7 +167,7 @@
         <h3 class="text-lg font-bold text-white mb-2" id="vehicleConfirmTitle" data-i18n="btn_confirm">Confirm Action</h3>
         <p class="text-slate-400 text-sm mb-6" id="vehicleConfirmMessage">Are you sure?</p>
         <div class="flex gap-3 justify-center">
-            <button onclick="closeModal('vehicleConfirmModal')" class="btn-secondary w-full" data-i18n="btn_cancel">Cancel</button>
+            <button data-close-modal="vehicleConfirmModal" class="btn-secondary w-full" data-i18n="btn_cancel">Cancel</button>
             <button id="btnVehicleConfirmAction" class="btn-danger w-full" data-i18n="btn_confirm">Confirm</button>
         </div>
     </div>
@@ -179,9 +179,12 @@
         <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" id="vehicleAlertIcon"></div>
         <h3 class="text-lg font-bold text-white mb-2" id="vehicleAlertTitle"></h3>
         <p class="text-slate-400 text-sm mb-6" id="vehicleAlertMessage"></p>
-        <button onclick="closeModal('vehicleAlertModal')" class="btn-primary w-full" data-i18n="btn_close">OK</button>
+        <button data-close-modal="vehicleAlertModal" class="btn-primary w-full" data-i18n="btn_close">OK</button>
     </div>
 </div>
+
+<!-- Toast container (needed for showVehicleToast function) -->
+<div id="vehicle-toast-container" class="fixed top-4 right-4 z-[80] space-y-2 max-w-md"></div>
 
 <style>
     .label-text { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 0.25rem; }
@@ -194,3 +197,18 @@
     .btn-danger { background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: background 0.2s; }
     .btn-danger:hover { background: #dc2626; }
 </style>
+
+<script>
+    // Add inline click handlers that call the module functions
+    document.addEventListener('DOMContentLoaded', function() {
+        // Attach click handlers for buttons that need module functions
+        const addVehicleBtn = document.getElementById('btnAddVehicle');
+        if (addVehicleBtn) {
+            addVehicleBtn.addEventListener('click', function() {
+                if (window.vehiclesModule && window.vehiclesModule.openAddVehicleModal) {
+                    window.vehiclesModule.openAddVehicleModal();
+                }
+            });
+        }
+    });
+</script>

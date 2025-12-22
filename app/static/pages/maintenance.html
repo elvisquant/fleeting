@@ -7,13 +7,13 @@
         </div>
         
         <!-- BULK VERIFY BUTTON -->
-        <button id="btnMaintBulkVerify" onclick="executeMaintBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
+        <button id="btnMaintBulkVerify" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
             <i data-lucide="check-circle-2" class="w-4 h-4"></i>
             <span><span data-i18n="btn_verify_selected">Verify Selected</span> (<span id="maintSelectedCount">0</span>)</span>
         </button>
     </div>
 
-    <button onclick="openAddMaintModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
+    <button id="btnAddMaintenance" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
         <i data-lucide="plus" class="w-4 h-4"></i>
         <span data-i18n="btn_log_maintenance">Log Maintenance</span>
     </button>
@@ -45,16 +45,12 @@
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/40">
-                    <!-- Checkbox Header -->
                     <th class="p-4 w-10">
                         <input type="checkbox" id="selectAllMaint" class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">
                     </th>
                     <th class="p-4 font-semibold" data-i18n="col_plate">Vehicle</th>
                     <th class="p-4 font-semibold" data-i18n="col_category">Category</th>
-                    
-                    <!-- FIX: Added Missing Garage Column -->
                     <th class="p-4 font-semibold" data-i18n="col_garage">Garage</th>
-                    
                     <th class="p-4 font-semibold text-right" data-i18n="col_cost">Cost</th>
                     <th class="p-4 font-semibold" data-i18n="col_status">Status</th>
                     <th class="p-4 font-semibold" data-i18n="col_date">Date</th>
@@ -81,7 +77,7 @@
             <div>
                 <h3 class="text-lg font-bold text-white" id="maintModalTitle" data-i18n="btn_log_maintenance">Log Maintenance</h3>
             </div>
-            <button onclick="closeModal('addMaintModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
+            <button data-close-modal="addMaintModal" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -126,8 +122,8 @@
         </div>
 
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeModal('addMaintModal')" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition" data-i18n="btn_cancel">Cancel</button>
-            <button id="btnSaveMaint" onclick="saveMaintenance()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
+            <button data-close-modal="addMaintModal" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition" data-i18n="btn_cancel">Cancel</button>
+            <button id="btnSaveMaint" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
                 <i data-lucide="plus" class="w-4 h-4"></i> <span data-i18n="btn_save">Save</span>
             </button>
         </div>
@@ -139,16 +135,16 @@
     <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
             <h3 class="text-lg font-bold text-white" data-i18n="maintenance">Record Details</h3>
-            <button onclick="closeModal('viewMaintModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <button data-close-modal="viewMaintModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="p-6 text-sm space-y-4" id="viewMaintContent"></div>
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-            <button onclick="closeModal('viewMaintModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg" data-i18n="btn_close">Close</button>
+            <button data-close-modal="viewMaintModal" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg" data-i18n="btn_close">Close</button>
         </div>
     </div>
 </div>
 
-<!-- CONFIRM MODAL (Customized) -->
+<!-- CONFIRM MODAL -->
 <div id="maintConfirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
         <div class="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4 text-blue-500" id="maintConfirmIcon">
@@ -157,8 +153,11 @@
         <h3 class="text-lg font-bold text-white mb-2" id="maintConfirmTitle" data-i18n="btn_confirm">Confirm Action</h3>
         <p class="text-slate-400 text-sm mb-6" id="maintConfirmMessage">Are you sure?</p>
         <div class="flex gap-3 justify-center">
-            <button onclick="closeModal('maintConfirmModal')" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full" data-i18n="btn_cancel">Cancel</button>
+            <button data-close-modal="maintConfirmModal" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full" data-i18n="btn_cancel">Cancel</button>
             <button id="btnMaintConfirmAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm w-full font-medium" data-i18n="btn_confirm">Confirm</button>
         </div>
     </div>
 </div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm"></div>

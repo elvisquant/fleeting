@@ -6,7 +6,7 @@
         <h2 class="text-2xl font-bold text-white tracking-tight" data-i18n="requests">Vehicle Requests</h2>
         <p class="text-slate-400 text-sm mt-1" data-i18n="manage_desc">Manage missions and approval workflows.</p>
     </div>
-    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
+    <button onclick="window.requestsModule.openAddModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
         <i data-lucide="plus" class="w-4 h-4"></i>
         <span data-i18n="new_request">New Request</span>
     </button>
@@ -66,7 +66,7 @@
     <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
             <h3 class="text-lg font-bold text-white" data-i18n="new_request">New Vehicle Request</h3>
-            <button onclick="closeModal('addRequestModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <button data-close-modal="addRequestModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="p-6 space-y-5">
             <div>
@@ -94,8 +94,8 @@
             </div>
         </div>
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeModal('addRequestModal')" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition" data-i18n="btn_cancel">Cancel</button>
-            <button id="btnSaveReq" onclick="saveRequest()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg flex items-center gap-2">
+            <button data-close-modal="addRequestModal" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition" data-i18n="btn_cancel">Cancel</button>
+            <button id="btnSaveReq" onclick="window.requestsModule.saveRequest()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg flex items-center gap-2">
                 <i data-lucide="send" class="w-4 h-4"></i> <span data-i18n="btn_save">Submit Request</span>
             </button>
         </div>
@@ -107,7 +107,7 @@
     <div class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
             <h3 class="text-lg font-bold text-white" data-i18n="request_details">Request Details</h3>
-            <button onclick="closeModal('viewRequestModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <button data-close-modal="viewRequestModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         
         <div class="p-6 text-sm space-y-6" id="viewRequestContent">
@@ -116,7 +116,7 @@
 
         <!-- Approval Actions Footer (Dynamic) -->
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3" id="approvalActionsFooter">
-            <button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg" data-i18n="btn_close">Close</button>
+            <button data-close-modal="viewRequestModal" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg" data-i18n="btn_close">Close</button>
         </div>
     </div>
 </div>
@@ -136,8 +136,8 @@
         </div>
 
         <div class="flex gap-3 justify-center">
-            <button onclick="closeModal('approvalModal')" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full" data-i18n="btn_cancel">Cancel</button>
-            <button id="btnExecuteApproval" class="px-4 py-2 text-white rounded-lg text-sm w-full font-medium shadow-lg" data-i18n="btn_confirm">Confirm</button>
+            <button data-close-modal="approvalModal" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full" data-i18n="btn_cancel">Cancel</button>
+            <button id="btnExecuteApproval" onclick="window.requestsModule.executeApprovalDecision()" class="px-4 py-2 text-white rounded-lg text-sm w-full font-medium shadow-lg" data-i18n="btn_confirm">Confirm</button>
         </div>
     </div>
 </div>
@@ -149,7 +149,7 @@
             <h3 class="text-lg font-bold text-white flex items-center gap-2">
                 <i data-lucide="steering-wheel" class="w-5 h-5 text-blue-500"></i> <span data-i18n="btn_assign">Assign Resources</span>
             </h3>
-            <button onclick="closeModal('assignmentModal')" class="text-slate-400 hover:text-white transition">
+            <button data-close-modal="assignmentModal" class="text-slate-400 hover:text-white transition">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -173,20 +173,13 @@
             </div>
         </div>
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeModal('assignmentModal')" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition" data-i18n="btn_cancel">Cancel</button>
-            <button id="btnExecuteAssign" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg flex items-center gap-2">
+            <button data-close-modal="assignmentModal" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition" data-i18n="btn_cancel">Cancel</button>
+            <button id="btnExecuteAssign" onclick="window.requestsModule.executeAssignment()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg flex items-center gap-2">
                 <i data-lucide="save" class="w-4 h-4"></i> <span data-i18n="btn_save">Save</span>
             </button>
         </div>
     </div>
 </div>
 
-<!-- 5. ALERT MODAL -->
-<div id="reqAlertModal" class="fixed inset-0 z-[90] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
-        <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" id="reqAlertIcon"></div>
-        <h3 class="text-lg font-bold text-white mb-2" id="reqAlertTitle"></h3>
-        <p class="text-slate-400 text-sm mb-6" id="reqAlertMessage"></p>
-        <button onclick="closeModal('reqAlertModal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm w-full" data-i18n="btn_close">OK</button>
-    </div>
-</div>
+<!-- Toast Container for notifications -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-md"></div>

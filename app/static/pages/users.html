@@ -5,11 +5,20 @@
         <p class="text-slate-400 text-sm mt-1" data-i18n="lbl_control_access">Control access, roles, and operational status.</p>
     </div>
     
-    <!-- INVITE BUTTON -->
-    <button onclick="alert(window.t('msg_invite_alert'))" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
-        <i data-lucide="user-plus" class="w-4 h-4"></i>
-        <span data-i18n="btn_invite_user">Invite User</span>
-    </button>
+    <!-- THEME TOGGLE AND INVITE BUTTON CONTAINER -->
+    <div class="flex items-center gap-3">
+        <!-- THEME TOGGLE BUTTON (Added based on users.js) -->
+        <button id="theme-toggle-header" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition">
+            <!-- Icon will be dynamically set by JavaScript -->
+            <i data-lucide="sun" class="w-5 h-5"></i>
+        </button>
+        
+        <!-- INVITE BUTTON -->
+        <button onclick="alert(window.t('msg_invite_alert'))" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span data-i18n="btn_invite_user">Invite User</span>
+        </button>
+    </div>
 </div>
 
 <!-- FILTERS -->
@@ -46,8 +55,10 @@
                 </tr>
             </thead>
             <tbody id="usersBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
+                <!-- Content will be dynamically populated by JavaScript -->
                 <tr><td colspan="5" class="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
-                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> <span data-i18n="msg_loading">Loading...</span>
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> 
+                    <span data-i18n="msg_loading">Loading...</span>
                 </td></tr>
             </tbody>
         </table>
@@ -56,3 +67,6 @@
         <span class="text-xs text-slate-500" id="usersCount">0 users found</span>
     </div>
 </div>
+
+<!-- TOAST CONTAINER (Added based on users.js showUserToast function) -->
+<div id="user-toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-full"></div>

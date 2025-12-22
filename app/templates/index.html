@@ -174,6 +174,14 @@
 </head>
 <body class="antialiased">
 
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            <p class="mt-4 text-white" data-i18n="msg_loading">Loading...</p>
+        </div>
+    </div>
+
     <!-- Desktop Layout -->
     <div class="desktop-layout hidden md:flex">
         <!-- Desktop Sidebar -->
@@ -387,6 +395,63 @@
 
 <!-- LOGIC -->
 <script>
+    // ==========================================
+    // GLOBAL AUTH FETCH FUNCTION
+    // ==========================================
+    window.fetchWithAuth = async function(url, options = {}) {
+        const token = localStorage.getItem('access_token');
+        
+        if (!token) {
+            window.location.href = '/login.html';
+            throw new Error('No authentication token');
+        }
+        
+        const defaultOptions = {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Accept-Language': localStorage.getItem('lang') || 'en'
+            }
+        };
+        
+        const mergedOptions = {
+            ...defaultOptions,
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...(options.headers || {})
+            }
+        };
+        
+        try {
+            const response = await fetch(url, mergedOptions);
+            
+            if (response.status === 401) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_data');
+                localStorage.removeItem('username');
+                localStorage.removeItem('user_role');
+                window.location.href = '/login.html';
+                throw new Error('Session expired');
+            }
+            
+            return response;
+        } catch (error) {
+            console.error('Fetch error:', error);
+            throw error;
+        }
+    };
+    
+    // Global error handler for fetchWithAuth
+    window.handleApiError = function(error) {
+        console.error('API Error:', error);
+        return null;
+    };
+    
+    // ==========================================
+    // MAIN APPLICATION LOGIC
+    // ==========================================
     const API_BASE = '/api/v1'; 
     const token = localStorage.getItem('access_token');
     if(!token) window.location.href = '/';
@@ -1073,7 +1138,19 @@
         setActiveBottomNav(targetPage);
     });
 
+    // Hide loading spinner when everything is loaded
+    window.addEventListener('load', function() {
+        setTimeout(() => {
+            const spinner = document.getElementById('loading-spinner');
+            if (spinner) {
+                spinner.style.opacity = '0';
+                setTimeout(() => spinner.style.display = 'none', 300);
+            }
+        }, 500);
+    });
+
 </script>
+
 <!-- These libraries helps to generate reports(pdf/excel) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
