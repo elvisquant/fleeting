@@ -2,197 +2,254 @@
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch, cm
-from reportlab.graphics.shapes import Drawing, Circle, String
-from reportlab.graphics import renderPDF
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from io import BytesIO
 from datetime import datetime
 import hashlib
-
-def draw_digital_stamp(canvas, x, y):
-    """Draws a vector-based 'Official Stamp' on the PDF"""
-    canvas.saveState()
-    canvas.setStrokeColor(colors.darkblue)
-    canvas.setLineWidth(2)
-    
-    # Outer Circle
-    canvas.circle(x, y, 40, stroke=1, fill=0)
-    # Inner Circle
-    canvas.setLineWidth(1)
-    canvas.circle(x, y, 35, stroke=1, fill=0)
-    
-    # Text inside stamp
-    canvas.setFont("Helvetica-Bold", 8)
-    canvas.setFillColor(colors.darkblue)
-    canvas.drawCentredString(x, y + 25, "FLEET MANAGEMENT")
-    canvas.drawCentredString(x, y - 28, "OFFICIAL APPROVAL")
-    
-    # Date
-    canvas.setFont("Helvetica-Bold", 10)
-    canvas.setFillColor(colors.red)
-    canvas.drawCentredString(x, y - 3, "APPROVED")
-    
-    date_str = datetime.now().strftime("%d/%m/%Y")
-    canvas.setFont("Helvetica", 8)
-    canvas.setFillColor(colors.black)
-    canvas.drawCentredString(x, y - 12, date_str)
-    
-    canvas.restoreState()
+import os
 
 def generate_mission_order_pdf(request, approver_name, passenger_details):
     """
-    Generates an official Mission Order PDF.
-    passenger_details: List of User objects (from DB) corresponding to matricules.
+    Generates the official Mission Order PDF for BANQUE DE LA REPUBLIQUE DU BURUNDI.
+    This is the exact format as shown in the example document.
     """
     buffer = BytesIO()
     
-    # Define a custom page creation function to allow absolute positioning (for the stamp)
-    def add_header_footer_stamp(canvas, doc):
+    def add_letterhead(canvas, doc):
+        """Adds the official bank letterhead"""
         canvas.saveState()
         
-        # 1. Header Line
-        canvas.setLineWidth(2)
+        # Bank header
+        canvas.setFont("Helvetica-Bold", 16)
+        canvas.setFillColor(colors.black)
+        canvas.drawCentredString(A4[0]/2, 810, "BANQUE DE LA REPUBLIQUE")
+        canvas.drawCentredString(A4[0]/2, 790, "DU BURUNDI")
+        
+        # Separator line
+        canvas.setLineWidth(1)
+        canvas.line(50, 775, A4[0]-50, 775)
+        
+        # Department
+        canvas.setFont("Helvetica-Bold", 12)
+        canvas.drawCentredString(A4[0]/2, 755, "DIRECTION DE L'ADMINISTRATION,")
+        canvas.drawCentredString(A4[0]/2, 740, "ET RESSOURCES HUMAINES")
+        
+        # Service
+        canvas.setFont("Helvetica-Bold", 11)
+        canvas.drawCentredString(A4[0]/2, 720, "Service Logistique et Patrimoine.")
+        canvas.drawCentredString(A4[0]/2, 705, "Section Charroi")
+        
+        canvas.restoreState()
+    
+    def draw_official_stamp(canvas, x, y):
+        """Draws the official circular stamp"""
+        canvas.saveState()
+        
+        # Outer circle
         canvas.setStrokeColor(colors.darkblue)
-        canvas.line(0.5 * inch, 10.8 * inch, 7.8 * inch, 10.8 * inch)
+        canvas.setFillColor(colors.white)
+        canvas.setLineWidth(2)
+        canvas.circle(x, y, 40, stroke=1, fill=0)
         
-        # 2. Watermark (Optional, light grey)
-        canvas.setFont("Helvetica-Bold", 60)
-        canvas.setFillColorRGB(0.9, 0.9, 0.9)
+        # Inner circle
+        canvas.setLineWidth(1)
+        canvas.circle(x, y, 35, stroke=1, fill=0)
+        
+        # Stamp text
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.setFillColor(colors.darkblue)
+        canvas.drawCentredString(x, y + 12, "OFFICIEL")
+        canvas.drawCentredString(x, y + 4, "BANQUE DE LA")
+        canvas.drawCentredString(x, y - 4, "RÉPUBLIQUE")
+        canvas.drawCentredString(x, y - 12, "DU BURUNDI")
+        
+        # Year in center
+        current_year = datetime.now().strftime("%Y")
+        canvas.setFont("Helvetica-Bold", 10)
+        canvas.setFillColor(colors.red)
+        canvas.drawCentredString(x, y - 22, current_year)
+        
+        canvas.restoreState()
+    
+    def draw_signature_block(canvas, x, y, name, title):
+        """Draws a signature block with line"""
         canvas.saveState()
-        canvas.translate(4 * inch, 5 * inch)
-        canvas.rotate(45)
-        canvas.drawCentredString(0, 0, "OFFICIAL MISSION")
-        canvas.restoreState()
         
-        # 3. Footer
-        canvas.setFont("Helvetica", 8)
-        canvas.setFillColor(colors.gray)
-        canvas.drawString(0.5 * inch, 0.5 * inch, f"Generated by FleetDash System | ID: {request.id} | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        canvas.drawRightString(7.8 * inch, 0.5 * inch, f"Page {doc.page}")
+        # Horizontal line for signature
+        canvas.setStrokeColor(colors.black)
+        canvas.setLineWidth(1)
+        canvas.line(x, y, x + 200, y)
+        
+        # Name
+        canvas.setFont("Helvetica-Bold", 10)
+        canvas.setFillColor(colors.black)
+        canvas.drawString(x, y - 15, name)
+        
+        # Title
+        canvas.setFont("Helvetica-Oblique", 9)
+        canvas.drawString(x, y - 30, title)
         
         canvas.restoreState()
-
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=60, bottomMargin=40)
+    
+    # Create PDF document
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        rightMargin=40, 
+        leftMargin=40, 
+        topMargin=50, 
+        bottomMargin=40
+    )
     elements = []
     styles = getSampleStyleSheet()
-
-    # --- TITLE ---
-    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=20, alignment=1, spaceAfter=10, textColor=colors.darkblue)
-    elements.append(Paragraph("ORDRE DE MISSION / MISSION ORDER", title_style))
-    elements.append(Paragraph(f"<b>Reference:</b> REQ-{datetime.now().year}-{request.id:05d}", styles['Normal']))
+    
+    # Custom styles
+    normal_style = ParagraphStyle(
+        'NormalFR',
+        parent=styles['Normal'],
+        fontSize=11,
+        leading=14,
+        fontName='Helvetica'
+    )
+    
+    bold_style = ParagraphStyle(
+        'BoldFR',
+        parent=styles['Normal'],
+        fontSize=11,
+        leading=14,
+        fontName='Helvetica-Bold'
+    )
+    
+    title_style = ParagraphStyle(
+        'TitleFR',
+        parent=styles['Normal'],
+        fontSize=16,
+        leading=20,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold',
+        spaceAfter=30
+    )
+    
+    small_style = ParagraphStyle(
+        'SmallFR',
+        parent=styles['Normal'],
+        fontSize=9,
+        leading=11,
+        fontName='Helvetica'
+    )
+    
+    # --- DOCUMENT CONTENT ---
+    
+    # Mission Order Number (centered)
+    order_number = f"ORDRE DE MISSION n°{datetime.now().year}/{request.id}"
+    elements.append(Paragraph(order_number, title_style))
+    elements.append(Spacer(1, 40))
+    
+    # Mission details paragraph (exact format from example)
+    vehicle_info = request.vehicle.plate_number if request.vehicle else "[PLAQUE]"
+    destination = request.destination if request.destination else "[DESTINATION]"
+    departure_date = request.departure_time.strftime('%d/%m/%Y') if request.departure_time else "[DATE]"
+    return_date = request.return_time.strftime('%d/%m/%Y') if request.return_time else "[DATE]"
+    driver_name = request.driver.full_name if request.driver else "[NOM CHAUFFEUR]"
+    
+    mission_text = f"""
+    <para>
+    Pour des raisons de service, le véhicule <b>{vehicle_info}</b> est autorisé à effectuer 
+    une mission aller et retour à <b>{destination}</b> en date du <b>{departure_date}</b>.
+    </para>
+    
+    <para>
+    Pour la(les) personne(s) à bord la mission s'étend du <b>{departure_date}</b> au <b>{return_date}</b>.
+    </para>
+    
+    <para>
+    Ledit véhicule est conduit par le chauffeur <b>{driver_name}</b>.
+    </para>
+    """
+    elements.append(Paragraph(mission_text, normal_style))
     elements.append(Spacer(1, 20))
-
-    # --- MISSION DETAILS ---
-    elements.append(Paragraph("1. Mission Details", styles['Heading3']))
     
-    fmt = "%d %b %Y, %H:%M"
-    dep_str = request.departure_time.strftime(fmt) if request.departure_time else "N/A"
-    ret_str = request.return_time.strftime(fmt) if request.return_time else "N/A"
-    requester_name = request.requester.full_name if request.requester else "Unknown"
-    dept_name = request.requester.service.service_name if (request.requester and request.requester.service) else "N/A"
-
-    data = [
-        ["Mission ID", f"#{request.id}"],
-        ["Requester", requester_name],
-        ["Department / Service", dept_name],
-        ["Destination", request.destination],
-        ["Departure Date", dep_str],
-        ["Return Date", ret_str],
-        ["Vehicle", request.vehicle.plate_number if request.vehicle else "Not Assigned"],
-        ["Driver", request.driver.full_name if request.driver else "Self-Driven"],
-        ["Purpose", request.description or "Administrative Mission"]
-    ]
-
-    t = Table(data, colWidths=[2.5 * inch, 4 * inch])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.aliceblue),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'), # First col bold
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-    ]))
-    elements.append(t)
-    elements.append(Spacer(1, 20))
-
-    # --- PASSENGER MANIFEST ---
-    elements.append(Paragraph("2. Passenger Manifest", styles['Heading3']))
-    
-    # Table Header
-    pass_data = [["#", "Matricule", "Full Name", "Agency", "Service", "Role"]]
-    
-    # Populate Table with RICH data from the DB objects
-    if passenger_details:
-        for idx, user in enumerate(passenger_details, 1):
-            agency = user.agency.agency_name if user.agency else "-"
-            service = user.service.service_name if user.service else "-"
-            role = user.role.name if user.role else "-"
-            pass_data.append([
-                str(idx), 
-                user.matricule, 
-                user.full_name, 
-                agency, 
-                service, 
-                role
-            ])
+    # Passengers section
+    if passenger_details and len(passenger_details) > 0:
+        elements.append(Paragraph("Personnes à bord :", bold_style))
+        for passenger in passenger_details:
+            service_name = passenger.service.service_name if passenger.service else ""
+            passenger_line = f"    - <b>{passenger.full_name}</b>, de {service_name}."
+            elements.append(Paragraph(passenger_line, normal_style))
     else:
-        pass_data.append(["-", "-", "No additional passengers", "-", "-", "-"])
-
-    # Define column widths for passenger table
-    col_widths = [0.4*inch, 1.0*inch, 1.8*inch, 1.2*inch, 1.2*inch, 1.0*inch]
+        # Default: show requester as passenger
+        requester_name = request.requester.full_name if request.requester else "[NOM]"
+        requester_service = request.requester.service.service_name if (request.requester and request.requester.service) else "[SERVICE]"
+        elements.append(Paragraph("Personne à bord :", bold_style))
+        elements.append(Paragraph(f"    - <b>{requester_name}</b>, de {requester_service}.", normal_style))
     
-    t_pass = Table(pass_data, colWidths=col_widths)
-    t_pass.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue), # Header bg
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),     # Header text
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke])
-    ]))
-    elements.append(t_pass)
-    elements.append(Spacer(1, 30))
-
-    # --- SIGNATURE BLOCK ---
-    elements.append(Paragraph("3. Authorization", styles['Heading3']))
+    elements.append(Spacer(1, 20))
     
-    # Generate a "Digital Hash" for the signature
-    sig_hash = hashlib.sha256(f"{request.id}{approver_name}{datetime.now()}".encode()).hexdigest()[:16].upper()
+    # Mission purpose
+    purpose = request.description if request.description else "Mission de service."
+    elements.append(Paragraph(f"Objet de la mission : {purpose}", normal_style))
+    elements.append(Spacer(1, 60))
     
-    # Signature Table (Left: Text, Right: Space for Stamp)
-    sig_data = [[
-        f"""
-        <b>Status:</b> FULLY APPROVED
-        <br/><b>Approved By:</b> {approver_name}
-        <br/><b>Date:</b> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        <br/><b>Digital Signature ID:</b> <font color="blue">{sig_hash}</font>
-        <br/><br/>
-        <i>This document is digitally signed and valid without a physical signature.</i>
-        """,
-        "" # Placeholder for stamp
-    ]]
+    # Signature location and date
+    current_date = datetime.now().strftime('%d/%m/%Y')
+    elements.append(Paragraph(f"Fait à Bujumbura, le {current_date}", normal_style))
+    elements.append(Spacer(1, 80))
     
-    t_sig = Table(sig_data, colWidths=[4 * inch, 2.5 * inch])
-    t_sig.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-    ]))
-    elements.append(t_sig)
-
-    # Function to draw the stamp on the PDF after elements are placed
-    def on_page_end(canvas, doc):
-        add_header_footer_stamp(canvas, doc)
-        # Draw stamp roughly where the second column of the signature table is
-        # Coordinates need to be estimated or calculated. 
-        # For simplicity in reportlab flowables, we usually draw absolute or use a Flowable.
-        # Here we draw absolute at bottom right of the content area.
-        draw_digital_stamp(canvas, 6.5 * inch, 3.0 * inch)
-
-    doc.build(elements, onFirstPage=on_page_end, onLaterPages=on_page_end)
+    # Footer with contact info (smaller font)
+    footer_text = """
+    <para alignment="center">
+    1. Le cas de la Générationnelle, BP 706 Bujumbura<br/>
+    Tél.: (257) 22 20 40 00 / 22 27 44 74<br/>
+    Fax: (257) 22 27 31 38<br/>
+    Courriel: info@brb.bi
+    </para>
+    """
+    elements.append(Paragraph(footer_text, small_style))
+    
+    # Document tracking ID (very small, at bottom)
+    doc_hash = hashlib.sha256(f"BRB_MISSION_{request.id}_{datetime.now().timestamp()}".encode()).hexdigest()[:12].upper()
+    tracking_text = f'<para alignment="center" fontSize="6" color="gray">Réf: {doc_hash} | Système FleetDash</para>'
+    elements.append(Paragraph(tracking_text, small_style))
+    
+    def on_page(canvas, doc):
+        """Page rendering callback - adds stamp and signatures"""
+        # Add letterhead
+        add_letterhead(canvas, doc)
+        
+        # Draw official stamp at top-right
+        stamp_x = A4[0] - 100  # 100 points from right edge
+        stamp_y = 620          # Below the header
+        draw_official_stamp(canvas, stamp_x, stamp_y)
+        
+        # Draw signatures at bottom
+        # Left signature: Chef de Service
+        draw_signature_block(
+            canvas,
+            100,            # x position (from left)
+            200,            # y position from bottom
+            "Ingrid WUTONI",
+            "Chef de Service Logistique et Patrimoine"
+        )
+        
+        # Right signature: Directeur
+        draw_signature_block(
+            canvas,
+            A4[0] - 300,    # x position (from right)
+            200,            # y position from bottom
+            "Bienvenu NDAYISENGA",
+            "Directeur de l'Administration et Ressources Humaines"
+        )
+        
+        # Page number (very subtle)
+        canvas.setFont("Helvetica", 7)
+        canvas.setFillColor(colors.gray)
+        canvas.drawRightString(A4[0]-40, 30, f"1/1")
+    
+    # Build the PDF
+    doc.build(elements, onFirstPage=on_page)
     buffer.seek(0)
+    
     return buffer

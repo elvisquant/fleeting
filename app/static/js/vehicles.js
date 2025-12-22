@@ -12,26 +12,23 @@ let selectedVehicleIds = new Set();
 // MOBILE-COMPATIBLE ELEMENT GETTER
 // =================================================================
 function getVehicleEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
 // =================================================================
-// 1. INITIALIZATION - FIXED
+// 1. INITIALIZATION
 // =================================================================
 async function initVehicles() {
     console.log("Vehicles Module: Init");
     vehicleUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // Attach Listeners using mobile-compatible getter
+    // Attach Listeners
     const searchInput = getVehicleEl('vehicleSearch');
     const statusFilter = getVehicleEl('vehicleStatusFilter');
     const selectAll = getVehicleEl('selectAllVehicles');
@@ -42,9 +39,7 @@ async function initVehicles() {
     if(statusFilter) statusFilter.addEventListener('change', renderVehiclesTable);
     if(selectAll) selectAll.addEventListener('change', toggleVehicleSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executeVehicleConfirmAction);
-    if(bulkBtn) {
-        bulkBtn.onclick = reqVehicleBulkVerify;
-    }
+    if(bulkBtn) bulkBtn.onclick = reqVehicleBulkVerify;
 
     await Promise.all([loadVehiclesData(), fetchVehicleDropdowns()]);
 }
@@ -58,15 +53,13 @@ async function loadVehiclesData() {
     
     tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500">
         <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
-        <div class="text-sm mt-2">Loading vehicles...</div>
+        <div class="text-sm mt-2">${window.t('msg_loading')}</div>
     </td></tr>`;
     
     if(window.lucide) window.lucide.createIcons();
 
     try {
         const data = await window.fetchWithAuth('/vehicles/?limit=1000');
-        
-        // Handle pagination or list response
         const items = data.items || data;
         
         if (Array.isArray(items)) {
@@ -75,18 +68,18 @@ async function loadVehiclesData() {
             updateVehicleBulkUI();
             renderVehiclesTable();
         } else {
-            const msg = data && data.detail ? data.detail : "Failed to load data.";
-            showVehicleAlert("Error", msg, false);
+            const msg = data && data.detail ? data.detail : window.t('title_error');
+            showVehicleAlert(window.t('title_error'), msg, false);
             tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">
                 <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2 text-red-400"></i>
-                <div>Error loading vehicles</div>
+                <div>${window.t('title_error')}</div>
             </td></tr>`;
         }
     } catch (error) {
         console.error("Load vehicles error:", error);
         tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">
             <i data-lucide="wifi-off" class="w-8 h-8 mx-auto mb-2 text-red-400"></i>
-            <div>Network error. Please check connection.</div>
+            <div>${window.t('msg_connection_fail')}</div>
         </td></tr>`;
         if(window.lucide) window.lucide.createIcons();
     }
@@ -110,7 +103,7 @@ async function fetchVehicleDropdowns() {
         
     } catch (e) {
         console.warn("Dropdown Error", e);
-        showVehicleAlert("Warning", "Could not load all dropdown options", false);
+        showVehicleAlert(window.t('title_warning'), "Dropdown Error", false);
     }
 }
 
@@ -147,9 +140,8 @@ function renderVehiclesTable() {
     });
 
     const countEl = getVehicleEl('vehiclesCount');
-    if (countEl) countEl.innerText = `${filtered.length} vehicle${filtered.length !== 1 ? 's' : ''} found`;
+    if (countEl) countEl.innerText = `${filtered.length} ${window.t('vehicles')}`;
 
-    // Update Select All checkbox
     const selectAllCheckbox = getVehicleEl('selectAllVehicles');
     if (selectAllCheckbox) {
         selectAllCheckbox.checked = false;
@@ -159,7 +151,7 @@ function renderVehiclesTable() {
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">
             <i data-lucide="search" class="w-8 h-8 mx-auto mb-2 text-slate-500"></i>
-            <div>No vehicles found</div>
+            <div>${window.t('msg_no_records')}</div>
         </td></tr>`;
         return;
     }
@@ -173,10 +165,10 @@ function renderVehiclesTable() {
         
         const verifyBadge = v.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20 flex items-center gap-1 w-fit">
-                <i data-lucide="check-circle" class="w-3 h-3"></i> Verified
+                <i data-lucide="check-circle" class="w-3 h-3"></i> ${window.t('status_verified')}
                </span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 flex items-center gap-1 w-fit">
-                <i data-lucide="clock" class="w-3 h-3"></i> Pending
+                <i data-lucide="clock" class="w-3 h-3"></i> ${window.t('status_pending')}
                </span>`;
 
         // Checkbox logic
@@ -193,12 +185,12 @@ function renderVehiclesTable() {
         let actions = '';
         const viewBtn = `<button onclick="viewVehicle(${v.id})" 
             class="p-1.5 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-white rounded-md transition border border-slate-700 hover:border-blue-500"
-            title="View Details"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
+            title="${window.t('view')}"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
         if (v.is_verified) {
             actions = `<div class="flex items-center justify-end gap-2">
                 ${viewBtn}
-                <span class="text-slate-600 cursor-not-allowed p-1.5" title="Locked - Verified vehicles cannot be edited">
+                <span class="text-slate-600 cursor-not-allowed p-1.5" title="${window.t('msg_locked')}">
                     <i data-lucide="lock" class="w-4 h-4"></i>
                 </span>
             </div>`;
@@ -207,13 +199,13 @@ function renderVehiclesTable() {
                 ${viewBtn}
                 <button onclick="reqVehicleVerify(${v.id})" 
                     class="p-1.5 bg-slate-800 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-md transition border border-slate-700 hover:border-emerald-500"
-                    title="Verify Vehicle"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                    title="${window.t('btn_verify')}"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
                 <button onclick="openEditVehicleModal(${v.id})" 
                     class="p-1.5 bg-slate-800 hover:bg-amber-600 text-amber-400 hover:text-white rounded-md transition border border-slate-700 hover:border-amber-500"
-                    title="Edit Vehicle"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                    title="${window.t('edit')}"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
                 <button onclick="reqVehicleDelete(${v.id})" 
                     class="p-1.5 bg-slate-800 hover:bg-red-600 text-red-400 hover:text-white rounded-md transition border border-slate-700 hover:border-red-500"
-                    title="Delete Vehicle"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    title="${window.t('delete')}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>`;
         } else {
             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
@@ -251,14 +243,12 @@ function renderVehiclesTable() {
         `;
     }).join('');
     
-    // Update select all checkbox state
     updateSelectAllCheckbox();
-    
     if(window.lucide) window.lucide.createIcons();
 }
 
 // =================================================================
-// 4. BULK OPERATIONS - FIXED
+// 4. BULK OPERATIONS
 // =================================================================
 
 window.toggleVehicleRow = function(id) {
@@ -344,10 +334,9 @@ function updateVehicleBulkUI() {
     }
 }
 
-// FIXED: Function name matches HTML onclick
 window.reqVehicleBulkVerify = function() {
     if (selectedVehicleIds.size === 0) {
-        showVehicleAlert("No Selection", "Please select at least one vehicle to verify.", false);
+        showVehicleAlert(window.t('title_warning'), window.t('msg_validation_fail'), false);
         return;
     }
     
@@ -355,8 +344,8 @@ window.reqVehicleBulkVerify = function() {
     vehicleActionId = null;
     
     showVehicleConfirmModal(
-        "Bulk Verify Vehicles", 
-        `Are you sure you want to verify ${selectedVehicleIds.size} selected vehicle${selectedVehicleIds.size > 1 ? 's' : ''}?<br><span class="text-xs text-slate-400 mt-1 block">This action cannot be undone.</span>`, 
+        window.t('btn_verify_selected'), 
+        `${window.t('msg_verify_confirm')}?`, 
         "shield-check", 
         "bg-emerald-600"
     );
@@ -371,7 +360,7 @@ window.reqVehicleVerify = function(id) {
     if (!vehicle) return;
     
     if (vehicle.is_verified) {
-        showVehicleAlert("Already Verified", "This vehicle is already verified.", false);
+        showVehicleAlert(window.t('title_warning'), window.t('msg_locked'), false);
         return;
     }
     
@@ -383,8 +372,8 @@ window.reqVehicleVerify = function(id) {
     const vehicleInfo = `${make} ${model} (${vehicle.plate_number})`;
     
     showVehicleConfirmModal(
-        "Verify Vehicle", 
-        `Verify vehicle #${id} ${vehicleInfo}?<br><span class="text-xs text-slate-400 mt-1 block">This will lock the vehicle permanently.</span>`, 
+        window.t('btn_verify'), 
+        `${window.t('msg_verify_confirm')} ${vehicleInfo}`, 
         "check-circle", 
         "bg-green-600"
     );
@@ -397,20 +386,16 @@ window.reqVehicleDelete = function(id) {
     vehicleActionType = 'delete';
     vehicleActionId = id;
     
-    const make = getOptionName(vehicleOptions.makes, vehicle.make, 'vehicle_make');
-    const model = getOptionName(vehicleOptions.models, vehicle.model, 'vehicle_model');
-    const vehicleInfo = `${make} ${model} (${vehicle.plate_number})`;
-    
     showVehicleConfirmModal(
-        "Delete Vehicle", 
-        `Permanently delete vehicle #${id} ${vehicleInfo}?<br><span class="text-xs text-red-400 mt-1 block">This action cannot be undone.</span>`, 
+        window.t('delete'), 
+        window.t('msg_confirm_delete'), 
         "trash-2", 
         "bg-red-600"
     );
 }
 
 // =================================================================
-// 6. EXECUTE ACTION (Confirm Modal Click) - FIXED
+// 6. EXECUTE ACTION (Confirm Modal Click)
 // =================================================================
 
 async function executeVehicleConfirmAction() {
@@ -420,7 +405,7 @@ async function executeVehicleConfirmAction() {
     const originalText = btn.innerHTML;
     
     btn.disabled = true;
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> ${window.t('loading')}`;
     
     try {
         let result = null;
@@ -430,57 +415,44 @@ async function executeVehicleConfirmAction() {
         // --- DELETE ---
         if (vehicleActionType === 'delete') {
             result = await window.fetchWithAuth(`/vehicles/${vehicleActionId}`, 'DELETE');
-            successMessage = "Vehicle deleted successfully";
+            successMessage = window.t('msg_vehicle_deleted');
         }
         // --- VERIFY (Single) ---
         else if (vehicleActionType === 'verify') {
             idList = [parseInt(vehicleActionId)];
             const payload = { ids: idList };
             result = await window.fetchWithAuth(`/vehicles/verify-bulk`, 'PUT', payload);
-            successMessage = "Vehicle verified successfully";
+            successMessage = window.t('msg_vehicle_verified');
         }
         // --- VERIFY (Bulk) ---
         else if (vehicleActionType === 'bulk-verify') {
             idList = Array.from(selectedVehicleIds).map(id => parseInt(id));
             const payload = { ids: idList };
             result = await window.fetchWithAuth('/vehicles/verify-bulk', 'PUT', payload);
-            successMessage = `${idList.length} vehicle${idList.length > 1 ? 's' : ''} verified successfully`;
+            successMessage = window.t('msg_vehicle_verified');
         }
 
         window.closeModal('vehicleConfirmModal');
         
-        // Check if result is valid
-        const isSuccess = result !== null && result !== false && !result.detail;
-        
-        if (isSuccess) {
-            // Clear selections for bulk operations
+        if (result !== null && result !== false && !result.detail) {
             if (vehicleActionType === 'bulk-verify') {
                 selectedVehicleIds.clear();
             }
-            
-            // Reload data
             await loadVehiclesData();
-            
-            // Show success alert
-            showVehicleAlert("Success", successMessage, true);
-            
+            showVehicleAlert(window.t('title_success'), successMessage, true);
         } else {
-            // Handle API errors
-            const errorMsg = result?.detail || "Action could not be completed";
-            showVehicleAlert("Failed", typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
+            const errorMsg = result?.detail || window.t('title_error');
+            showVehicleAlert(window.t('title_error'), typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
         }
         
     } catch(e) {
-        console.error("Action error:", e);
         window.closeModal('vehicleConfirmModal');
-        showVehicleAlert("Error", e.message || "An unexpected error occurred", false);
+        showVehicleAlert(window.t('title_error'), e.message || "Error", false);
     }
     
-    // Reset button state
     btn.disabled = false;
     btn.innerHTML = originalText;
     
-    // Reset action state
     vehicleActionId = null;
     vehicleActionType = null;
     
@@ -497,8 +469,8 @@ window.openAddVehicleModal = function() {
     const saveBtn = getVehicleEl('btnSaveVehicle');
     
     if (editIdEl) editIdEl.value = "";
-    if (modalTitle) modalTitle.innerText = "Add New Vehicle";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4 mr-2"></i> Save Vehicle`;
+    if (modalTitle) modalTitle.innerText = window.t('btn_add_vehicle');
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4 mr-2"></i> ${window.t('btn_save')}`;
     
     resetForm();
     populateVehicleDropdowns();
@@ -506,7 +478,6 @@ window.openAddVehicleModal = function() {
     const modal = getVehicleEl('addVehicleModal');
     if (modal) modal.classList.remove('hidden');
     
-    // Focus first field
     setTimeout(() => {
         const firstSelect = getVehicleEl('vehicleMake');
         if (firstSelect) firstSelect.focus();
@@ -517,13 +488,10 @@ window.openAddVehicleModal = function() {
 
 window.openEditVehicleModal = function(id) {
     const vehicle = allVehicles.find(v => v.id === id);
-    if(!vehicle) {
-        showVehicleAlert("Error", "Vehicle not found", false);
-        return;
-    }
+    if(!vehicle) return;
     
     if (vehicle.is_verified) {
-        showVehicleAlert("Locked", "Verified vehicles cannot be edited", false);
+        showVehicleAlert(window.t('title_warning'), window.t('msg_locked'), false);
         return;
     }
 
@@ -532,8 +500,8 @@ window.openEditVehicleModal = function(id) {
     const saveBtn = getVehicleEl('btnSaveVehicle');
     
     if (editIdEl) editIdEl.value = vehicle.id;
-    if (modalTitle) modalTitle.innerText = "Edit Vehicle";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> Update Vehicle`;
+    if (modalTitle) modalTitle.innerText = window.t('edit');
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4 mr-2"></i> ${window.t('btn_update')}`;
     
     populateVehicleDropdowns(vehicle);
     
@@ -589,7 +557,7 @@ window.saveVehicle = async function() {
     if(!plateNumber) errors.push("Please enter a plate number");
     
     if(errors.length > 0) {
-        showVehicleAlert("Validation Error", errors.join("<br>"), false);
+        showVehicleAlert(window.t('validation'), errors.join("<br>"), false);
         return;
     }
 
@@ -619,7 +587,7 @@ window.saveVehicle = async function() {
     const originalText = btn.innerHTML;
     
     btn.disabled = true;
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin mr-2"></i> Saving...`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin mr-2"></i> ${window.t('loading')}`;
 
     try {
         let result;
@@ -632,13 +600,13 @@ window.saveVehicle = async function() {
         if(result && !result.detail) {
             window.closeModal('addVehicleModal');
             await loadVehiclesData();
-            showVehicleAlert("Success", `Vehicle ${id ? 'updated' : 'created'} successfully`, true);
+            showVehicleAlert(window.t('title_success'), window.t('msg_vehicle_saved'), true);
         } else {
-            const errorMsg = result?.detail || "Failed to save vehicle";
-            showVehicleAlert("Error", typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
+            const errorMsg = result?.detail || window.t('title_error');
+            showVehicleAlert(window.t('title_error'), typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
         }
     } catch(e) { 
-        showVehicleAlert("Error", e.message || "Failed to save vehicle", false); 
+        showVehicleAlert(window.t('title_error'), e.message || "Failed to save vehicle", false); 
     }
     
     btn.disabled = false;
@@ -649,7 +617,7 @@ window.saveVehicle = async function() {
 window.viewVehicle = function(id) {
     const vehicle = allVehicles.find(v => v.id === id);
     if(!vehicle) {
-        showVehicleAlert("Error", "Vehicle not found", false);
+        showVehicleAlert(window.t('title_error'), "Vehicle not found", false);
         return;
     }
     
@@ -661,11 +629,15 @@ window.viewVehicle = function(id) {
     
     const verifyStatus = vehicle.is_verified 
         ? `<span class="px-2 py-1 rounded text-xs uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20 inline-flex items-center gap-1">
-            <i data-lucide="check-circle" class="w-3 h-3"></i> Verified
+            <i data-lucide="check-circle" class="w-3 h-3"></i> ${window.t('status_verified')}
            </span>`
         : `<span class="px-2 py-1 rounded text-xs uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 inline-flex items-center gap-1">
-            <i data-lucide="clock" class="w-3 h-3"></i> Pending
+            <i data-lucide="clock" class="w-3 h-3"></i> ${window.t('status_pending')}
            </span>`;
+
+    // DATE
+    const createdDate = vehicle.created_at ? new Date(vehicle.created_at).toLocaleString(window.APP_LOCALE) : 'N/A';
+    const purchaseDate = vehicle.purchase_date ? new Date(vehicle.purchase_date).toLocaleDateString(window.APP_LOCALE) : 'N/A';
 
     const content = `
         <div class="space-y-6">
@@ -684,34 +656,28 @@ window.viewVehicle = function(id) {
             </div>
             
             <div class="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">VIN</span><span class="text-white font-mono">${vehicle.vin || 'N/A'}</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Color</span><span class="text-white">${vehicle.color || 'N/A'}</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Type</span><span class="text-white">${type || 'N/A'}</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Status</span><span class="text-white capitalize">${vehicle.status ? vehicle.status.replace('_', ' ') : 'N/A'}</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Mileage</span><span class="text-white">${vehicle.mileage ? vehicle.mileage.toLocaleString() : 0} km</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Engine Size</span><span class="text-white">${vehicle.engine_size || 'N/A'}L</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Transmission</span><span class="text-white">${transmission || 'N/A'}</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Fuel Type</span><span class="text-white">${fuel || 'N/A'}</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Purchase Price</span><span class="text-white">${vehicle.purchase_price ? '$' + vehicle.purchase_price.toFixed(2) : 'N/A'}</span></div>
-                <div><span class="text-xs text-slate-500 uppercase block mb-1">Purchase Date</span><span class="text-white">${vehicle.purchase_date ? new Date(vehicle.purchase_date).toLocaleDateString() : 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_vin')}</span><span class="text-white font-mono">${vehicle.vin || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_color')}</span><span class="text-white">${vehicle.color || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_type')}</span><span class="text-white">${type || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('col_status')}</span><span class="text-white capitalize">${vehicle.status ? vehicle.status.replace('_', ' ') : 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_mileage')}</span><span class="text-white">${vehicle.mileage ? vehicle.mileage.toLocaleString() : 0} km</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_engine')}</span><span class="text-white">${vehicle.engine_size || 'N/A'}L</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_transmission')}</span><span class="text-white">${transmission || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_fuel_type')}</span><span class="text-white">${fuel || 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_purchase_price')}</span><span class="text-white">${vehicle.purchase_price ? 'BIF ' + vehicle.purchase_price.toFixed(2) : 'N/A'}</span></div>
+                <div><span class="text-xs text-slate-500 uppercase block mb-1">${window.t('lbl_purchase_date')}</span><span class="text-white">${purchaseDate}</span></div>
             </div>
             
-            ${vehicle.created_at ? `
             <div class="border-t border-slate-700 pt-4 text-xs text-slate-500">
                 <div class="flex justify-between">
-                    <span>Vehicle ID:</span>
+                    <span>ID:</span>
                     <span class="text-slate-400">#${vehicle.id}</span>
                 </div>
                 <div class="flex justify-between mt-1">
-                    <span>Created:</span>
-                    <span class="text-slate-400">${new Date(vehicle.created_at).toLocaleString()}</span>
+                    <span>${window.t('col_created')}:</span>
+                    <span class="text-slate-400">${createdDate}</span>
                 </div>
-                ${vehicle.updated_at && vehicle.updated_at !== vehicle.created_at ? `
-                <div class="flex justify-between mt-1">
-                    <span>Last Updated:</span>
-                    <span class="text-slate-400">${new Date(vehicle.updated_at).toLocaleString()}</span>
-                </div>` : ''}
-            </div>` : ''}
+            </div>
         </div>
     `;
     
@@ -736,10 +702,7 @@ window.closeModal = function(id) {
 function showVehicleConfirmModal(title, message, icon, color) {
     const modal = getVehicleEl('vehicleConfirmModal');
     if(!modal) {
-        // Fallback to browser confirm
-        if(confirm(title + ": " + message.replace(/<br>|<span.*?>|<\/span>/g, ' '))) {
-            executeVehicleConfirmAction();
-        }
+        if(confirm(title + ": " + message)) executeVehicleConfirmAction();
         return;
     }
     
@@ -763,16 +726,7 @@ function showVehicleConfirmModal(title, message, icon, color) {
         iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
     }
     
-    // Show modal with animation
     modal.classList.remove('hidden');
-    modal.style.opacity = '0';
-    modal.style.transform = 'scale(0.95)';
-    
-    setTimeout(() => {
-        modal.style.opacity = '1';
-        modal.style.transform = 'scale(1)';
-    }, 10);
-    
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -780,7 +734,6 @@ function showVehicleAlert(title, message, isSuccess) {
     const modal = getVehicleEl('vehicleAlertModal');
     
     if(!modal) {
-        // Fallback to browser alert
         alert(`${title}: ${message}`);
         return;
     }
@@ -809,17 +762,8 @@ function showVehicleAlert(title, message, isSuccess) {
             : "px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm w-full font-medium transition";
     }
     
-    // Show modal with animation
     modal.classList.remove('hidden');
-    modal.style.opacity = '0';
-    modal.style.transform = 'scale(0.95)';
     
-    setTimeout(() => {
-        modal.style.opacity = '1';
-        modal.style.transform = 'scale(1)';
-    }, 10);
-    
-    // Auto close for success messages
     if(isSuccess) {
         setTimeout(() => {
             if(!modal.classList.contains('hidden')) {
@@ -839,11 +783,11 @@ function resetForm() {
 }
 
 function populateVehicleDropdowns(selectedV = null) {
-    populateSelect('vehicleMake', vehicleOptions.makes, selectedV?.make, 'vehicle_make', 'Select Make');
-    populateSelect('vehicleModel', vehicleOptions.models, selectedV?.model, 'vehicle_model', 'Select Model');
-    populateSelect('vehicleType', vehicleOptions.types, selectedV?.vehicle_type, 'vehicle_type', 'Select Type');
-    populateSelect('vehicleTrans', vehicleOptions.trans, selectedV?.vehicle_transmission, 'vehicle_transmission', 'Select Transmission');
-    populateSelect('vehicleFuel', vehicleOptions.fuels, selectedV?.vehicle_fuel_type, 'fuel_type', 'Select Fuel Type');
+    populateSelect('vehicleMake', vehicleOptions.makes, selectedV?.make, 'vehicle_make', window.t('lbl_make') || 'Make');
+    populateSelect('vehicleModel', vehicleOptions.models, selectedV?.model, 'vehicle_model', window.t('lbl_model') || 'Model');
+    populateSelect('vehicleType', vehicleOptions.types, selectedV?.vehicle_type, 'vehicle_type', window.t('lbl_type') || 'Type');
+    populateSelect('vehicleTrans', vehicleOptions.trans, selectedV?.vehicle_transmission, 'vehicle_transmission', window.t('lbl_transmission') || 'Transmission');
+    populateSelect('vehicleFuel', vehicleOptions.fuels, selectedV?.vehicle_fuel_type, 'fuel_type', window.t('lbl_fuel_type') || 'Fuel');
 }
 
 function populateSelect(id, list, selectedValue, labelKey, defaultText = 'Select...') {
@@ -881,7 +825,7 @@ function getStatusClass(status) {
 }
 
 // =================================================================
-// 9. EXPORT FUNCTIONS (Optional - Add if needed)
+// 9. EXPORT FUNCTIONS
 // =================================================================
 
 window.exportVehiclesExcel = async function() {
@@ -896,15 +840,12 @@ window.exportVehiclesPDF = async function() {
 // 10. INITIALIZATION
 // =================================================================
 
-// Initialize on page load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initVehicles);
 } else {
-    // DOM already loaded
     setTimeout(initVehicles, 100);
 }
 
-// Make functions available globally
 window.initVehicles = initVehicles;
 window.loadVehiclesData = loadVehiclesData;
 window.renderVehiclesTable = renderVehiclesTable;

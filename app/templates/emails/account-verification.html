@@ -1,21 +1,107 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Account Activation</title>
+    <meta charset="UTF-8">
+    <title>Welcome to {{ app_name }}</title>
 </head>
-<body style="font-family: Arial, sans-serif; color: #333;">
-    <div style="width: 100%; max-width: 600px; margin: 0 auto;">
-        <h1>Welcome to {{ app_name }}!</h1>
-        <p>Dear {{ name }},</p>
-        <p>Thank you for signing up. Please activate your account by clicking the link below:</p>
-        <p>
-            <!-- This link points to the Web Page (verify-landing.html) -->
-            <a href="{{ activate_url }}" style="color: #fff; background-color: #007BFF; border-radius: .25rem; text-decoration: none; padding: .375rem .75rem; font-size: 1rem; line-height: 1.5; display: inline-block;">Activate Account</a>
-        </p>
-        <p>If the button above doesn't work, please copy and paste the following URL into your browser:</p>
-        <p><a href="{{ activate_url }}">{{ activate_url }}</a></p>
-        <p>Thank you for choosing us!</p>
-        <p>Best Regards,<br>{{ app_name }}</p>
-    </div>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                
+                <!-- Main Card -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="background-color: #0f172a; padding: 30px;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">{{ app_name }}</h1>
+                        </td>
+                    </tr>
+
+                    <!-- English Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 20px 40px;">
+                            <h2 style="color: #1e293b; margin-top: 0;">Account Activation</h2>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                Dear <strong>{{ name }}</strong>,
+                            </p>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                Thank you for signing up. Please activate your account by clicking the link below:
+                            </p>
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 25px;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ activate_url }}" target="_blank" style="background-color: #3b82f6; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Activate Account</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-top: 25px;">
+                                If the button above doesn't work, please copy and paste the following URL into your browser:
+                            </p>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                <a href="{{ activate_url }}" style="color: #3b82f6; word-break: break-all;">{{ activate_url }}</a>
+                            </p>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                Thank you for choosing us!
+                            </p>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                Best Regards,<br><strong>{{ app_name }}</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Divider -->
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                        </td>
+                    </tr>
+
+                    <!-- French Content -->
+                    <tr>
+                        <td style="padding: 20px 40px 40px 40px;">
+                            <h2 style="color: #1e293b; margin-top: 0;">Activation du Compte</h2>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                Cher/Chère <strong>{{ name }}</strong>,
+                            </p>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                Merci de vous être inscrit(e). Veuillez activer votre compte en cliquant sur le lien ci-dessous :
+                            </p>
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 25px;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ activate_url }}" target="_blank" style="background-color: #3b82f6; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Activer le Compte</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-top: 25px;">
+                                Si le bouton ci-dessus ne fonctionne pas, veuillez copier et coller l'URL suivante dans votre navigateur :
+                            </p>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                <a href="{{ activate_url }}" style="color: #3b82f6; word-break: break-all;">{{ activate_url }}</a>
+                            </p>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                Merci de nous avoir choisis !
+                            </p>
+                            <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                                Cordialement,<br><strong>{{ app_name }}</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="background-color: #f8fafc; padding: 20px; color: #94a3b8; font-size: 12px;">
+                            <p style="margin: 0;">&copy; {{ app_name }}. All rights reserved / Tous droits réservés.</p>
+                        </td>
+                    </tr>
+                </table>
+
+            </td>
+        </tr>
+    </table>
+
 </body>
 </html>

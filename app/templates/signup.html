@@ -1,476 +1,391 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark"> <!-- Forced Dark Mode -->
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Sign Up - FleetDash</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#0f172a', 800: '#1e293b' },
+                        brand: { 500: '#3b82f6', 600: '#2563eb' }
+                    },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out' },
+                    keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
+                }
+            }
+        }
+    </script>
     <style>
-        /* --- PROFESSIONAL VARIABLES --- */
-        :root {
-            --primary: #3b82f6; --primary-hover: #2563eb;
-            --bg-dark: #0f172a; --bg-gradient: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
-            --card-bg: rgba(30, 41, 59, 0.75);
-            --modal-bg: rgba(15, 23, 42, 0.95);
-            --border: rgba(148, 163, 184, 0.15);
-            --text-main: #f8fafc; --text-muted: #94a3b8;
-            --danger: #ef4444; --success: #10b981;
-            --radius: 16px; --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        /* --- RESET & BASE --- */
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Inter, system-ui, sans-serif; }
-        
         body {
-            background-color: var(--bg-dark);
-            background-image: var(--bg-gradient);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%), 
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #f8fafc;
         }
-
-        /* --- GLASS CARD --- */
-        .signup-card {
-            background: var(--card-bg);
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            width: 100%;
-            max-width: 600px;
-            padding: 40px;
-            position: relative;
-            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-
-        /* --- HEADER --- */
-        .header { text-align: center; margin-bottom: 32px; }
-        .logo-box {
-            width: 56px; height: 56px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-            border-radius: 14px;
-            display: inline-flex; align-items: center; justify-content: center;
-            margin-bottom: 16px;
-            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
-        }
-        .logo-icon { width: 32px; height: 32px; color: white; }
-        h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
-        .subtitle { color: var(--text-muted); font-size: 15px; }
-
-        /* --- FORM GRID --- */
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .full-width { grid-column: span 2; }
-
-        @media (max-width: 500px) {
-            .form-grid { grid-template-columns: 1fr; }
-            .full-width { grid-column: span 1; }
-        }
-
-        /* --- INPUTS --- */
-        .input-group { position: relative; margin-bottom: 5px; }
-        .label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
-        
         .input-field {
-            width: 100%;
-            padding: 12px 16px 12px 40px;
             background: rgba(15, 23, 42, 0.6);
-            border: 1px solid #334155;
-            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: all 0.3s ease;
+            width: 100%;
             color: white;
-            font-size: 14px;
-            transition: all 0.2s ease;
-            appearance: none;
-        }
-        
-        .input-field:focus {
-            border-color: var(--primary);
+            padding: 10px 10px 10px 40px;
+            border-radius: 12px;
             outline: none;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            font-size: 14px;
+        }
+        .input-field:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
             background: rgba(15, 23, 42, 0.8);
         }
-
-        /* Dropdown Arrow */
+        /* Custom Select Arrow */
         select.input-field {
+            appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 12px center;
+            background-position: right 14px center;
             background-size: 16px;
         }
-
-        .icon {
-            position: absolute;
-            left: 12px; bottom: 12px;
-            width: 18px; height: 18px;
-            color: var(--text-muted);
-            pointer-events: none;
-            transition: color 0.2s;
-        }
-        
-        .input-field:focus + .icon { color: var(--primary); }
-
-        /* --- BUTTONS --- */
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 15px;
-            cursor: pointer;
+        .lang-btn {
+            opacity: 0.5;
             transition: 0.2s;
-            margin-top: 10px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
         }
-        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
-        .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-
-        /* --- FOOTER --- */
-        .footer { text-align: center; margin-top: 24px; font-size: 14px; color: var(--text-muted); }
-        .footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
-
-        /* --- ERROR TEXT --- */
-        .error-msg {
-            color: var(--danger); font-size: 12px; margin-top: 4px; display: none;
+        .lang-btn.active {
+            opacity: 1;
+            color: #3b82f6;
         }
-
-        /* --- MODAL SYSTEM --- */
-        .modal-overlay {
-            position: fixed; inset: 0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.3s ease;
-            z-index: 100;
-        }
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        
-        .modal-box {
-            background: var(--modal-bg);
-            border: 1px solid var(--border);
-            width: 90%; max-width: 380px;
-            padding: 24px;
-            border-radius: 20px;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-        }
-        .modal-overlay.active .modal-box { transform: scale(1) translateY(0); }
-
-        /* Confirmation Modal Styles */
-        .modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
-        .modal-icon { color: var(--primary); }
-        .modal-title { font-size: 18px; font-weight: 700; color: white; }
-        
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
-        .summary-label { color: var(--text-muted); }
-        .summary-val { color: white; font-weight: 500; text-align: right; }
-
-        .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
-        .btn-cancel { background: transparent; border: 1px solid #475569; color: var(--text-muted); }
-        .btn-cancel:hover { background: rgba(255,255,255,0.05); color: white; }
-
-        /* SUCCESS MODAL SPECIFIC STYLES */
-        .success-icon-wrap {
-            width: 64px; height: 64px;
-            background: rgba(16, 185, 129, 0.1);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 20px auto;
-            color: var(--success);
-            box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.05);
-        }
-        .text-center { text-align: center; }
-        .success-desc { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
-        
-        /* SPINNER */
-        .spinner {
-            width: 18px; height: 18px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 50%; border-top-color: white;
-            animation: spin 0.8s linear infinite;
-            display: none;
-        }
-        .btn.loading .spinner { display: block; }
-        .btn.loading span { display: none; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
     </style>
 </head>
-<body>
+<body class="flex items-center justify-center min-h-screen p-4 relative">
 
-    <div class="signup-card">
-        <div class="header">
-            <div class="logo-box">
-                <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+    <!-- Language Switcher -->
+    <div class="absolute top-6 right-6 flex gap-3 z-50">
+        <button onclick="setLang('en')" id="btn-en" class="lang-btn text-white">EN</button>
+        <span class="text-slate-600">|</span>
+        <button onclick="setLang('fr')" id="btn-fr" class="lang-btn text-white">FR</button>
+    </div>
+
+    <!-- Signup Card -->
+    <div class="glass-card w-full max-w-2xl p-8 rounded-2xl animate-fade-in relative z-10">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-500/30 mb-4">
+                <i data-lucide="user-plus" class="w-7 h-7 text-white"></i>
             </div>
-            <h1>Create Account</h1>
-            <p class="subtitle">Join the FleetDash System</p>
+            <h1 class="text-2xl font-bold text-white tracking-tight" data-i18n="title">Create Account</h1>
+            <p class="text-slate-400 text-sm mt-2" data-i18n="subtitle">Join the FleetDash System</p>
         </div>
 
-        <form id="signupForm">
-            <div class="form-grid">
-                
-                <!-- First Name -->
-                <div class="input-group">
-                    <label class="label">First Name</label>
-                    <input type="text" id="fname" class="input-field" placeholder="John" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <form id="signupForm" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- First Name -->
+            <div class="relative">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_fname">First Name</label>
+                <div class="relative">
+                    <input type="text" id="fname" class="input-field" data-i18n-placeholder="ph_fname" placeholder="John" required>
+                    <i data-lucide="user" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
+            </div>
 
-                <!-- Last Name -->
-                <div class="input-group">
-                    <label class="label">Last Name</label>
-                    <input type="text" id="lname" class="input-field" placeholder="Doe" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <!-- Last Name -->
+            <div class="relative">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_lname">Last Name</label>
+                <div class="relative">
+                    <input type="text" id="lname" class="input-field" data-i18n-placeholder="ph_lname" placeholder="Doe" required>
+                    <i data-lucide="user" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
+            </div>
 
-                <!-- Matricule -->
-                <div class="input-group">
-                    <label class="label">Matricule</label>
-                    <input type="text" id="matricule" class="input-field" placeholder="EMP-001" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.78 4.78 4 4 0 0 1-6.74 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/></svg>
+            <!-- Matricule -->
+            <div class="relative">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_matricule">Matricule</label>
+                <div class="relative">
+                    <input type="text" id="matricule" class="input-field" data-i18n-placeholder="ph_matricule" placeholder="EMP-001" required>
+                    <i data-lucide="badge-check" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
+            </div>
 
-                <!-- Phone -->
-                <div class="input-group">
-                    <label class="label">Phone</label>
+            <!-- Phone -->
+            <div class="relative">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_phone">Phone</label>
+                <div class="relative">
                     <input type="tel" id="phone" class="input-field" placeholder="+257..." required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.12 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    <i data-lucide="phone" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
-
-                <!-- Agency (Dynamic) -->
-                <div class="input-group full-width">
-                    <label class="label">Agency</label>
+            </div>
+            
+            <!-- Agency -->
+            <div class="relative md:col-span-2">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_agency">Agency</label>
+                <div class="relative">
                     <select id="agency" class="input-field" required>
-                        <option value="" disabled selected>Loading Agencies...</option>
+                        <option value="" disabled selected data-i18n="loading">Loading Agencies...</option>
                     </select>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></svg>
+                    <i data-lucide="building" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
+            </div>
 
-                <!-- Service (Dynamic) -->
-                <div class="input-group full-width">
-                    <label class="label">Service / Department</label>
+            <!-- Service -->
+            <div class="relative md:col-span-2">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_service">Service / Department</label>
+                <div class="relative">
                     <select id="service" class="input-field" required>
-                        <option value="" disabled selected>Loading Services...</option>
+                        <option value="" disabled selected data-i18n="loading">Loading Services...</option>
                     </select>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    <i data-lucide="briefcase" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
+            </div>
 
-                <!-- Email -->
-                <div class="input-group full-width">
-                    <label class="label">Email Address</label>
-                    <input type="email" id="email" class="input-field" placeholder="john.doe@example.com" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <!-- Email -->
+            <div class="relative md:col-span-2">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_email">Email Address</label>
+                <div class="relative">
+                    <input type="email" id="email" class="input-field" data-i18n-placeholder="ph_email" placeholder="name@example.com" required>
+                    <i data-lucide="mail" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
+            </div>
 
-                <!-- Password -->
-                <div class="input-group">
-                    <label class="label">Password</label>
+            <!-- Password -->
+            <div class="relative">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_password">Password</label>
+                <div class="relative">
                     <input type="password" id="pass" class="input-field" placeholder="••••••••" required minlength="8">
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <i data-lucide="lock" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
+            </div>
 
-                <!-- Confirm Password -->
-                <div class="input-group">
-                    <label class="label">Confirm</label>
+            <!-- Confirm -->
+            <div class="relative">
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_confirm">Confirm Password</label>
+                <div class="relative">
                     <input type="password" id="conf" class="input-field" placeholder="••••••••" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3"/></svg>
+                    <i data-lucide="lock-keyhole" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
                 </div>
-                
-                <div class="full-width">
-                    <p id="pass-error" class="error-msg">Passwords do not match</p>
-                </div>
+            </div>
+            
+            <!-- Error Message -->
+            <p id="pass-error" class="text-red-400 text-xs hidden md:col-span-2 text-center flex items-center justify-center gap-2 bg-red-500/10 py-2 rounded-lg border border-red-500/20">
+                <i data-lucide="alert-circle" class="w-3 h-3"></i> <span data-i18n="err_mismatch">Passwords do not match</span>
+            </p>
 
-            </div> <!-- End Grid -->
-
-            <button type="submit" id="submitBtn" class="btn">
-                <span>Review & Submit</span>
+            <!-- Submit Button -->
+            <button type="submit" id="submitBtn" class="md:col-span-2 w-full py-3.5 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/20 transition-all duration-200 flex justify-center items-center gap-2 group">
+                <span data-i18n="btn_submit">Create Account</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
             </button>
         </form>
 
-        <div class="footer">
-            <p>Already have an account? <a href="/">Sign In</a></p>
-        </div>
-    </div>
-
-    <!-- CONFIRMATION MODAL -->
-    <div id="modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="modal-header">
-                <svg class="modal-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <div class="modal-title">Confirm Details</div>
-            </div>
-            
-            <div id="summary"></div>
-
-            <div class="modal-actions">
-                <button onclick="closeModal('modal')" class="btn btn-cancel" style="width: 100%; margin-top:0;">Edit</button>
-                <button onclick="sendData()" id="confirmBtn" class="btn" style="margin-top:0;">
-                    <span>Create Account</span>
-                    <div class="spinner"></div>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- SUCCESS MODAL (NEW) -->
-    <div id="successModal" class="modal-overlay">
-        <div class="modal-box text-center">
-            <div class="success-icon-wrap">
-                <!-- Check Icon -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div class="modal-title" style="justify-content: center;">Registration Successful</div>
-            <p class="success-desc">
-                Your account has been created successfully.<br>
-                Please check your email to activate your account before logging in.
+        <div class="mt-8 text-center pt-6 border-t border-white/5">
+            <p class="text-sm text-slate-400">
+                <span data-i18n="lbl_have_account">Already have an account?</span> 
+                <a href="/" class="text-white hover:text-blue-400 font-semibold ml-1 transition" data-i18n="link_signin">Sign In</a>
             </p>
-            <button onclick="goToLogin()" class="btn">Go to Login</button>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50 transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-sm p-6 rounded-2xl shadow-2xl text-center transform scale-95 transition-transform" id="modalBox">
+            <div class="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                <i data-lucide="check" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2" data-i18n="success_title">Registration Successful</h3>
+            <p class="text-slate-400 text-sm mb-6 leading-relaxed" data-i18n="success_msg">Your account has been created.<br>Please check your email to activate it.</p>
+            <button onclick="window.location.href='/'" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition shadow-lg shadow-emerald-500/20" data-i18n="btn_login_now">Go to Login</button>
         </div>
     </div>
 
     <script>
-        const form = document.getElementById('signupForm');
-        const modal = document.getElementById('modal');
-        const successModal = document.getElementById('successModal');
-        const agencySel = document.getElementById('agency');
-        const serviceSel = document.getElementById('service');
-        
-        let formDataCache = {};
+        // --- TRANSLATION DICTIONARY ---
+        const dict = {
+            en: {
+                title: "Create Account", subtitle: "Join the FleetDash System",
+                lbl_fname: "First Name", ph_fname: "John",
+                lbl_lname: "Last Name", ph_lname: "Doe",
+                lbl_matricule: "Matricule", ph_matricule: "EMP-001",
+                lbl_phone: "Phone", 
+                lbl_agency: "Agency", lbl_service: "Service / Department",
+                loading: "Loading...", sel_agency: "Select Agency", sel_service: "Select Service",
+                lbl_email: "Email Address", ph_email: "name@example.com",
+                lbl_password: "Password", lbl_confirm: "Confirm Password",
+                err_mismatch: "Passwords do not match", btn_submit: "Create Account",
+                lbl_have_account: "Already have an account?", link_signin: "Sign In",
+                success_title: "Registration Successful", 
+                success_msg: "Your account has been created.<br>Please check your email to activate it.",
+                btn_login_now: "Go to Login", error: "Error"
+            },
+            fr: {
+                title: "Créer un Compte", subtitle: "Rejoindre le système FleetDash",
+                lbl_fname: "Prénom", ph_fname: "Jean",
+                lbl_lname: "Nom", ph_lname: "Dupont",
+                lbl_matricule: "Matricule", ph_matricule: "EMP-001",
+                lbl_phone: "Téléphone", 
+                lbl_agency: "Agence", lbl_service: "Service / Département",
+                loading: "Chargement...", sel_agency: "Choisir Agence", sel_service: "Choisir Service",
+                lbl_email: "Adresse Email", ph_email: "nom@exemple.com",
+                lbl_password: "Mot de passe", lbl_confirm: "Confirmer mot de passe",
+                err_mismatch: "Les mots de passe ne correspondent pas", btn_submit: "Créer un Compte",
+                lbl_have_account: "Vous avez déjà un compte ?", link_signin: "Se connecter",
+                success_title: "Inscription Réussie", 
+                success_msg: "Votre compte a été créé.<br>Veuillez vérifier votre email pour l'activer.",
+                btn_login_now: "Aller à la connexion", error: "Erreur"
+            }
+        };
 
-        // --- 1. DYNAMIC DATA FETCHING ---
+        // --- THEME & LANGUAGE INIT ---
+        function setLang(lang) {
+            localStorage.setItem('lang', lang);
+            updateUI(lang);
+        }
+
+        function updateUI(lang) {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                if(dict[lang][el.dataset.i18n]) el.innerHTML = dict[lang][el.dataset.i18n];
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                if(dict[lang][el.dataset.i18nPlaceholder]) el.placeholder = dict[lang][el.dataset.i18nPlaceholder];
+            });
+            
+            document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+            document.getElementById('btn-fr').classList.toggle('active', lang === 'fr');
+            
+            // Reload dropdowns to update default text
+            loadDropdowns(); 
+        }
+
+        // Initialize
+        (function init() {
+            if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
+
+            const savedLang = localStorage.getItem('lang');
+            const systemLang = navigator.language.startsWith('fr') ? 'fr' : 'en';
+            const lang = savedLang || systemLang;
+            
+            setLang(lang);
+            lucide.createIcons();
+        })();
+
+        // --- LOGIC ---
         async function loadDropdowns() {
+            const lang = localStorage.getItem('lang');
+            const agencySel = document.getElementById('agency');
+            const serviceSel = document.getElementById('service');
+            
             try {
-                const [agencyRes, serviceRes] = await Promise.all([
-                    fetch('/api/v1/agencies/'),
-                    fetch('/api/v1/services/')
-                ]);
-
-                // Populate Agencies
-                if (agencyRes.ok) {
-                    const agencies = await agencyRes.json();
-                    agencySel.innerHTML = '<option value="" disabled selected>Select Agency</option>';
-                    agencies.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.textContent = item.agency_name;
-                        agencySel.appendChild(opt);
-                    });
-                } else { agencySel.innerHTML = '<option disabled>Error loading</option>'; }
-
-                // Populate Services
-                if (serviceRes.ok) {
-                    const services = await serviceRes.json();
-                    serviceSel.innerHTML = '<option value="" disabled selected>Select Service</option>';
-                    services.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.textContent = item.service_name;
-                        serviceSel.appendChild(opt);
-                    });
-                } else { serviceSel.innerHTML = '<option disabled>Error loading</option>'; }
-
-            } catch (error) {
-                agencySel.innerHTML = '<option disabled>Server Offline</option>';
-                serviceSel.innerHTML = '<option disabled>Server Offline</option>';
+                // Fetch only if empty to save bandwidth
+                if (agencySel.options.length <= 1) {
+                    const [agencies, services] = await Promise.all([
+                        fetch('/api/v1/agencies/').then(r => r.json()),
+                        fetch('/api/v1/services/').then(r => r.json())
+                    ]);
+                    
+                    // Populate
+                    agencySel.innerHTML = `<option value="" disabled selected>${dict[lang].sel_agency}</option>` + 
+                        agencies.map(a => `<option value="${a.id}">${a.agency_name}</option>`).join('');
+                        
+                    serviceSel.innerHTML = `<option value="" disabled selected>${dict[lang].sel_service}</option>` + 
+                        services.map(s => `<option value="${s.id}">${s.service_name}</option>`).join('');
+                } else {
+                    // Just update default option text if already loaded
+                    agencySel.options[0].text = dict[lang].sel_agency;
+                    serviceSel.options[0].text = dict[lang].sel_service;
+                }
+            } catch(e) { 
+                console.error("Dropdown load failed", e);
+                agencySel.innerHTML = `<option disabled>Server Offline</option>`;
+                serviceSel.innerHTML = `<option disabled>Server Offline</option>`;
             }
         }
-        window.onload = loadDropdowns;
 
-        // --- 2. PASSWORD CHECK ---
+        const form = document.getElementById('signupForm');
+        
+        // Real-time password check
         const pass = document.getElementById('pass');
         const conf = document.getElementById('conf');
         const err = document.getElementById('pass-error');
 
         function checkPass() {
-            if(conf.value && pass.value !== conf.value) {
-                err.style.display = 'block';
+            if (conf.value && pass.value !== conf.value) {
+                err.classList.remove('hidden');
                 return false;
             } else {
-                err.style.display = 'none';
+                err.classList.add('hidden');
                 return true;
             }
         }
-        conf.addEventListener('input', checkPass);
         pass.addEventListener('input', checkPass);
+        conf.addEventListener('input', checkPass);
 
-        // --- 3. SHOW CONFIRMATION ---
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if(!checkPass()) return;
+            if (!checkPass()) return;
 
-            formDataCache = {
-                matricule: document.getElementById('matricule').value,
+            const btn = document.getElementById('submitBtn');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-5 h-5"></i>`;
+            
+            const payload = {
                 full_name: document.getElementById('fname').value + " " + document.getElementById('lname').value,
-                telephone: document.getElementById('phone').value,
+                matricule: document.getElementById('matricule').value,
                 email: document.getElementById('email').value,
+                telephone: document.getElementById('phone').value,
+                agency_id: parseInt(document.getElementById('agency').value),
+                service_id: parseInt(document.getElementById('service').value),
                 password: pass.value,
-                agency_id: parseInt(agencySel.value),
-                service_id: parseInt(serviceSel.value),
-                role_id: 2, 
-                is_active: false
+                role_id: 2 // Default to User
             };
 
-            if(!formDataCache.agency_id || !formDataCache.service_id) {
-                alert("Please select a valid Agency and Service.");
-                return;
-            }
-
-            const html = `
-                <div class="summary-row"><span class="summary-label">Name:</span> <span class="summary-val">${formDataCache.full_name}</span></div>
-                <div class="summary-row"><span class="summary-label">Email:</span> <span class="summary-val">${formDataCache.email}</span></div>
-                <div class="summary-row"><span class="summary-label">Matricule:</span> <span class="summary-val">${formDataCache.matricule}</span></div>
-                <div class="summary-row"><span class="summary-label">Agency:</span> <span class="summary-val">${agencySel.options[agencySel.selectedIndex].text}</span></div>
-                <div class="summary-row"><span class="summary-label">Department:</span> <span class="summary-val">${serviceSel.options[serviceSel.selectedIndex].text}</span></div>
-            `;
-            document.getElementById('summary').innerHTML = html;
-            modal.classList.add('active');
-        });
-
-        // --- 4. API SUBMIT & SUCCESS MODAL ---
-        async function sendData() {
-            const btn = document.getElementById('confirmBtn');
-            btn.classList.add('loading');
-            btn.disabled = true;
-
             try {
-                const response = await fetch('/api/v1/auth/register', {
+                const res = await fetch('/api/v1/auth/register', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formDataCache)
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
                 });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.detail || "Registration failed");
+                
+                if(!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.detail || "Registration failed");
                 }
+                
+                // Show Success Modal
+                const modal = document.getElementById('successModal');
+                const modalBox = document.getElementById('modalBox');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => modalBox.style.transform = 'scale(1)', 10);
 
-                // Hide Confirmation, Show Success
-                closeModal('modal');
-                successModal.classList.add('active');
-
-            } catch (error) {
-                alert("Error: " + error.message);
-                btn.classList.remove('loading');
+            } catch(err) {
+                alert(`${dict[localStorage.getItem('lang')].error}: ${err.message}`);
                 btn.disabled = false;
-                closeModal('modal'); // Close confirmation on error to allow edit
+                btn.innerHTML = originalText;
+                lucide.createIcons();
             }
-        }
-
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('active');
-        }
-
-        function goToLogin() {
-            window.location.href = "/";
-        }
+        });
     </script>
 </body>
 </html>

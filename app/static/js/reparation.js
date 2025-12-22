@@ -1,5 +1,12 @@
 // app/static/js/reparation.js
 
+/**
+ * ==============================================================================
+ * FLEETDASH REPARATION MODULE (Multi-Language Enabled)
+ * Handles reparation tracking, garage assignments, and cost verification.
+ * ==============================================================================
+ */
+
 // --- GLOBAL STATE ---
 let allRepLogs = [];
 let repOptions = { pannes: [], garages: [] };
@@ -11,18 +18,15 @@ let repActionId = null;
 let selectedRepIds = new Set(); 
 
 // =================================================================
-// MOBILE-COMPATIBLE ELEMENT GETTER
+// 0. HELPER: DOM ELEMENT GETTER
 // =================================================================
 function getRepEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
@@ -33,7 +37,7 @@ async function initReparation() {
     console.log("Reparation Module: Init");
     repUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // DOM Elements using mobile-compatible getter
+    // DOM Elements
     const search = getRepEl('repSearch');
     const garageFilter = getRepEl('repGarageFilter');
     const statusFilter = getRepEl('repStatusFilter');
@@ -47,6 +51,7 @@ async function initReparation() {
     if(selectAll) selectAll.addEventListener('change', toggleRepSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executeRepConfirmAction);
 
+    // Initial Load
     await Promise.all([loadRepData(), fetchRepDropdowns()]);
 }
 
@@ -57,45 +62,44 @@ async function loadRepData() {
     const tbody = getRepEl('repLogsBody');
     if(!tbody) return;
     
-    // Loading State
-    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
+    // TRANSLATED LOADING STATE
+    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>${window.t('msg_loading')}</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
-    // FIX: Added trailing slash to prevent 307 Redirect
-    const data = await window.fetchWithAuth('/reparation/'); 
-    
-    // Handle pagination or list response
-    const items = data.items || data;
-    
-    if (Array.isArray(items)) {
-        allRepLogs = items;
-        selectedRepIds.clear(); // Clear selections on reload
-        updateRepBulkUI();
-        renderRepTable();
-    } else {
-        const msg = data && data.detail ? data.detail : "Failed to load data.";
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+    try {
+        const data = await window.fetchWithAuth('/reparation/'); 
+        const items = data.items || data;
+        
+        if (Array.isArray(items)) {
+            allRepLogs = items;
+            selectedRepIds.clear(); 
+            updateRepBulkUI();
+            renderRepTable();
+        } else {
+            const msg = data && data.detail ? data.detail : window.t('title_error');
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">${window.t('title_error')}: ${msg}</td></tr>`;
+        }
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">${window.t('msg_connection_fail')}</td></tr>`;
     }
 }
 
 async function fetchRepDropdowns() {
     try {
-        // FIX: Added trailing slashes to prevent 307 Redirects
         const [pannes, garages] = await Promise.all([
             window.fetchWithAuth('/panne/'), 
             window.fetchWithAuth('/garage/') 
         ]);
 
-        // Handle Potential Pagination Wrappers
         repOptions.pannes = Array.isArray(pannes) ? pannes : (pannes.items || []);
         repOptions.garages = Array.isArray(garages) ? garages : (garages.items || []);
         
-        // Populate Filter Dropdowns
-        populateSelect('repGarageFilter', repOptions.garages, '', 'nom_garage', 'All Garages');
+        // Populate Filter
+        populateSelect('repGarageFilter', repOptions.garages, '', 'nom_garage', window.t('col_garage') || 'All Garages');
         
         // Populate Modal Dropdowns
         populatePanneSelect('repPanneSelect', repOptions.pannes);
-        populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', 'Select Garage');
+        populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', window.t('select_vehicle') || 'Select Garage'); // Using existing key or fallback
 
     } catch (e) { 
         console.warn("Rep Dropdown Error:", e); 
@@ -109,7 +113,6 @@ function renderRepTable() {
     const tbody = getRepEl('repLogsBody');
     if (!tbody) return;
 
-    // Get Filter Values
     const search = getRepEl('repSearch');
     const garageFilter = getRepEl('repGarageFilter');
     const statusFilter = getRepEl('repStatusFilter');
@@ -118,7 +121,7 @@ function renderRepTable() {
     const gFilter = garageFilter ? garageFilter.value : '';
     const sFilter = statusFilter ? statusFilter.value : '';
 
-    // Filter Data
+    // Filter Logic
     let filtered = allRepLogs.filter(log => {
         const garage = repOptions.garages.find(g => g.id === log.garage_id);
         const gName = garage ? garage.nom_garage.toLowerCase() : "";
@@ -134,40 +137,40 @@ function renderRepTable() {
         return matchesSearch && matchesGarage && matchesStatus;
     });
 
-    // Update Counts
+    // Update Counts (Translated)
     const repCountEl = getRepEl('repCount');
-    if (repCountEl) repCountEl.innerText = `${filtered.length} records found`;
+    if (repCountEl) repCountEl.innerText = `${filtered.length} ${window.t('reparations')}`;
 
-    // Empty State
+    // Empty State (Translated)
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">${window.t('msg_no_records')}</td></tr>`;
         return;
     }
 
-    // Role Check
     const canManage = ['admin', 'superadmin', 'charoi'].includes(repUserRole);
 
     // Generate Rows
     tbody.innerHTML = filtered.map(log => {
         const garage = repOptions.garages.find(g => g.id === log.garage_id);
         const panne = repOptions.pannes.find(p => p.id === log.panne_id);
-        const date = new Date(log.repair_date).toLocaleDateString();
+        
+        // LOCALE DATE FORMAT
+        const date = log.repair_date ? new Date(log.repair_date).toLocaleDateString(window.APP_LOCALE) : 'N/A';
 
-        // Status Badges
+        // STATUS BADGES (Translated)
         const verifyBadge = log.is_verified 
-            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
-            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
+            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">${window.t('btn_verify')}</span>`
+            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">${window.t('status_pending')}</span>`;
 
+        const progressText = log.status === 'Completed' ? window.t('status_completed') : window.t('status_in_progress');
         const progressBadge = log.status === 'Completed'
-            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Completed</span>`
-            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">In Progress</span>`;
+            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">${progressText}</span>`
+            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">${progressText}</span>`;
 
-        // --- NEW LOCK LOGIC ---
-        // Lock row ONLY if verified AND Completed.
-        // If it is verified but NOT Completed (e.g. In Progress), allow editing.
+        // LOCK LOGIC
         const isLocked = log.is_verified && log.status === 'Completed';
 
-        // Checkbox Logic (Disable if Locked OR user cannot manage)
+        // Checkbox Logic
         let checkboxHtml = '';
         if (canManage && !isLocked) {
             const isChecked = selectedRepIds.has(log.id) ? 'checked' : '';
@@ -176,21 +179,19 @@ function renderRepTable() {
             checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30 cursor-not-allowed">`;
         }
 
-        // Action Buttons Logic
+        // Action Buttons Logic (Translated Tooltips)
         let actions = '';
-        const viewBtn = `<button onclick="openViewRepModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
+        const viewBtn = `<button onclick="openViewRepModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="${window.t('view')}"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
         if (isLocked) {
-             // Show Lock Icon if Completed + Verified
-             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}<span class="text-slate-600 cursor-not-allowed" title="Locked (Verified & Completed)"><i data-lucide="lock" class="w-4 h-4"></i></span></div>`;
+             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}<span class="text-slate-600 cursor-not-allowed" title="${window.t('msg_locked')}"><i data-lucide="lock" class="w-4 h-4"></i></span></div>`;
         } else if (canManage) {
-             // Allow actions if NOT locked (even if verified, as long as it's not completed)
              actions = `
                 <div class="flex items-center justify-end gap-2">
                     ${viewBtn}
-                    ${!log.is_verified ? `<button onclick="reqRepVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
-                    <button onclick="openEditRepModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                    <button onclick="reqRepDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    ${!log.is_verified ? `<button onclick="reqRepVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="${window.t('btn_verify')}"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
+                    <button onclick="openEditRepModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="${window.t('edit')}"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                    <button onclick="reqRepDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="${window.t('delete')}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
         } else {
              actions = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
@@ -200,10 +201,10 @@ function renderRepTable() {
             <tr class="hover:bg-white/5 border-b border-slate-700/30 ${isLocked ? 'opacity-70 bg-slate-800/30' : ''}">
                 <td class="p-4 text-center">${checkboxHtml}</td>
                 <td class="p-4">
-                    <div class="text-white font-mono text-xs">Pan #${log.panne_id}</div>
-                    <div class="text-xs text-slate-500 truncate max-w-[150px]">${panne && panne.description ? panne.description.substring(0, 30) + (panne.description.length > 30 ? '...' : '') : 'Unknown Panne'}</div>
+                    <div class="text-white font-mono text-xs">#${log.panne_id}</div>
+                    <div class="text-xs text-slate-500 truncate max-w-[150px]">${panne && panne.description ? panne.description.substring(0, 30) + (panne.description.length > 30 ? '...' : '') : 'Unknown'}</div>
                 </td>
-                <td class="p-4 text-slate-300 text-sm">${garage ? garage.nom_garage : 'ID ' + log.garage_id}</td>
+                <td class="p-4 text-slate-300 text-sm">${garage ? garage.nom_garage : log.garage_id}</td>
                 <td class="p-4 text-right font-bold text-emerald-400">${log.cost ? log.cost.toFixed(2) : '0.00'}</td>
                 <td class="p-4">${progressBadge}</td>
                 <td class="p-4">${verifyBadge}</td>
@@ -234,7 +235,6 @@ window.toggleRepSelectAll = function() {
     if (isChecked) {
         const canManage = ['admin', 'superadmin', 'charoi'].includes(repUserRole);
         allRepLogs.forEach(log => {
-             // Only select items that are NOT locked
              const isLocked = log.is_verified && log.status === 'Completed';
              if(canManage && !isLocked && !log.is_verified) selectedRepIds.add(log.id);
         });
@@ -259,55 +259,47 @@ window.executeRepBulkVerify = async function() {
     repActionType = 'bulk-verify';
     repActionId = null;
     
+    // Translated Confirmation
     showRepConfirmModal(
-        "Verify Selected?", 
-        `Verify ${selectedRepIds.size} records? This cannot be undone.`, 
+        window.t('btn_verify'), 
+        `${window.t('msg_verify_confirm')}?`, 
         "check-circle", 
         "bg-emerald-600"
     );
 }
 
 // =================================================================
-// 5. SINGLE ACTIONS (Trigger Modal)
+// 5. SINGLE ACTIONS
 // =================================================================
 
 window.reqRepVerify = function(id) {
     repActionType = 'verify'; 
     repActionId = id;
-    showRepConfirmModal("Verify Reparation?", "This marks the record as verified.", "check-circle", "bg-green-600");
+    showRepConfirmModal(window.t('btn_verify'), window.t('msg_verify_confirm'), "check-circle", "bg-green-600");
 }
 
 window.reqRepDelete = function(id) {
     repActionType = 'delete'; 
     repActionId = id;
-    showRepConfirmModal("Delete Reparation?", "This cannot be undone.", "trash-2", "bg-red-600");
+    showRepConfirmModal(window.t('delete'), window.t('msg_confirm_delete'), "trash-2", "bg-red-600");
 }
-
-// =================================================================
-// 6. EXECUTE ACTION (Confirm Modal Click)
-// =================================================================
 
 async function executeRepConfirmAction() {
     const btn = getRepEl('btnRepConfirmAction');
     if (!btn) return;
     
     btn.disabled = true; 
-    btn.innerText = "Processing...";
+    btn.innerText = window.t('loading');
 
     try {
         let result;
-        
-        // --- DELETE ---
         if (repActionType === 'delete') {
-            // FIX: No slash for ID
             result = await window.fetchWithAuth(`/reparation/${repActionId}`, 'DELETE');
         } 
-        // --- VERIFY (Single) ---
         else if (repActionType === 'verify') {
             const payload = { ids: [parseInt(repActionId)] };
             result = await window.fetchWithAuth(`/reparation/verify-bulk`, 'PUT', payload);
         }
-        // --- VERIFY (Bulk) ---
         else if (repActionType === 'bulk-verify') {
             const idList = Array.from(selectedRepIds).map(id => parseInt(id));
             const payload = { ids: idList };
@@ -319,17 +311,17 @@ async function executeRepConfirmAction() {
         if (result !== null && result !== false) {
             if (repActionType === 'bulk-verify') selectedRepIds.clear();
             await loadRepData();
-            showRepAlert("Success", "Action completed successfully.", true);
+            showRepAlert(window.t('title_success'), window.t('msg_updated'), true);
         } else {
-            showRepAlert("Failed", "Action could not be completed.", false);
+            showRepAlert(window.t('title_error'), "Failed", false);
         }
     } catch(e) {
         window.closeModal('repConfirmModal');
-        showRepAlert("Error", e.message || "An unexpected error occurred.", false);
+        showRepAlert(window.t('title_error'), e.message || "Error", false);
     }
     
     btn.disabled = false; 
-    btn.innerText = "Confirm"; 
+    btn.innerText = window.t('btn_confirm'); 
     repActionId = null; 
     repActionType = null;
 }
@@ -344,11 +336,11 @@ window.openAddReparationModal = function() {
     const saveBtn = getRepEl('btnSaveRep');
     
     if (editIdEl) editIdEl.value = "";
-    if (modalTitle) modalTitle.innerText = "Log Reparation";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
+    if (modalTitle) modalTitle.innerText = window.t('btn_log_reparation');
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> ${window.t('btn_save')}`;
     
     populatePanneSelect('repPanneSelect', repOptions.pannes);
-    populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', 'Select Garage');
+    populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', window.t('select_vehicle') || 'Select'); // Using fallback key
     
     const costEl = getRepEl('repCost');
     const dateEl = getRepEl('repDate');
@@ -375,11 +367,11 @@ window.openEditRepModal = function(id) {
     const saveBtn = getRepEl('btnSaveRep');
     
     if (editIdEl) editIdEl.value = log.id;
-    if (modalTitle) modalTitle.innerText = "Edit Reparation";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
+    if (modalTitle) modalTitle.innerText = window.t('edit');
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> ${window.t('btn_update')}`;
 
     populatePanneSelect('repPanneSelect', repOptions.pannes, log.panne_id);
-    populateSelect('repGarageSelect', repOptions.garages, log.garage_id, 'nom_garage', 'Select Garage');
+    populateSelect('repGarageSelect', repOptions.garages, log.garage_id, 'nom_garage', window.t('select_vehicle') || 'Select');
     
     const costEl = getRepEl('repCost');
     const dateEl = getRepEl('repDate');
@@ -409,25 +401,25 @@ window.saveReparation = async function() {
     const receipt = getRepEl('repReceipt');
     const statusVal = getRepEl('repProgressStatus');
 
-    // VALIDATION
+    // TRANSLATED VALIDATION
     if(!panneId || !panneId.value) { 
-        showRepAlert("Validation", "Please select a Panne.", false); 
+        showRepAlert(window.t('validation'), window.t('msg_validation_fail'), false); 
         return; 
     }
     if(!garageId || !garageId.value) { 
-        showRepAlert("Validation", "Please select a Garage.", false); 
+        showRepAlert(window.t('validation'), window.t('msg_validation_fail'), false); 
         return; 
     }
     if(!cost || !cost.value || isNaN(cost.value) || parseFloat(cost.value) <= 0) { 
-        showRepAlert("Validation", "Please enter a valid cost.", false); 
+        showRepAlert(window.t('validation'), window.t('msg_validation_fail'), false); 
         return; 
     }
     if(!dateVal || !dateVal.value) { 
-        showRepAlert("Validation", "Please select a date.", false); 
+        showRepAlert(window.t('validation'), window.t('msg_validation_fail'), false); 
         return; 
     }
     if(!receipt || !receipt.value.trim()) { 
-        showRepAlert("Validation", "Please enter receipt reference.", false); 
+        showRepAlert(window.t('validation'), window.t('msg_validation_fail'), false); 
         return; 
     }
 
@@ -444,33 +436,30 @@ window.saveReparation = async function() {
     if (!btn) return;
     
     btn.disabled = true; 
-    btn.innerHTML = "Saving...";
+    btn.innerHTML = window.t('msg_loading');
     
     try {
         let result;
         if(id) {
-            // PUT (Update) - No trailing slash for ID
             result = await window.fetchWithAuth(`/reparation/${id}`, 'PUT', payload);
         } else {
-            // POST (Create) - FIX: Added trailing slash to avoid 307
             result = await window.fetchWithAuth('/reparation/', 'POST', payload);
         }
 
         if(result && !result.detail) {
             window.closeModal('addRepModal');
             await loadRepData();
-            showRepAlert("Success", "Saved successfully.", true);
+            showRepAlert(window.t('title_success'), window.t('msg_saved'), true);
         } else {
-            // Handle Pydantic Error Details
-            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save reparation.";
-            showRepAlert("Error", msg, false);
+            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed";
+            showRepAlert(window.t('title_error'), msg, false);
         }
     } catch(e) { 
-        showRepAlert("System Error", e.message || "Failed to save reparation.", false); 
+        showRepAlert(window.t('title_error'), e.message || "Error", false); 
     }
     
     btn.disabled = false; 
-    btn.innerHTML = id ? `<i data-lucide="save"></i> Update` : `<i data-lucide="plus"></i> Save`;
+    btn.innerHTML = id ? `<i data-lucide="save"></i> ${window.t('btn_update')}` : `<i data-lucide="plus"></i> ${window.t('btn_save')}`;
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -480,18 +469,20 @@ window.openViewRepModal = function(id) {
     const garage = repOptions.garages.find(g => g.id === log.garage_id);
     const panne = repOptions.pannes.find(p => p.id === log.panne_id);
 
+    const dateStr = log.repair_date ? new Date(log.repair_date).toLocaleDateString(window.APP_LOCALE) : 'N/A';
+
     const content = `
         <div class="grid grid-cols-2 gap-y-4">
             <div class="col-span-2">
-                <span class="text-slate-500 text-xs uppercase block">Panne Description</span>
+                <span class="text-slate-500 text-xs uppercase block">${window.t('lbl_related_panne')}</span>
                 <span class="text-white bg-slate-800 p-2 rounded block mt-1 text-sm">${panne && panne.description ? panne.description : 'ID '+log.panne_id}</span>
             </div>
-            <div><span class="text-slate-500 text-xs uppercase block">Garage</span><span class="text-white">${garage ? garage.nom_garage : 'ID ' + log.garage_id}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Status</span><span class="text-blue-400 font-bold capitalize">${log.status || 'Unknown'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Receipt</span><span class="text-white font-mono">${log.receipt || 'N/A'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Date</span><span class="text-white">${log.repair_date ? new Date(log.repair_date).toLocaleDateString() : 'N/A'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_garage')}</span><span class="text-white">${garage ? garage.nom_garage : 'ID ' + log.garage_id}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_status')}</span><span class="text-blue-400 font-bold capitalize">${log.status || 'Unknown'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_receipt')}</span><span class="text-white font-mono">${log.receipt || 'N/A'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_date')}</span><span class="text-white">${dateStr}</span></div>
             <div class="col-span-2 border-t border-slate-700 pt-2 flex justify-between items-center">
-                <span class="text-slate-500 text-xs uppercase">Total Cost</span>
+                <span class="text-slate-500 text-xs uppercase">${window.t('col_cost')}</span>
                 <span class="text-emerald-400 font-bold text-lg">BIF ${log.cost ? log.cost.toFixed(2) : '0.00'}</span>
             </div>
         </div>`;
@@ -527,7 +518,6 @@ function showRepConfirmModal(title, message, icon, color) {
         btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
     }
     
-    // Icon Logic
     const iconDiv = getRepEl('repConfirmIcon');
     if(iconDiv) {
         iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${color.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
@@ -538,11 +528,9 @@ function showRepConfirmModal(title, message, icon, color) {
     if(window.lucide) window.lucide.createIcons();
 }
 
-// FIXED: Use the existing repAlertModal with isSuccess parameter
 function showRepAlert(title, message, isSuccess) {
     const modal = getRepEl('repAlertModal');
     if(!modal) { 
-        // Fallback to browser alert if modal doesn't exist
         alert(`${title}: ${message}`);
         return; 
     }
@@ -566,8 +554,7 @@ function showRepAlert(title, message, isSuccess) {
     
     modal.classList.remove('hidden');
     
-    // Auto close after appropriate time
-    const closeTime = isSuccess ? 3000 : 5000; // 3 seconds for success, 5 for errors
+    const closeTime = isSuccess ? 3000 : 5000;
     setTimeout(() => {
         modal.classList.add('hidden');
     }, closeTime);
@@ -614,7 +601,6 @@ function populatePanneSelect(id, list, selectedValue) {
     el.innerHTML = options;
 }
 
-// Initialize on page load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initReparation);
 } else {

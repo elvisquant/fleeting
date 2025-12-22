@@ -10,21 +10,21 @@ let fuelActionType = null;
 let fuelActionId = null;
 
 // =================================================================
-// MOBILE-COMPATIBLE ELEMENT GETTER
+// 0. HELPER: DOM ELEMENT GETTER
 // =================================================================
 function getFuelEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
+// =================================================================
+// 1. INITIALIZATION
+// =================================================================
 async function initFuel() {
     console.log("Fuel Module: Init");
     currentUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
@@ -61,50 +61,57 @@ async function initFuel() {
     await Promise.all([loadFuelData(), fetchFuelDropdowns()]);
 }
 
+// =================================================================
+// 2. DATA LOADING
+// =================================================================
+
 async function loadFuelData() {
     const tbody = getFuelEl('fuelLogsBody');
     if(!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading logs...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>${window.t('msg_loading')}</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
-    // FIX: Added trailing slash
-    const data = await window.fetchWithAuth('/fuel/'); 
-    
-    // Handle pagination or list response
-    const items = data.items || data;
-    
-    if (Array.isArray(items)) {
-        allFuelLogs = items;
-        selectedFuelIds.clear(); 
-        updateFuelBulkUI();
-        renderFuelTable();
-    } else {
-        const msg = data && data.detail ? data.detail : "Failed to load logs.";
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+    try {
+        const data = await window.fetchWithAuth('/fuel/'); 
+        const items = data.items || data;
+        
+        if (Array.isArray(items)) {
+            allFuelLogs = items;
+            selectedFuelIds.clear(); 
+            updateFuelBulkUI();
+            renderFuelTable();
+        } else {
+            const msg = data && data.detail ? data.detail : window.t('title_error');
+            tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">${window.t('title_error')}: ${msg}</td></tr>`;
+        }
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">${window.t('msg_connection_fail')}</td></tr>`;
     }
 }
 
 async function fetchFuelDropdowns() {
     try {
-        // FIX: Added trailing slashes
         const [vehicles, types] = await Promise.all([
             window.fetchWithAuth('/vehicles/?limit=1000'),
             window.fetchWithAuth('/fuel-types/')
         ]);
         
-        // Handle pagination
         fuelOptions.vehicles = Array.isArray(vehicles) ? vehicles : (vehicles.items || []);
         fuelOptions.fuelTypes = Array.isArray(types) ? types : (types.items || []);
         
-        populateSelect('fuelVehicleFilter', fuelOptions.vehicles, '', 'plate_number', 'All Vehicles');
-        populateSelect('fuelVehicleSelect', fuelOptions.vehicles, '', 'plate_number', 'Select Vehicle');
-        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', 'Select Type');
+        populateSelect('fuelVehicleFilter', fuelOptions.vehicles, '', 'plate_number', window.t('vehicles') || 'All Vehicles');
+        populateSelect('fuelVehicleSelect', fuelOptions.vehicles, '', 'plate_number', window.t('lbl_select_vehicle'));
+        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', window.t('col_fuel_type'));
         
     } catch (e) { 
         console.warn("Fuel Dropdown Error:", e); 
     }
 }
+
+// =================================================================
+// 3. TABLE RENDERING
+// =================================================================
 
 function renderFuelTable() {
     const tbody = getFuelEl('fuelLogsBody');
@@ -132,10 +139,10 @@ function renderFuelTable() {
     });
 
     const countEl = getFuelEl('fuelLogsCount');
-    if (countEl) countEl.innerText = `${filtered.length} logs found`;
+    if (countEl) countEl.innerText = `${filtered.length} ${window.t('fuel')}`;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No fuel logs found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">${window.t('msg_no_records')}</td></tr>`;
         return;
     }
 
@@ -146,11 +153,13 @@ function renderFuelTable() {
         const type = fuelOptions.fuelTypes.find(t => t.id === log.fuel_type_id);
         const plate = vehicle ? vehicle.plate_number : `ID ${log.vehicle_id}`;
         const typeName = type ? type.fuel_type : '-';
-        const date = new Date(log.created_at).toLocaleDateString();
+        
+        // Date Formatting
+        const date = new Date(log.created_at).toLocaleDateString(window.APP_LOCALE);
         
         const statusBadge = log.is_verified 
-            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
-            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
+            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">${window.t('status_verified')}</span>`
+            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">${window.t('status_pending')}</span>`;
 
         let checkboxHtml = '';
         if (canManage && !log.is_verified) {
@@ -161,17 +170,17 @@ function renderFuelTable() {
         }
 
         let actionButtons = '';
-        const viewBtn = `<button onclick="openViewFuelModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
+        const viewBtn = `<button onclick="openViewFuelModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="${window.t('view')}"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
         if (log.is_verified) {
-            actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}<span class="text-slate-600 cursor-not-allowed" title="Locked"><i data-lucide="lock" class="w-4 h-4"></i></span></div>`;
+            actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}<span class="text-slate-600 cursor-not-allowed" title="${window.t('msg_locked')}"><i data-lucide="lock" class="w-4 h-4"></i></span></div>`;
         } else if (canManage) {
             actionButtons = `
                 <div class="flex items-center justify-end gap-2">
                     ${viewBtn}
-                    <button onclick="reqFuelVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
-                    <button onclick="openEditFuelModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                    <button onclick="reqFuelDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="reqFuelVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="${window.t('btn_verify')}"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                    <button onclick="openEditFuelModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="${window.t('edit')}"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                    <button onclick="reqFuelDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="${window.t('delete')}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
         } else {
             actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
@@ -240,7 +249,12 @@ window.executeFuelBulkVerify = async function() {
     
     fuelActionType = 'bulk-verify';
     fuelActionId = null;
-    showFuelConfirmModal("Verify Selected?", `Verify ${selectedFuelIds.size} records? This cannot be undone.`, "check-circle", "bg-emerald-600");
+    showFuelConfirmModal(
+        window.t('btn_verify_selected'), 
+        `${window.t('msg_verify_confirm')}?`, 
+        "check-circle", 
+        "bg-emerald-600"
+    );
 }
 
 // === ACTIONS (Single) ===
@@ -248,13 +262,13 @@ window.executeFuelBulkVerify = async function() {
 window.reqFuelVerify = function(id) {
     fuelActionType = 'verify';
     fuelActionId = id;
-    showFuelConfirmModal('Verify Record?', 'Once verified, this record cannot be edited or deleted.', 'check-circle', 'bg-green-600');
+    showFuelConfirmModal(window.t('btn_verify'), window.t('msg_verify_confirm'), 'check-circle', 'bg-green-600');
 }
 
 window.reqFuelDelete = function(id) {
     fuelActionType = 'delete';
     fuelActionId = id;
-    showFuelConfirmModal('Delete Record?', 'This action is permanent.', 'trash-2', 'bg-red-600');
+    showFuelConfirmModal(window.t('delete'), window.t('msg_confirm_delete'), 'trash-2', 'bg-red-600');
 }
 
 async function executeFuelConfirmAction() {
@@ -262,7 +276,7 @@ async function executeFuelConfirmAction() {
     if (!btn) return;
     
     btn.disabled = true; 
-    btn.innerText = "Processing...";
+    btn.innerText = window.t('loading');
 
     try {
         let result;
@@ -285,17 +299,17 @@ async function executeFuelConfirmAction() {
         if (result !== null && result !== false) {
             if (fuelActionType === 'bulk-verify') selectedFuelIds.clear();
             await loadFuelData();
-            showFuelAlert("Success", "Action completed successfully.", true);
+            showFuelAlert(window.t('title_success'), window.t('msg_updated'), true);
         } else {
-            showFuelAlert("Failed", "Action could not be completed.", false);
+            showFuelAlert(window.t('title_error'), "Failed", false);
         }
     } catch(e) {
         window.closeModal('fuelConfirmModal');
-        showFuelAlert("Error", e.message || "An unexpected error occurred.", false);
+        showFuelAlert(window.t('title_error'), e.message || "Error", false);
     }
     
     btn.disabled = false; 
-    btn.innerText = "Confirm"; 
+    btn.innerText = window.t('btn_confirm'); 
     fuelActionId = null; 
     fuelActionType = null;
 }
@@ -308,10 +322,10 @@ window.openAddFuelModal = function() {
     const saveBtn = getFuelEl('btnSaveFuel');
     
     if (editIdEl) editIdEl.value = ""; 
-    if (modalTitle) modalTitle.innerText = "Add Fuel Log";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Add Log`;
+    if (modalTitle) modalTitle.innerText = window.t('btn_add_fuel_log');
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> ${window.t('btn_save')}`;
     
-    populateSelect('fuelVehicleSelect', fuelOptions.vehicles, '', 'plate_number', 'Select Vehicle');
+    populateSelect('fuelVehicleSelect', fuelOptions.vehicles, '', 'plate_number', window.t('lbl_select_vehicle'));
     
     const qtyEl = getFuelEl('fuelQuantity');
     const priceEl = getFuelEl('fuelPrice');
@@ -336,11 +350,11 @@ window.openEditFuelModal = function(id) {
     const saveBtn = getFuelEl('btnSaveFuel');
     
     if (editIdEl) editIdEl.value = log.id; 
-    if (modalTitle) modalTitle.innerText = "Edit Fuel Log";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Save Changes`;
+    if (modalTitle) modalTitle.innerText = window.t('edit');
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> ${window.t('btn_update')}`;
 
-    populateSelect('fuelVehicleSelect', fuelOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
-    populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, log.fuel_type_id, 'fuel_type', 'Select Type');
+    populateSelect('fuelVehicleSelect', fuelOptions.vehicles, log.vehicle_id, 'plate_number', window.t('lbl_select_vehicle'));
+    populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, log.fuel_type_id, 'fuel_type', window.t('col_fuel_type'));
     
     const qtyEl = getFuelEl('fuelQuantity');
     const priceEl = getFuelEl('fuelPrice');
@@ -370,7 +384,7 @@ window.saveFuelLog = async function() {
     const price = priceEl ? priceEl.value : '';
 
     if(!vId || !typeId || !qty || !price) { 
-        showFuelAlert("Validation", "Please fill all required fields.", false); 
+        showFuelAlert(window.t('validation'), window.t('msg_validation_fail'), false); 
         return; 
     }
 
@@ -384,7 +398,7 @@ window.saveFuelLog = async function() {
     const btn = getFuelEl('btnSaveFuel');
     if (!btn) return;
     
-    btn.innerHTML = "Saving...";
+    btn.innerHTML = window.t('msg_loading');
     btn.disabled = true;
 
     try {
@@ -392,24 +406,23 @@ window.saveFuelLog = async function() {
         if(id) {
             result = await window.fetchWithAuth(`/fuel/${id}`, 'PUT', payload);
         } else {
-            // FIX: Added trailing slash
             result = await window.fetchWithAuth('/fuel/', 'POST', payload);
         }
 
         if(result && !result.detail) {
             window.closeModal('addFuelModal');
             await loadFuelData();
-            showFuelAlert("Success", "Saved successfully.", true);
+            showFuelAlert(window.t('title_success'), window.t('msg_saved'), true);
         } else {
-            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save.";
-            showFuelAlert("Error", msg, false);
+            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed";
+            showFuelAlert(window.t('title_error'), msg, false);
         }
     } catch(e) {
-        showFuelAlert("System Error", e.message || "Failed to save fuel log.", false);
+        showFuelAlert(window.t('title_error'), e.message, false);
     }
     
     btn.disabled = false;
-    btn.innerHTML = id ? `<i data-lucide="save" class="w-4 h-4"></i> Save Changes` : `<i data-lucide="plus" class="w-4 h-4"></i> Add Log`;
+    btn.innerHTML = id ? `<i data-lucide="save" class="w-4 h-4"></i> ${window.t('btn_save')}` : `<i data-lucide="plus" class="w-4 h-4"></i> ${window.t('btn_add_fuel_log')}`;
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -419,18 +432,21 @@ window.openViewFuelModal = function(id) {
     const vehicle = fuelOptions.vehicles.find(v => v.id === log.vehicle_id);
     const type = fuelOptions.fuelTypes.find(t => t.id === log.fuel_type_id);
 
+    // Date Format
+    const dateStr = log.created_at ? new Date(log.created_at).toLocaleDateString(window.APP_LOCALE) : 'N/A';
+
     const content = `
         <div class="grid grid-cols-2 gap-y-4">
-            <div><span class="text-slate-500 text-xs uppercase block">Vehicle</span><span class="text-white font-mono">${vehicle ? vehicle.plate_number : log.vehicle_id}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Fuel Type</span><span class="text-white">${type ? type.fuel_type : '-'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Quantity</span><span class="text-white">${log.quantity ? log.quantity.toFixed(2) : '0.00'} L</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Price/Unit</span><span class="text-white">${log.price_little ? log.price_little.toFixed(2) : '0.00'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_plate')}</span><span class="text-white font-mono">${vehicle ? vehicle.plate_number : log.vehicle_id}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_fuel_type')}</span><span class="text-white">${type ? type.fuel_type : '-'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_mileage')}</span><span class="text-white">${log.quantity ? log.quantity.toFixed(2) : '0.00'} L</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_cost')}</span><span class="text-white">${log.price_little ? log.price_little.toFixed(2) : '0.00'}</span></div>
             <div class="col-span-2 border-t border-slate-700 pt-2 flex justify-between items-center">
-                <span class="text-slate-500 text-xs uppercase">Total Cost</span>
+                <span class="text-slate-500 text-xs uppercase">${window.t('col_total_cost')}</span>
                 <span class="text-emerald-400 font-bold text-lg">BIF ${log.cost ? log.cost.toFixed(2) : '0.00'}</span>
             </div>
             <div class="col-span-2 text-xs text-slate-600 text-center mt-2">
-                Date: ${log.created_at ? new Date(log.created_at).toLocaleDateString() : 'N/A'}
+                ${window.t('col_date')}: ${dateStr}
             </div>
         </div>
     `;
@@ -504,7 +520,7 @@ function showFuelAlert(title, message, isSuccess) {
     modal.classList.remove('hidden');
     
     // Auto close after appropriate time
-    const closeTime = isSuccess ? 3000 : 5000; // 3 seconds for success, 5 for errors
+    const closeTime = isSuccess ? 3000 : 5000; 
     setTimeout(() => {
         modal.classList.add('hidden');
     }, closeTime);
@@ -521,7 +537,7 @@ function autoSelectFuelType() {
     const vId = vIdEl.value;
     
     if(!vId) { 
-        typeSelect.innerHTML = '<option value="">Select Vehicle First</option>'; 
+        typeSelect.innerHTML = `<option value="">${window.t('msg_select_vehicle_first')}</option>`; 
         return; 
     }
     
@@ -531,10 +547,10 @@ function autoSelectFuelType() {
         if(type) {
             typeSelect.innerHTML = `<option value="${type.id}" selected>${type.fuel_type}</option>`;
         } else {
-            populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', 'Select Type');
+            populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', window.t('col_fuel_type'));
         }
     } else {
-        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', 'Select Type');
+        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', window.t('col_fuel_type'));
     }
 }
 

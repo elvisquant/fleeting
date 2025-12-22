@@ -1,5 +1,12 @@
 // app/static/js/panne.js
 
+/**
+ * ==============================================================================
+ * FLEETDASH PANNE MODULE (Multi-Language)
+ * Handles vehicle breakdown reporting and verification.
+ * ==============================================================================
+ */
+
 // --- GLOBAL STATE ---
 let allPannes = [];
 let panneOptions = { vehicles: [], cats: [] };
@@ -11,18 +18,15 @@ let panneActionId = null;
 let selectedPanneIds = new Set();
 
 // =================================================================
-// MOBILE-COMPATIBLE ELEMENT GETTER
+// 0. HELPER: DOM ELEMENT GETTER
 // =================================================================
 function getPanneEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
@@ -33,7 +37,7 @@ async function initPanne() {
     console.log("Panne Module: Init");
     panneUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
     
-    // DOM Elements using mobile-compatible getter
+    // DOM Elements
     const search = getPanneEl('panneSearch');
     const vFilter = getPanneEl('panneVehicleFilter');
     const sFilter = getPanneEl('panneStatusFilter');
@@ -47,9 +51,7 @@ async function initPanne() {
     if(sFilter) sFilter.addEventListener('change', renderPanneTable);
     if(selectAll) selectAll.addEventListener('change', togglePanneSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executePanneConfirmAction);
-    if(bulkBtn) {
-        bulkBtn.onclick = triggerPanneBulkVerify;
-    }
+    if(bulkBtn) bulkBtn.onclick = triggerPanneBulkVerify;
     
     await Promise.all([loadPanneData(), fetchPanneDropdowns()]);
 }
@@ -64,15 +66,13 @@ async function loadPanneData() {
     // Loading State
     tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500">
         <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
-        <div class="text-sm mt-2">Loading reports...</div>
+        <div class="text-sm mt-2">${window.t('msg_loading')}</div>
     </td></tr>`;
     
     if(window.lucide) window.lucide.createIcons();
 
     try {
         const data = await window.fetchWithAuth('/panne/');
-        
-        // Handle pagination or list response
         const items = data.items || data;
         
         if (Array.isArray(items)) {
@@ -81,18 +81,18 @@ async function loadPanneData() {
             updatePanneBulkUI();
             renderPanneTable();
         } else {
-            const msg = data && data.detail ? data.detail : "Failed to load data.";
-            showPanneAlert("Error", msg, false);
+            const msg = data && data.detail ? data.detail : window.t('msg_no_records');
+            showPanneAlert(window.t('title_error'), msg, false);
             tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">
                 <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2 text-red-400"></i>
-                <div>Error loading data</div>
+                <div>${window.t('title_error')}</div>
             </td></tr>`;
         }
     } catch (error) {
         console.error("Load panne error:", error);
         tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">
             <i data-lucide="wifi-off" class="w-8 h-8 mx-auto mb-2 text-red-400"></i>
-            <div>Network error. Please check connection.</div>
+            <div>${window.t('msg_connection_fail')}</div>
         </td></tr>`;
         if(window.lucide) window.lucide.createIcons();
     }
@@ -108,13 +108,16 @@ async function fetchPanneDropdowns() {
         panneOptions.vehicles = Array.isArray(vehicles) ? vehicles : (vehicles.items || []);
         panneOptions.cats = Array.isArray(cats) ? cats : (cats.items || []);
         
-        populateSelect('panneVehicleFilter', panneOptions.vehicles, '', 'plate_number', 'All Vehicles');
-        populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', 'Select Vehicle');
-        populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', 'Select Category');
+        // Populate Filters
+        populateSelect('panneVehicleFilter', panneOptions.vehicles, '', 'plate_number', window.t('vehicles') || 'All Vehicles');
+        
+        // Populate Modals
+        populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', window.t('lbl_select_vehicle'));
+        populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', window.t('lbl_select_category'));
 
     } catch(e) {
         console.warn("Panne Dropdown Error:", e);
-        showPanneAlert("Warning", "Could not load all dropdown options", false);
+        showPanneAlert(window.t('title_warning'), "Dropdown error", false);
     }
 }
 
@@ -152,25 +155,19 @@ function renderPanneTable() {
 
     // Update Counts
     const countEl = getPanneEl('panneCount');
-    if (countEl) countEl.innerText = `${filtered.length} record${filtered.length !== 1 ? 's' : ''} found`;
+    if (countEl) countEl.innerText = `${filtered.length} ${window.t('panne')}`;
 
-    // Update Select All checkbox
-    const selectAllCheckbox = getPanneEl('selectAllPanne');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.indeterminate = false;
-    }
+    updateSelectAllCheckbox();
 
     // Empty State
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">
             <i data-lucide="search" class="w-8 h-8 mx-auto mb-2 text-slate-500"></i>
-            <div>No records found</div>
+            <div>${window.t('msg_no_records')}</div>
         </td></tr>`;
         return;
     }
 
-    // Role Check
     const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
 
     // Generate Rows
@@ -179,18 +176,21 @@ function renderPanneTable() {
         const cat = panneOptions.cats.find(c => c.id === log.category_panne_id);
         const plate = vehicle ? vehicle.plate_number : `ID ${log.vehicle_id}`;
         const catName = cat ? cat.panne_name : `Category ${log.category_panne_id}`;
-        const date = new Date(log.panne_date).toLocaleDateString();
+        
+        // Date Formatting
+        const date = log.panne_date ? new Date(log.panne_date).toLocaleDateString(window.APP_LOCALE) : 'N/A';
+        
         const shortDesc = log.description 
             ? (log.description.length > 50 ? log.description.substring(0, 50) + '...' : log.description)
-            : 'No description';
+            : '-';
         
         // Status Badges
         const verifyBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20 flex items-center gap-1 w-fit">
-                <i data-lucide="check-circle" class="w-3 h-3"></i> Verified
+                <i data-lucide="check-circle" class="w-3 h-3"></i> ${window.t('status_verified')}
                </span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 flex items-center gap-1 w-fit">
-                <i data-lucide="clock" class="w-3 h-3"></i> Pending
+                <i data-lucide="clock" class="w-3 h-3"></i> ${window.t('status_pending')}
                </span>`;
 
         // Checkbox Logic
@@ -208,12 +208,12 @@ function renderPanneTable() {
         let actions = '';
         const viewBtn = `<button onclick="openViewPanneModal(${log.id})" 
             class="p-1.5 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-white rounded-md transition border border-slate-700 hover:border-blue-500" 
-            title="View Details"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
+            title="${window.t('view')}"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
         if(log.is_verified) {
             actions = `<div class="flex items-center justify-end gap-2">
                 ${viewBtn}
-                <span class="text-slate-600 cursor-not-allowed p-1.5" title="Locked - Verified reports cannot be edited">
+                <span class="text-slate-600 cursor-not-allowed p-1.5" title="${window.t('msg_locked')}">
                     <i data-lucide="lock" class="w-4 h-4"></i>
                 </span>
             </div>`;
@@ -222,13 +222,13 @@ function renderPanneTable() {
                 ${viewBtn}
                 <button onclick="reqPanneVerify(${log.id})" 
                     class="p-1.5 bg-slate-800 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-md transition border border-slate-700 hover:border-emerald-500"
-                    title="Verify Report"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                    title="${window.t('btn_verify')}"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
                 <button onclick="openEditPanneModal(${log.id})" 
                     class="p-1.5 bg-slate-800 hover:bg-amber-600 text-amber-400 hover:text-white rounded-md transition border border-slate-700 hover:border-amber-500"
-                    title="Edit Report"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                    title="${window.t('edit')}"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
                 <button onclick="reqPanneDelete(${log.id})" 
                     class="p-1.5 bg-slate-800 hover:bg-red-600 text-red-400 hover:text-white rounded-md transition border border-slate-700 hover:border-red-500"
-                    title="Delete Report"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    title="${window.t('delete')}"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>`;
         } else {
             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
@@ -253,14 +253,12 @@ function renderPanneTable() {
             </tr>`;
     }).join('');
     
-    // Update select all checkbox state
     updateSelectAllCheckbox();
-    
     if(window.lucide) window.lucide.createIcons();
 }
 
 // =================================================================
-// 4. BULK OPERATIONS - FIXED
+// 4. BULK OPERATIONS
 // =================================================================
 
 window.togglePanneRow = function(id) {
@@ -313,7 +311,6 @@ window.togglePanneSelectAll = function() {
     if (!mainCheck) return;
     
     const isChecked = mainCheck.checked;
-    
     const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
     const selectableLogs = allPannes.filter(log => canManage && !log.is_verified);
     
@@ -346,69 +343,56 @@ function updatePanneBulkUI() {
     }
 }
 
-// FIXED: Function name matches HTML onclick
 window.triggerPanneBulkVerify = function() {
     if (selectedPanneIds.size === 0) {
-        showPanneAlert("No Selection", "Please select at least one report to verify.", false);
+        showPanneAlert(window.t('title_warning'), window.t('msg_validation_fail'), false);
         return;
     }
     
     panneActionType = 'bulk-verify';
     panneActionId = null;
     
-    const confirmTitle = "Bulk Verify Reports";
-    const confirmMessage = `Are you sure you want to verify ${selectedPanneIds.size} selected report${selectedPanneIds.size > 1 ? 's' : ''}?<br><span class="text-xs text-slate-400 mt-1 block">This action cannot be undone.</span>`;
-    
-    showPanneConfirmModal(confirmTitle, confirmMessage, "shield-check", "bg-emerald-600");
+    showPanneConfirmModal(
+        window.t('btn_verify_selected'), 
+        `${window.t('confirm')} ${selectedPanneIds.size} ${window.t('panne')}?`, 
+        "shield-check", 
+        "bg-emerald-600"
+    );
 }
 
 // =================================================================
-// 5. SINGLE ACTIONS (Trigger Modal)
+// 5. SINGLE ACTIONS
 // =================================================================
 
 window.reqPanneVerify = function(id) {
     const log = allPannes.find(l => l.id === id);
     if (!log) return;
     
-    if (log.is_verified) {
-        showPanneAlert("Already Verified", "This report is already verified.", false);
-        return;
-    }
-    
     panneActionType = 'verify';
     panneActionId = id;
     
-    const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
-    const vehicleInfo = vehicle ? `(${vehicle.plate_number})` : '';
-    
     showPanneConfirmModal(
-        "Verify Report", 
-        `Verify report #${id} ${vehicleInfo}?<br><span class="text-xs text-slate-400 mt-1 block">This will lock the report permanently.</span>`, 
+        window.t('btn_verify'), 
+        window.t('msg_verify_confirm'), 
         "check-circle", 
         "bg-green-600"
     );
 }
 
 window.reqPanneDelete = function(id) {
-    const log = allPannes.find(l => l.id === id);
-    if (!log) return;
-    
     panneActionType = 'delete';
     panneActionId = id;
     
-    const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
-    const vehicleInfo = vehicle ? `for vehicle ${vehicle.plate_number}` : '';
-    
     showPanneConfirmModal(
-        "Delete Report", 
-        `Permanently delete report #${id} ${vehicleInfo}?<br><span class="text-xs text-red-400 mt-1 block">This action cannot be undone.</span>`, 
+        window.t('delete'), 
+        window.t('msg_confirm_delete'), 
         "trash-2", 
         "bg-red-600"
     );
 }
 
 // =================================================================
-// 6. EXECUTE ACTION (Confirm Modal Click) - FIXED
+// 6. EXECUTE ACTION
 // =================================================================
 
 async function executePanneConfirmAction() {
@@ -416,69 +400,54 @@ async function executePanneConfirmAction() {
     if (!btn) return;
     
     const originalText = btn.innerHTML;
-    
     btn.disabled = true;
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> ${window.t('loading')}`;
     
     try {
         let result = null;
         let successMessage = "";
         let idList = [];
         
-        // --- DELETE ---
         if (panneActionType === 'delete') {
             result = await window.fetchWithAuth(`/panne/${panneActionId}`, 'DELETE');
-            successMessage = "Report deleted successfully";
+            successMessage = window.t('msg_deleted');
         }
-        // --- VERIFY (Single) ---
         else if (panneActionType === 'verify') {
             idList = [parseInt(panneActionId)];
             const payload = { ids: idList };
             result = await window.fetchWithAuth(`/panne/verify-bulk`, 'PUT', payload);
-            successMessage = "Report verified successfully";
+            successMessage = window.t('msg_updated');
         }
-        // --- VERIFY (Bulk) ---
         else if (panneActionType === 'bulk-verify') {
             idList = Array.from(selectedPanneIds).map(id => parseInt(id));
             const payload = { ids: idList };
             result = await window.fetchWithAuth('/panne/verify-bulk', 'PUT', payload);
-            successMessage = `${idList.length} report${idList.length > 1 ? 's' : ''} verified successfully`;
+            successMessage = window.t('msg_updated');
         }
 
         window.closeModal('panneConfirmModal');
         
-        // Check if result is valid
         const isSuccess = result !== null && result !== false && !result.detail;
         
         if (isSuccess) {
-            // Clear selections for bulk operations
             if (panneActionType === 'bulk-verify') {
                 selectedPanneIds.clear();
             }
-            
-            // Reload data
             await loadPanneData();
-            
-            // Show success alert
-            showPanneAlert("Success", successMessage, true);
-            
+            showPanneAlert(window.t('title_success'), successMessage, true);
         } else {
-            // Handle API errors
-            const errorMsg = result?.detail || "Action could not be completed";
-            showPanneAlert("Failed", typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
+            const errorMsg = result?.detail || "Action failed";
+            showPanneAlert(window.t('title_error'), errorMsg, false);
         }
         
     } catch(e) {
-        console.error("Action error:", e);
         window.closeModal('panneConfirmModal');
-        showPanneAlert("Error", e.message || "An unexpected error occurred", false);
+        showPanneAlert(window.t('title_error'), e.message || "Error", false);
     }
     
-    // Reset button state
     btn.disabled = false;
     btn.innerHTML = originalText;
     
-    // Reset action state
     panneActionId = null;
     panneActionType = null;
     
@@ -495,11 +464,11 @@ window.openAddPanneModal = function() {
     const saveBtn = getPanneEl('btnSavePanne');
     
     if (editIdEl) editIdEl.value = "";
-    if (modalTitle) modalTitle.innerText = "Report Breakdown";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save Report`;
+    if (modalTitle) modalTitle.innerText = window.t('btn_report_panne');
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> ${window.t('btn_save')}`;
     
-    populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', 'Select Vehicle');
-    populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', 'Select Category');
+    populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', window.t('lbl_select_vehicle'));
+    populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', window.t('lbl_select_category'));
     
     const descEl = getPanneEl('panneDesc');
     const dateEl = getPanneEl('panneDate');
@@ -510,24 +479,15 @@ window.openAddPanneModal = function() {
     const modal = getPanneEl('addPanneModal');
     if (modal) modal.classList.remove('hidden');
     
-    // Focus first field
-    setTimeout(() => {
-        const firstSelect = getPanneEl('panneVehicleSelect');
-        if (firstSelect) firstSelect.focus();
-    }, 100);
-    
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.openEditPanneModal = function(id) {
     const log = allPannes.find(l => l.id === id);
-    if(!log) {
-        showPanneAlert("Error", "Report not found", false);
-        return;
-    }
+    if(!log) return;
     
     if (log.is_verified) {
-        showPanneAlert("Locked", "Verified reports cannot be edited", false);
+        showPanneAlert(window.t('title_warning'), window.t('msg_locked'), false);
         return;
     }
 
@@ -536,11 +496,11 @@ window.openEditPanneModal = function(id) {
     const saveBtn = getPanneEl('btnSavePanne');
     
     if (editIdEl) editIdEl.value = log.id;
-    if (modalTitle) modalTitle.innerText = "Edit Breakdown Report";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update Report`;
+    if (modalTitle) modalTitle.innerText = window.t('edit');
+    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> ${window.t('btn_update')}`;
 
-    populateSelect('panneVehicleSelect', panneOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
-    populateSelect('panneCatSelect', panneOptions.cats, log.category_panne_id, 'panne_name', 'Category');
+    populateSelect('panneVehicleSelect', panneOptions.vehicles, log.vehicle_id, 'plate_number', window.t('lbl_select_vehicle'));
+    populateSelect('panneCatSelect', panneOptions.cats, log.category_panne_id, 'panne_name', window.t('lbl_select_category'));
     
     const descEl = getPanneEl('panneDesc');
     const dateEl = getPanneEl('panneDate');
@@ -567,15 +527,8 @@ window.savePanne = async function() {
     const desc = descEl ? descEl.value.trim() : '';
     const date = dateEl ? dateEl.value : '';
 
-    // Validation
-    const errors = [];
-    if(!vId) errors.push("Please select a vehicle");
-    if(!catId) errors.push("Please select a category");
-    if(!date) errors.push("Please select a date");
-    if(!desc) errors.push("Please enter a description");
-    
-    if(errors.length > 0) {
-        showPanneAlert("Validation Error", errors.join("<br>"), false);
+    if(!vId || !catId || !date || !desc) {
+        showPanneAlert(window.t('validation'), window.t('msg_validation_fail'), false);
         return;
     }
 
@@ -589,10 +542,8 @@ window.savePanne = async function() {
     const btn = getPanneEl('btnSavePanne');
     if (!btn) return;
     
-    const originalText = btn.innerHTML;
-    
     btn.disabled = true;
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> ${window.t('loading')}`;
     
     try {
         let result;
@@ -605,79 +556,62 @@ window.savePanne = async function() {
         if(result && !result.detail) {
             window.closeModal('addPanneModal');
             await loadPanneData();
-            showPanneAlert("Success", `Report ${id ? 'updated' : 'created'} successfully`, true);
+            showPanneAlert(window.t('title_success'), window.t('msg_saved'), true);
         } else {
-            const errorMsg = result?.detail || "Failed to save report";
-            showPanneAlert("Error", typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
+            const errorMsg = result?.detail || "Failed";
+            showPanneAlert(window.t('title_error'), typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg, false);
         }
     } catch(e) { 
-        showPanneAlert("System Error", e.message || "Failed to save panne report.", false); 
+        showPanneAlert(window.t('title_error'), e.message, false); 
     }
     
     btn.disabled = false; 
-    btn.innerHTML = originalText;
+    btn.innerHTML = id ? `<i data-lucide="save"></i> ${window.t('btn_update')}` : `<i data-lucide="plus"></i> ${window.t('btn_save')}`;
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.openViewPanneModal = function(id) {
     const log = allPannes.find(l => l.id === id);
-    if (!log) {
-        showPanneAlert("Error", "Report not found", false);
-        return;
-    }
+    if (!log) return;
     
     const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
     const cat = panneOptions.cats.find(c => c.id === log.category_panne_id);
     
+    // DATE FORMAT
+    const dateStr = log.panne_date ? new Date(log.panne_date).toLocaleDateString(window.APP_LOCALE) : 'N/A';
+
     const content = `
         <div class="space-y-5">
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <span class="text-slate-500 text-xs uppercase block mb-1">Vehicle</span>
+                    <span class="text-slate-500 text-xs uppercase block mb-1">${window.t('col_plate')}</span>
                     <div class="text-white font-mono text-sm">${vehicle ? vehicle.plate_number : 'ID ' + log.vehicle_id}</div>
-                    ${vehicle && vehicle.model ? `<div class="text-xs text-slate-400">${vehicle.model}</div>` : ''}
                 </div>
                 <div>
-                    <span class="text-slate-500 text-xs uppercase block mb-1">Category</span>
+                    <span class="text-slate-500 text-xs uppercase block mb-1">${window.t('col_category')}</span>
                     <span class="text-white">${cat ? cat.panne_name : '-'}</span>
                 </div>
                 <div>
-                    <span class="text-slate-500 text-xs uppercase block mb-1">Date of Incident</span>
-                    <span class="text-white">${new Date(log.panne_date).toLocaleDateString()}</span>
+                    <span class="text-slate-500 text-xs uppercase block mb-1">${window.t('col_date')}</span>
+                    <span class="text-white">${dateStr}</span>
                 </div>
                 <div>
-                    <span class="text-slate-500 text-xs uppercase block mb-1">Status</span>
+                    <span class="text-slate-500 text-xs uppercase block mb-1">${window.t('col_status')}</span>
                     ${log.is_verified 
                         ? `<span class="text-emerald-400 uppercase font-bold text-xs flex items-center gap-1">
-                            <i data-lucide="check-circle" class="w-3 h-3"></i> Verified
+                            <i data-lucide="check-circle" class="w-3 h-3"></i> ${window.t('status_verified')}
                           </span>`
                         : `<span class="text-yellow-400 uppercase font-bold text-xs flex items-center gap-1">
-                            <i data-lucide="clock" class="w-3 h-3"></i> Pending
+                            <i data-lucide="clock" class="w-3 h-3"></i> ${window.t('status_pending')}
                           </span>`}
                 </div>
             </div>
             <div class="border-t border-slate-700 pt-4">
-                <span class="text-slate-500 text-xs uppercase block mb-2">Description</span>
+                <span class="text-slate-500 text-xs uppercase block mb-2">${window.t('col_description')}</span>
                 <div class="text-slate-300 text-sm bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                    ${log.description || '<span class="text-slate-500 italic">No description provided</span>'}
+                    ${log.description || '-'}
                 </div>
             </div>
-            ${log.created_at ? `
-            <div class="border-t border-slate-700 pt-4 text-xs text-slate-500">
-                <div class="flex justify-between">
-                    <span>Report ID:</span>
-                    <span class="text-slate-400">#${log.id}</span>
-                </div>
-                <div class="flex justify-between mt-1">
-                    <span>Created:</span>
-                    <span class="text-slate-400">${new Date(log.created_at).toLocaleString()}</span>
-                </div>
-                ${log.updated_at && log.updated_at !== log.created_at ? `
-                <div class="flex justify-between mt-1">
-                    <span>Last Updated:</span>
-                    <span class="text-slate-400">${new Date(log.updated_at).toLocaleString()}</span>
-                </div>` : ''}
-            </div>` : ''}
         </div>`;
     
     const viewContent = getPanneEl('viewPanneContent');
@@ -695,22 +629,16 @@ window.openViewPanneModal = function(id) {
 
 window.closeModal = function(id) {
     const modal = getPanneEl(id) || document.getElementById(id);
-    if (modal) {
-        modal.classList.add('hidden');
-    }
+    if (modal) modal.classList.add('hidden');
 }
 
 function showPanneConfirmModal(title, message, icon, color) {
     const modal = getPanneEl('panneConfirmModal');
     if(!modal) {
-        // Fallback to browser confirm
-        if(confirm(title + ": " + message.replace(/<br>|<span.*?>|<\/span>/g, ' '))) {
-            executePanneConfirmAction();
-        }
+        if(confirm(title + ": " + message)) executePanneConfirmAction();
         return;
     }
     
-    // Update modal content
     const titleEl = getPanneEl('panneConfirmTitle');
     const messageEl = getPanneEl('panneConfirmMessage');
     
@@ -718,40 +646,22 @@ function showPanneConfirmModal(title, message, icon, color) {
     if (messageEl) messageEl.innerHTML = message;
     
     const btn = getPanneEl('btnPanneConfirmAction');
-    if (btn) {
-        btn.className = `px-4 py-2.5 text-white rounded-lg text-sm w-full font-medium transition-all duration-200 ${color} hover:opacity-90`;
-    }
+    if (btn) btn.className = `px-4 py-2.5 text-white rounded-lg text-sm w-full font-medium transition-all duration-200 ${color}`;
     
-    // Update icon
     const iconDiv = getPanneEl('panneConfirmIcon');
     if(iconDiv) {
-        const textColor = color === 'bg-red-600' ? 'text-red-500' :
-                         color === 'bg-green-600' ? 'text-green-500' : 'text-emerald-500';
+        const textColor = color === 'bg-red-600' ? 'text-red-500' : 'text-emerald-500';
         iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${textColor} bg-opacity-20 border border-current/20`;
         iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
     }
     
-    // Show modal with animation
     modal.classList.remove('hidden');
-    modal.style.opacity = '0';
-    modal.style.transform = 'scale(0.95)';
-    
-    setTimeout(() => {
-        modal.style.opacity = '1';
-        modal.style.transform = 'scale(1)';
-    }, 10);
-    
     if(window.lucide) window.lucide.createIcons();
 }
 
 function showPanneAlert(title, message, isSuccess) {
     const modal = getPanneEl('panneAlertModal');
-    
-    if(!modal) {
-        // Fallback to browser alert
-        alert(`${title}: ${message}`);
-        return;
-    }
+    if(!modal) { alert(`${title}: ${message}`); return; }
     
     const titleEl = getPanneEl('panneAlertTitle');
     const messageEl = getPanneEl('panneAlertMessage');
@@ -770,30 +680,10 @@ function showPanneAlert(title, message, isSuccess) {
         }
     }
     
-    const okBtn = modal.querySelector('button');
-    if(okBtn) {
-        okBtn.className = isSuccess 
-            ? "px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm w-full font-medium transition"
-            : "px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm w-full font-medium transition";
-    }
-    
-    // Show modal with animation
     modal.classList.remove('hidden');
-    modal.style.opacity = '0';
-    modal.style.transform = 'scale(0.95)';
     
-    setTimeout(() => {
-        modal.style.opacity = '1';
-        modal.style.transform = 'scale(1)';
-    }, 10);
-    
-    // Auto close for success messages
     if(isSuccess) {
-        setTimeout(() => {
-            if(!modal.classList.contains('hidden')) {
-                modal.classList.add('hidden');
-            }
-        }, 3000);
+        setTimeout(() => modal.classList.add('hidden'), 3000);
     }
     
     if(window.lucide) window.lucide.createIcons();
@@ -804,7 +694,6 @@ function populateSelect(id, list, selectedValue, labelKey, defaultText) {
     if(!el) return;
     
     let options = `<option value="">${defaultText}</option>`;
-    
     if (Array.isArray(list)) {
         options += list.map(item => {
             const value = item.id;
@@ -813,23 +702,13 @@ function populateSelect(id, list, selectedValue, labelKey, defaultText) {
             return `<option value="${value}" ${selected}>${label}</option>`;
         }).join('');
     }
-    
     el.innerHTML = options;
 }
 
-// =================================================================
-// 9. INITIALIZATION
-// =================================================================
-
-// Initialize on page load
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initPanne);
 } else {
-    // DOM already loaded
     setTimeout(initPanne, 100);
 }
 
-// Make functions available globally
 window.initPanne = initPanne;
-window.loadPanneData = loadPanneData;
-window.renderPanneTable = renderPanneTable;

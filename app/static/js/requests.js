@@ -1,13 +1,5 @@
 // app/static/js/requests.js
 
-/**
- * ==============================================================================
- * FLEETDASH REQUESTS MODULE
- * Handles fetching, displaying, approving, and assigning resources.
- * Matches the updated requests.html structure.
- * ==============================================================================
- */
-
 // --- GLOBAL STATE ---
 let allRequests = [];
 let availableVehicles = [];
@@ -34,10 +26,8 @@ function getReqEl(id) {
 // =================================================================
 async function initRequests() {
     console.log("Requests Module: Initializing...");
-    
     reqUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // Attach Listeners
     const search = getReqEl('reqSearch');
     const filter = getReqEl('reqStatusFilter');
     const btnExecute = getReqEl('btnExecuteApproval');
@@ -45,11 +35,10 @@ async function initRequests() {
 
     if (search) search.addEventListener('input', renderReqTable);
     if (filter) filter.addEventListener('change', renderReqTable);
-    
     if (btnExecute) btnExecute.addEventListener('click', submitApprovalDecision);
     if (btnAssign) btnAssign.addEventListener('click', submitAssignment);
 
-    // Load Data
+    // Initial Load
     await Promise.all([
         loadRequestsData(),
         loadAssignmentResources()
@@ -64,7 +53,8 @@ async function loadRequestsData() {
     const tbody = getReqEl('reqLogsBody');
     if (!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
+    // TRANSLATED LOADING MESSAGE
+    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>${window.t('msg_loading')}</td></tr>`;
     if (window.lucide) window.lucide.createIcons();
 
     try {
@@ -75,18 +65,17 @@ async function loadRequestsData() {
             allRequests = items;
             renderReqTable();
         } else {
-            const msg = data && data.detail ? data.detail : "Failed to load requests.";
-            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+            const msg = data && data.detail ? data.detail : window.t('msg_no_records');
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">${window.t('title_error')}: ${msg}</td></tr>`;
         }
     } catch (error) {
         console.error("Load Error:", error);
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Connection failed.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">${window.t('msg_connection_fail')}</td></tr>`;
     }
 }
 
 async function loadAssignmentResources() {
-    if (!['admin', 'superadmin', 'charoi'].includes(reqUserRole)) return;
-
+    // Keep backend driver check to show names correctly
     try {
         const vData = await window.fetchWithAuth('/vehicles/?limit=1000');
         availableVehicles = Array.isArray(vData) ? vData : (vData.items || []);
@@ -94,7 +83,6 @@ async function loadAssignmentResources() {
         const dData = await window.fetchWithAuth('/requests/drivers'); 
         availableDrivers = Array.isArray(dData) ? dData : [];
 
-        console.log(`Loaded ${availableVehicles.length} vehicles and ${availableDrivers.length} drivers.`);
     } catch (e) {
         console.warn("Failed to load assignment resources", e);
     }
@@ -129,10 +117,10 @@ function renderReqTable() {
     });
 
     const countEl = getReqEl('reqCount');
-    if (countEl) countEl.innerText = `${filtered.length} requests found`;
+    if (countEl) countEl.innerText = `${filtered.length} ${window.t('requests')}`;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No requests found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">${window.t('msg_no_records')}</td></tr>`;
         return;
     }
 
@@ -142,32 +130,31 @@ function renderReqTable() {
         const requester = r.requester ? r.requester.full_name : "Unknown";
         const service = r.requester && r.requester.service ? r.requester.service.service_name : "-";
         
-        // --- FIX: Ensure Date is parsed as UTC if 'Z' is missing ---
         const safeDepString = r.departure_time.endsWith('Z') ? r.departure_time : r.departure_time + 'Z';
         const departureDate = new Date(safeDepString);
         
-        const dep = departureDate.toLocaleString();
-        const ret = r.return_time ? new Date(r.return_time).toLocaleString() : 'N/A';
+        // DATE TRANSLATION
+        const dep = departureDate.toLocaleString(window.APP_LOCALE);
+        const ret = r.return_time ? new Date(r.return_time).toLocaleString(window.APP_LOCALE) : 'N/A';
 
-        // Lock Logic
         const isLocked = now >= departureDate;
         const rowClass = isLocked 
             ? "hover:bg-white/5 border-b border-slate-700/30 opacity-60 bg-slate-900/30" 
             : "hover:bg-white/5 border-b border-slate-700/30";
 
-        // Progress Bar
+        // PROGRESS BAR TRANSLATION
         let statusHtml = '';
         if (r.status === 'denied') {
-            statusHtml = `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-red-500/10 text-red-400 border border-red-500/20">Denied</span>`;
+            statusHtml = `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-red-500/10 text-red-400 border border-red-500/20">${window.t('status_denied')}</span>`;
         } else {
             let step = 0; 
-            let text = "0/3 Pending";
+            let text = window.t('status_pending');
             let width = "5%";
             let color = "bg-slate-600";
             
-            if (r.status === 'approved_by_chef') { step = 1; text = "1/3 Chef Approved"; width = "33%"; color = "bg-blue-500"; }
-            else if (r.status === 'approved_by_logistic') { step = 2; text = "2/3 Logistic Approved"; width = "66%"; color = "bg-purple-500"; }
-            else if (['fully_approved', 'in_progress', 'completed'].includes(r.status)) { step = 3; text = "3/3 Fully Approved"; width = "100%"; color = "bg-emerald-500"; }
+            if (r.status === 'approved_by_chef') { step = 1; text = `1/3 ${window.t('status_approved_chef')}`; width = "33%"; color = "bg-blue-500"; }
+            else if (r.status === 'approved_by_logistic') { step = 2; text = `2/3 ${window.t('status_approved_logistic')}`; width = "66%"; color = "bg-purple-500"; }
+            else if (['fully_approved', 'in_progress', 'completed'].includes(r.status)) { step = 3; text = `3/3 ${window.t('status_fully_approved')}`; width = "100%"; color = "bg-emerald-500"; }
 
             statusHtml = `
                 <div class="w-36">
@@ -178,7 +165,14 @@ function renderReqTable() {
                 </div>`;
         }
 
-        // Status Badge
+        // BADGE TRANSLATION
+        let badgeText = r.status.replace(/_/g, ' ');
+        if(r.status === 'pending') badgeText = window.t('status_pending');
+        else if(r.status === 'approved_by_chef') badgeText = window.t('status_approved_chef');
+        else if(r.status === 'approved_by_logistic') badgeText = window.t('status_approved_logistic');
+        else if(r.status === 'fully_approved') badgeText = window.t('status_fully_approved');
+        else if(r.status === 'denied') badgeText = window.t('status_denied');
+
         let badgeClass = 'bg-slate-700 text-slate-400 border border-slate-600';
         if(r.status === 'pending') badgeClass = 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20';
         else if(r.status === 'denied') badgeClass = 'bg-red-500/10 text-red-400 border border-red-500/20';
@@ -200,11 +194,11 @@ function renderReqTable() {
                 <td class="p-4">${statusHtml}</td>
                 <td class="p-4">
                     <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase whitespace-nowrap ${badgeClass}">
-                        ${r.status.replace(/_/g, ' ')}
+                        ${badgeText}
                     </span>
                 </td>
                 <td class="p-4 text-right">
-                    <button onclick="openViewRequestModal(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="${isLocked ? 'View Locked' : 'View / Edit'}">
+                    <button onclick="openViewRequestModal(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="${isLocked ? window.t('view') : window.t('edit')}">
                         <i data-lucide="eye" class="w-4 h-4"></i>
                     </button>
                 </td>
@@ -215,7 +209,7 @@ function renderReqTable() {
 }
 
 // =================================================================
-// 4. ADD REQUEST MODAL (Creation)
+// 4. ADD REQUEST MODAL
 // =================================================================
 
 window.openAddRequestModal = function() {
@@ -254,21 +248,21 @@ window.saveRequest = async function() {
     const passStr = getReqEl('reqPassengers')?.value;
 
     if (!dest || !dep || !ret) { 
-        showReqErrorAlert("Validation", "Please fill required fields (Destination, Dates)."); 
+        showReqErrorAlert(window.t('validation'), window.t('msg_validation_fail')); 
         return; 
     }
 
     const departureDate = new Date(dep);
     const returnDate = new Date(ret);
     if (returnDate <= departureDate) {
-        showReqErrorAlert("Validation", "Return date must be after departure.");
+        showReqErrorAlert(window.t('validation'), "Return date must be after departure.");
         return;
     }
 
     const passengers = passStr ? passStr.split(',').map(s => s.trim()).filter(s => s) : [];
 
     btn.disabled = true; 
-    btn.innerText = "Sending...";
+    btn.innerHTML = `${window.t('loading')}`;
 
     try {
         const result = await window.fetchWithAuth('/requests/', 'POST', {
@@ -282,24 +276,24 @@ window.saveRequest = async function() {
         if (result && !result.detail) {
             window.closeModal('addRequestModal');
             await loadRequestsData();
-            showReqSuccessAlert("Success", "Request submitted successfully.");
+            showReqSuccessAlert(window.t('title_success'), window.t('req_submitted'));
         } else {
-            let errorMsg = "Failed to submit request.";
+            let errorMsg = window.t('title_error');
             if (result.detail) {
                 errorMsg = typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail;
             }
-            showReqErrorAlert("Error", errorMsg);
+            showReqErrorAlert(window.t('title_error'), errorMsg);
         }
     } catch(e) { 
-        showReqErrorAlert("Error", e.message || "Failed to submit request."); 
+        showReqErrorAlert(window.t('title_error'), e.message || window.t('msg_connection_fail')); 
     }
     
     btn.disabled = false; 
-    btn.innerText = "Submit Request";
+    btn.innerHTML = window.t('btn_save');
 }
 
 // =================================================================
-// 5. VIEW / APPROVE / ASSIGN MODAL LOGIC
+// 5. VIEW / APPROVE / ASSIGN MODAL
 // =================================================================
 
 window.openViewRequestModal = function(id) {
@@ -312,45 +306,38 @@ window.openViewRequestModal = function(id) {
     
     if (!viewContent || !footer || !modal) return;
 
-    // --- FIX: FORCE UTC COMPARISON ---
     const safeDepString = r.departure_time.endsWith('Z') ? r.departure_time : r.departure_time + 'Z';
     const departureDate = new Date(safeDepString);
     const isLocked = new Date() >= departureDate;
 
-    // --- RENDER DETAILS ---
     const requester = r.requester ? r.requester.full_name : "Unknown";
     const service = r.requester && r.requester.service ? r.requester.service.service_name : "-";
     const passengers = r.passengers ? (Array.isArray(r.passengers) ? r.passengers.join(", ") : r.passengers) : "None";
     
-    // Robust Driver Name
-    let driverName = 'Not assigned';
+    let driverName = window.t('status_pending');
     if (r.driver) {
-        if (r.driver.full_name) {
-            driverName = r.driver.full_name;
-        } else if (r.driver.first_name) {
-            driverName = `${r.driver.first_name} ${r.driver.last_name || ''}`;
-        } else {
-            driverName = r.driver.username || 'Unknown Driver';
-        }
+        if (r.driver.full_name) driverName = r.driver.full_name;
+        else if (r.driver.first_name) driverName = `${r.driver.first_name} ${r.driver.last_name || ''}`;
+        else driverName = r.driver.username || window.t('status_pending');
     }
 
     let assignmentHtml = '';
     if (r.vehicle || r.driver) {
         assignmentHtml = `
         <div class="col-span-2 mt-4 pt-4 border-t border-slate-700">
-            <h4 class="text-xs uppercase font-bold text-slate-500 mb-2">Assigned Resources</h4>
+            <h4 class="text-xs uppercase font-bold text-slate-500 mb-2">${window.t('assign_resources')}</h4>
             <div class="grid grid-cols-2 gap-4">
                 <div class="p-3 bg-slate-800 rounded-lg flex items-center gap-3">
                     <i data-lucide="car" class="w-5 h-5 text-blue-400"></i>
                     <div>
-                        <p class="text-xs text-slate-500">Vehicle</p>
-                        <p class="text-sm font-medium text-white">${r.vehicle ? r.vehicle.plate_number : 'Not assigned'}</p>
+                        <p class="text-xs text-slate-500">${window.t('col_plate')}</p>
+                        <p class="text-sm font-medium text-white">${r.vehicle ? r.vehicle.plate_number : window.t('status_pending')}</p>
                     </div>
                 </div>
                 <div class="p-3 bg-slate-800 rounded-lg flex items-center gap-3">
                     <i data-lucide="user" class="w-5 h-5 text-blue-400"></i>
                     <div>
-                        <p class="text-xs text-slate-500">Driver</p>
+                        <p class="text-xs text-slate-500">${window.t('col_driver')}</p>
                         <p class="text-sm font-medium text-white">${driverName}</p>
                     </div>
                 </div>
@@ -360,14 +347,14 @@ window.openViewRequestModal = function(id) {
 
     let rejectionHtml = r.status === 'denied' && r.rejection_reason ? `
         <div class="col-span-2 mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-            <span class="text-red-400 text-xs uppercase font-bold block mb-1">Rejection Reason</span>
+            <span class="text-red-400 text-xs uppercase font-bold block mb-1">${window.t('status_denied')} - Reason</span>
             <p class="text-red-200 text-sm">${r.rejection_reason || ''}</p>
         </div>` : '';
 
     let lockNotice = isLocked ? `
         <div class="col-span-2 mb-2 p-2 bg-slate-800/50 border border-slate-700 rounded text-xs text-slate-400 flex items-center gap-2">
             <i data-lucide="lock" class="w-3 h-3"></i>
-            Request Locked: Departure time has passed.
+            ${window.t('locked_msg')}
         </div>` : '';
 
     viewContent.innerHTML = `
@@ -383,22 +370,21 @@ window.openViewRequestModal = function(id) {
                     <div class="text-slate-500 text-xs uppercase">${r.status.replace(/_/g, ' ')}</div>
                 </div>
             </div>
-            <div><span class="text-slate-500 text-xs uppercase block">Destination</span><span class="text-white">${r.destination || 'N/A'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Passengers</span><span class="text-white">${passengers}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Departure</span><span class="text-white">${r.departure_time ? new Date(r.departure_time).toLocaleString() : 'N/A'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Return</span><span class="text-white">${r.return_time ? new Date(r.return_time).toLocaleString() : 'N/A'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_destination')}</span><span class="text-white">${r.destination || 'N/A'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('passengers')}</span><span class="text-white">${passengers}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_departure')}</span><span class="text-white">${r.departure_time ? new Date(r.departure_time).toLocaleString(window.APP_LOCALE) : 'N/A'}</span></div>
+            <div><span class="text-slate-500 text-xs uppercase block">${window.t('col_return')}</span><span class="text-white">${r.return_time ? new Date(r.return_time).toLocaleString(window.APP_LOCALE) : 'N/A'}</span></div>
             <div class="col-span-2">
-                <span class="text-slate-500 text-xs uppercase block mb-1">Description</span>
-                <p class="text-slate-300 text-sm bg-slate-800 p-3 rounded-lg">${r.description || 'No description provided.'}</p>
+                <span class="text-slate-500 text-xs uppercase block mb-1">${window.t('col_description')}</span>
+                <p class="text-slate-300 text-sm bg-slate-800 p-3 rounded-lg">${r.description || '-'}</p>
             </div>
             ${assignmentHtml}
             ${rejectionHtml}
         </div>`;
 
-    // --- FOOTER BUTTON LOGIC ---
-    let buttons = `<button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg">Close</button>`;
+    // TRANSLATED BUTTONS
+    let buttons = `<button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg">${window.t('btn_close')}</button>`;
 
-    // Only allow actions if NOT Locked
     if (!isLocked) {
         if (reqUserRole === 'chef' && r.status === 'pending') {
             buttons = getApproveRejectButtons(r.id, "Chef Approval");
@@ -410,13 +396,12 @@ window.openViewRequestModal = function(id) {
             buttons = getApproveRejectButtons(r.id, "Final Approval");
         }
 
-        // Assign Button Logic
         if (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && 
             ['approved_by_logistic', 'fully_approved', 'in_progress'].includes(r.status)) {
             
             const assignBtn = `
                 <button onclick="openAssignmentModal(${r.id})" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg flex items-center gap-2 mr-2">
-                    <i data-lucide="steering-wheel" class="w-4 h-4"></i> Assign Resources
+                    <i data-lucide="steering-wheel" class="w-4 h-4"></i> ${window.t('btn_assign')}
                 </button>
             `;
             buttons = assignBtn + buttons;
@@ -431,14 +416,14 @@ window.openViewRequestModal = function(id) {
 
 function getApproveRejectButtons(id, label) {
     return `
-        <button onclick="closeModal('viewRequestModal')" class="px-3 py-2 text-slate-400 hover:text-white text-sm font-medium">Cancel</button>
-        <button onclick="openApprovalModal(${id}, 'reject')" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg flex items-center gap-2"><i data-lucide="x-circle" class="w-4 h-4"></i> Deny</button>
-        <button onclick="openApprovalModal(${id}, 'approve')" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Approve</button>
+        <button onclick="closeModal('viewRequestModal')" class="px-3 py-2 text-slate-400 hover:text-white text-sm font-medium">${window.t('btn_cancel')}</button>
+        <button onclick="openApprovalModal(${id}, 'reject')" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-lg flex items-center gap-2"><i data-lucide="x-circle" class="w-4 h-4"></i> ${window.t('btn_deny')}</button>
+        <button onclick="openApprovalModal(${id}, 'approve')" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> ${window.t('btn_approve')}</button>
     `;
 }
 
 // =================================================================
-// 6. RESOURCE ASSIGNMENT LOGIC (Assignment Modal #4)
+// 6. RESOURCE ASSIGNMENT LOGIC
 // =================================================================
 
 window.openAssignmentModal = function(requestId) {
@@ -453,7 +438,7 @@ window.openAssignmentModal = function(requestId) {
 
     idInput.value = requestId;
 
-    vSelect.innerHTML = '<option value="">Select Vehicle...</option>';
+    vSelect.innerHTML = `<option value="">${window.t('lbl_select_vehicle')}</option>`;
     availableVehicles.forEach(v => {
         const option = document.createElement('option');
         option.value = v.id;
@@ -461,7 +446,7 @@ window.openAssignmentModal = function(requestId) {
         vSelect.appendChild(option);
     });
 
-    dSelect.innerHTML = '<option value="">Select Driver...</option>';
+    dSelect.innerHTML = `<option value="">${window.t('lbl_select_driver')}</option>`;
     availableDrivers.forEach(d => {
         const option = document.createElement('option');
         option.value = d.id;
@@ -480,12 +465,12 @@ async function submitAssignment() {
     const dId = getReqEl('assignDriver').value;
 
     if (!vId || !dId) {
-        showReqErrorAlert("Validation", "Please select both a Vehicle and a Driver.");
+        showReqErrorAlert(window.t('validation'), window.t('msg_validation_fail'));
         return;
     }
 
     btn.disabled = true;
-    btn.innerText = "Assigning...";
+    btn.innerText = window.t('loading');
 
     try {
         const payload = { vehicle_id: parseInt(vId), driver_id: parseInt(dId) };
@@ -494,17 +479,17 @@ async function submitAssignment() {
         if (result && !result.detail) {
             window.closeModal('assignmentModal');
             await loadRequestsData(); 
-            showReqSuccessAlert("Success", "Resources assigned successfully.");
+            showReqSuccessAlert(window.t('title_success'), window.t('msg_assigned'));
         } else {
-            const msg = result?.detail ? (typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail) : "Assignment failed.";
-            showReqErrorAlert("Error", msg);
+            const msg = result?.detail ? (typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail) : "Failed";
+            showReqErrorAlert(window.t('title_error'), msg);
         }
     } catch (e) {
-        showReqErrorAlert("System Error", e.message || "Connection failed.");
+        showReqErrorAlert(window.t('title_error'), window.t('msg_connection_fail'));
     }
 
     btn.disabled = false;
-    btn.innerText = "Save Assignment";
+    btn.innerText = window.t('btn_save');
 }
 
 // =================================================================
@@ -527,16 +512,16 @@ window.openApprovalModal = function(id, type) {
     if (commentEl) commentEl.value = "";
     
     if (type === 'approve') {
-        titleEl.innerText = "Confirm Approval";
-        btn.innerText = "Approve";
+        titleEl.innerText = window.t('btn_approve');
+        btn.innerText = window.t('btn_confirm');
         btn.className = "px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm w-full font-medium shadow-lg";
         if (iconDiv) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-green-500 bg-green-500/10";
             iconDiv.innerHTML = '<i data-lucide="check-circle" class="w-6 h-6"></i>';
         }
     } else {
-        titleEl.innerText = "Deny Request";
-        btn.innerText = "Reject";
+        titleEl.innerText = window.t('btn_deny');
+        btn.innerText = window.t('btn_confirm');
         btn.className = "px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm w-full font-medium shadow-lg";
         if (iconDiv) {
             iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 bg-red-500/10";
@@ -557,12 +542,12 @@ async function submitApprovalDecision() {
     const comment = commentEl ? commentEl.value : '';
 
     if (reqActionType === 'reject' && !comment.trim()) { 
-        showReqErrorAlert("Validation", "Please provide a rejection reason."); 
+        showReqErrorAlert(window.t('validation'), window.t('msg_validation_fail')); 
         return; 
     }
 
     btn.disabled = true; 
-    btn.innerText = "Processing...";
+    btn.innerText = window.t('loading');
 
     const payload = { 
         status: reqActionType === 'approve' ? 'approved' : 'denied',
@@ -575,18 +560,18 @@ async function submitApprovalDecision() {
         
         if (result && !result.detail) {
             await loadRequestsData();
-            showReqSuccessAlert("Success", `Request ${reqActionType === 'approve' ? 'approved' : 'rejected'} successfully.`);
+            showReqSuccessAlert(window.t('title_success'), window.t('title_success'));
         } else {
             const msg = result?.detail ? (typeof result.detail === 'object' ? JSON.stringify(result.detail) : result.detail) : "Action failed.";
-            showReqErrorAlert("Error", msg);
+            showReqErrorAlert(window.t('title_error'), msg);
         }
     } catch(e) {
         window.closeModal('approvalModal');
-        showReqErrorAlert("System Error", e.message || "Failed to process approval.");
+        showReqErrorAlert(window.t('title_error'), window.t('msg_connection_fail'));
     }
     
     btn.disabled = false;
-    btn.innerText = reqActionType === 'approve' ? "Approve" : "Reject";
+    btn.innerText = window.t('btn_confirm');
 }
 
 // =================================================================

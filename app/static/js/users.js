@@ -9,15 +9,12 @@ let deleteTargetId = null;
 // MOBILE-COMPATIBLE ELEMENT GETTER
 // =================================================================
 function getUserEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
@@ -29,7 +26,7 @@ async function initUsers() {
     if(searchInput) searchInput.addEventListener('input', renderUsersTable);
     if(roleFilter) roleFilter.addEventListener('change', renderUsersTable);
 
-    // Inject Modals HTML dynamically if not present
+    // Inject Modals HTML dynamically
     injectUserModals();
 
     await Promise.all([loadUsersData(), fetchDropdownData()]);
@@ -40,17 +37,21 @@ async function loadUsersData() {
     const tbody = getUserEl('usersBody');
     if(!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading users...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>${window.t('msg_loading')}</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
-    const data = await window.fetchWithAuth('/users'); 
-    
-    if (Array.isArray(data)) {
-        allUsers = data;
-        renderUsersTable();
-    } else {
-        const msg = data && data.detail ? data.detail : "Failed to load users.";
-        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+    try {
+        const data = await window.fetchWithAuth('/users'); 
+        
+        if (Array.isArray(data)) {
+            allUsers = data;
+            renderUsersTable();
+        } else {
+            const msg = data && data.detail ? data.detail : "Failed to load users.";
+            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-400">${window.t('title_error')}: ${msg}</td></tr>`;
+        }
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-400">${window.t('msg_connection_fail')}</td></tr>`;
     }
 }
 
@@ -95,15 +96,16 @@ function renderUsersTable() {
     });
 
     const countEl = getUserEl('usersCount');
-    if (countEl) countEl.innerText = `${filtered.length} users found`;
+    if (countEl) countEl.innerText = `${filtered.length} ${window.t('users')}`;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">No users found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">${window.t('msg_no_records')}</td></tr>`;
         return;
     }
 
     tbody.innerHTML = filtered.map(u => {
         const statusClass = u.is_active ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' : 'text-red-400 bg-red-400/10 border-red-400/20';
+        const statusText = u.is_active ? window.t('status_active') : window.t('status_inactive');
         const roleName = u.role ? u.role.name.toUpperCase() : 'N/A';
         const agencyName = u.agency ? u.agency.agency_name : '-';
         const serviceName = u.service ? u.service.service_name : '-';
@@ -129,18 +131,18 @@ function renderUsersTable() {
                 </td>
                 <td class="p-4">
                     <span class="px-2 py-1 rounded-full text-xs font-medium border ${statusClass}">
-                        ${u.is_active ? 'Active' : 'Inactive'}
+                        ${statusText}
                     </span>
                 </td>
                 <td class="p-4 text-right">
                     <div class="flex items-center justify-end gap-2">
-                        <button onclick="openViewUserModal(${u.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View Details">
+                        <button onclick="openViewUserModal(${u.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="${window.t('view')}">
                             <i data-lucide="eye" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="openEditUserModal(${u.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit User">
+                        <button onclick="openEditUserModal(${u.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="${window.t('edit')}">
                             <i data-lucide="edit-2" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="confirmDeleteUser(${u.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete User">
+                        <button onclick="confirmDeleteUser(${u.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="${window.t('delete')}">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -152,32 +154,34 @@ function renderUsersTable() {
     if(window.lucide) window.lucide.createIcons();
 }
 
-// === VIEW LOGIC (Fixed Layout) ===
+// === VIEW LOGIC ===
 window.openViewUserModal = function(id) {
     const user = allUsers.find(u => u.id === id);
     if (!user) return;
 
+    const statusClass = user.is_active ? 'text-green-400' : 'text-red-400';
+    const statusText = user.is_active ? window.t('status_active') : window.t('status_inactive');
+
     const content = `
         <div class="grid grid-cols-2 gap-x-4 gap-y-6 text-sm">
-            <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Full Name</span><span class="text-white font-medium text-base">${user.full_name}</span></div>
-            <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Matricule</span><span class="text-white font-mono bg-slate-800 px-2 py-0.5 rounded">${user.matricule}</span></div>
+            <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">${window.t('lbl_full_name')}</span><span class="text-white font-medium text-base">${user.full_name}</span></div>
+            <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">${window.t('col_matricule')}</span><span class="text-white font-mono bg-slate-800 px-2 py-0.5 rounded">${user.matricule}</span></div>
             
-            <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Role</span><span class="text-blue-400 font-bold">${user.role ? user.role.name.toUpperCase() : 'N/A'}</span></div>
-            <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Status</span><span class="${user.is_active ? 'text-green-400' : 'text-red-400'} font-medium">${user.is_active ? 'Active' : 'Inactive'}</span></div>
+            <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">${window.t('col_role')}</span><span class="text-blue-400 font-bold">${user.role ? user.role.name.toUpperCase() : 'N/A'}</span></div>
+            <div><span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">${window.t('col_status')}</span><span class="${statusClass} font-medium">${statusText}</span></div>
             
-            <!-- FIXED: Email spans full width to prevent overlap -->
             <div class="col-span-2 border-t border-slate-700/50 pt-3">
-                <span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Email Address</span>
+                <span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">${window.t('lbl_email')}</span>
                 <span class="text-white break-all">${user.email}</span>
             </div>
             
             <div class="col-span-2">
-                <span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Phone Number</span>
+                <span class="text-slate-500 text-xs uppercase tracking-wide block mb-1">${window.t('col_phone')}</span>
                 <span class="text-slate-300">${user.telephone || '-'}</span>
             </div>
 
             <div class="col-span-2 border-t border-slate-700/50 pt-3">
-                <span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">Organization</span>
+                <span class="text-slate-500 text-[10px] uppercase tracking-wide block mb-1">${window.t('col_agency')} / ${window.t('col_service')}</span>
                 <div class="flex items-center gap-2">
                     <span class="text-white font-medium">${user.agency ? user.agency.agency_name : '-'}</span> 
                     <span class="text-slate-600">/</span> 
@@ -257,7 +261,7 @@ window.saveUserChanges = async function() {
     };
 
     const originalText = btn.innerHTML;
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> ${window.t('loading')}`;
     btn.disabled = true;
     if(window.lucide) window.lucide.createIcons();
 
@@ -266,13 +270,13 @@ window.saveUserChanges = async function() {
         if (result && !result.detail) {
             window.closeModal('editUserModal');
             await loadUsersData();
-            // Optional success feedback
+            alert(window.t('msg_user_updated')); // Or use proper alert if available
         } else {
             const msg = result && result.detail ? JSON.stringify(result.detail) : "Unknown error";
-            alert("Update Failed:\n" + msg);
+            alert(`${window.t('title_error')}: ${msg}`);
         }
     } catch (e) {
-        alert("System Error: " + e.message);
+        alert(`${window.t('title_error')}: ${e.message}`);
     }
 
     btn.innerHTML = originalText;
@@ -290,12 +294,12 @@ window.confirmDeleteUser = function(id) {
     
     if (!modal) return;
     
-    if (titleEl) titleEl.innerText = "Delete User?";
-    if (messageEl) messageEl.innerText = "This action cannot be undone. Are you sure?";
+    if (titleEl) titleEl.innerText = window.t('delete');
+    if (messageEl) messageEl.innerText = window.t('msg_confirm_delete');
     
     if (btn) {
         btn.onclick = performDelete;
-        btn.innerHTML = "Delete";
+        btn.innerHTML = window.t('btn_confirm');
         btn.className = "btn-danger w-full"; 
     }
     
@@ -308,17 +312,21 @@ async function performDelete() {
     const btn = getUserEl('btnConfirmAction');
     if (!btn) return;
     
-    btn.innerHTML = "Deleting...";
+    btn.innerHTML = window.t('loading');
     btn.disabled = true;
 
     try {
         const result = await window.fetchWithAuth(`/users/${deleteTargetId}`, 'DELETE');
         window.closeModal('confirmModal');
-        if (result !== null) await loadUsersData();
-        else alert("Failed to delete user.");
+        if (result !== null) {
+            await loadUsersData();
+            alert(window.t('msg_user_deleted'));
+        } else {
+            alert(window.t('title_error'));
+        }
     } catch(e) {
         window.closeModal('confirmModal');
-        alert("Error: " + e.message);
+        alert(`${window.t('title_error')}: ${e.message}`);
     }
     
     btn.disabled = false;
@@ -339,34 +347,34 @@ function populateSelect(elementId, items, selectedValue, labelKey) {
     }).join('');
 }
 
-// Helper to inject modals dynamically so users.html stays clean
+// Helper to inject modals dynamically
 function injectUserModals() {
-    // Check if modal already exists in either container
     const existingModal = getUserEl('editUserModal') || document.getElementById('editUserModal');
-    if(existingModal) return; // Already injected
+    if(existingModal) return; 
 
+    // USING window.t() HERE FOR DYNAMIC LABELS
     const modalHTML = `
     <!-- 1. EDIT USER MODAL -->
     <div id="editUserModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
             <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-                <h3 class="text-lg font-bold text-white">Edit User Profile</h3>
+                <h3 class="text-lg font-bold text-white">${window.t('edit')}</h3>
                 <button onclick="closeModal('editUserModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-6 space-y-5">
                 <input type="hidden" id="editUserId">
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="label-text">Full Name</label><input type="text" id="editUserName" disabled class="input-disabled"></div>
-                    <div><label class="label-text">Matricule</label><input type="text" id="editUserMatricule" disabled class="input-disabled"></div>
+                    <div><label class="label-text">${window.t('lbl_full_name')}</label><input type="text" id="editUserName" disabled class="input-disabled"></div>
+                    <div><label class="label-text">${window.t('col_matricule')}</label><input type="text" id="editUserMatricule" disabled class="input-disabled"></div>
                 </div>
-                <div><label class="label-text text-blue-400">System Role</label><select id="editUserRoleSelect" class="input-field"></select></div>
+                <div><label class="label-text text-blue-400">${window.t('lbl_system_role')}</label><select id="editUserRoleSelect" class="input-field"></select></div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="label-text">Agency</label><select id="editUserAgencySelect" class="input-field"></select></div>
-                    <div><label class="label-text">Service</label><select id="editUserServiceSelect" class="input-field"></select></div>
+                    <div><label class="label-text">${window.t('col_agency')}</label><select id="editUserAgencySelect" class="input-field"></select></div>
+                    <div><label class="label-text">${window.t('col_service')}</label><select id="editUserServiceSelect" class="input-field"></select></div>
                 </div>
-                <div><label class="label-text">Phone</label><input type="text" id="editUserPhone" class="input-field"></div>
+                <div><label class="label-text">${window.t('col_phone')}</label><input type="text" id="editUserPhone" class="input-field"></div>
                 <div class="flex items-center justify-between bg-blue-500/10 p-3 rounded-lg border border-blue-500/20">
-                    <label class="text-sm font-medium text-white">Account Active</label>
+                    <label class="text-sm font-medium text-white">${window.t('lbl_account_active')}</label>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="editUserActive" class="sr-only peer">
                         <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -374,8 +382,8 @@ function injectUserModals() {
                 </div>
             </div>
             <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-                <button onclick="closeModal('editUserModal')" class="btn-secondary">Cancel</button>
-                <button id="btnSaveUser" onclick="saveUserChanges()" class="btn-primary"><i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Changes</button>
+                <button onclick="closeModal('editUserModal')" class="btn-secondary">${window.t('btn_cancel')}</button>
+                <button id="btnSaveUser" onclick="saveUserChanges()" class="btn-primary"><i data-lucide="save" class="w-4 h-4 mr-2"></i> ${window.t('btn_save')}</button>
             </div>
         </div>
     </div>
@@ -384,12 +392,12 @@ function injectUserModals() {
     <div id="viewUserModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
             <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-                <h3 class="text-lg font-bold text-white">User Details</h3>
+                <h3 class="text-lg font-bold text-white">${window.t('col_user_details')}</h3>
                 <button onclick="closeModal('viewUserModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-6" id="viewUserContent"></div>
             <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-                <button onclick="closeModal('viewUserModal')" class="btn-secondary">Close</button>
+                <button onclick="closeModal('viewUserModal')" class="btn-secondary">${window.t('btn_close')}</button>
             </div>
         </div>
     </div>
@@ -398,11 +406,11 @@ function injectUserModals() {
     <div id="confirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
             <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500"><i data-lucide="alert-triangle" class="w-6 h-6"></i></div>
-            <h3 class="text-lg font-bold text-white mb-2" id="confirmTitle">Confirm</h3>
-            <p class="text-slate-400 text-sm mb-6" id="confirmMessage">Are you sure?</p>
+            <h3 class="text-lg font-bold text-white mb-2" id="confirmTitle">${window.t('btn_confirm')}</h3>
+            <p class="text-slate-400 text-sm mb-6" id="confirmMessage">${window.t('msg_confirm_delete')}</p>
             <div class="flex gap-3 justify-center">
-                <button onclick="closeModal('confirmModal')" class="btn-secondary w-full">Cancel</button>
-                <button id="btnConfirmAction" class="btn-danger w-full">Confirm</button>
+                <button onclick="closeModal('confirmModal')" class="btn-secondary w-full">${window.t('btn_cancel')}</button>
+                <button id="btnConfirmAction" class="btn-danger w-full">${window.t('btn_confirm')}</button>
             </div>
         </div>
     </div>

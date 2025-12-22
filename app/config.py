@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     MAIL_SSL_TLS: bool = False
     USE_CREDENTIALS: bool = True
 
+
+
     # Automatic Database URI Construction
     @computed_field
     @property

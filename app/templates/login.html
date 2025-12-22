@@ -1,433 +1,243 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en" class="dark"> <!-- Forced Dark Mode Start -->
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Login - FleetDash</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#0f172a', 800: '#1e293b' },
+                        brand: { 500: '#3b82f6', 600: '#2563eb' }
+                    },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out' },
+                    keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
+                }
+            }
+        }
+    </script>
     <style>
-        /* --- PROFESSIONAL VARIABLES --- */
-        :root {
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --bg-dark: #0f172a;
-            --bg-gradient: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
-            --card-bg: rgba(30, 41, 59, 0.75);
-            --modal-bg: rgba(15, 23, 42, 0.95);
-            --border: rgba(148, 163, 184, 0.15);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --danger: #ef4444;
-            --danger-glow: rgba(239, 68, 68, 0.2);
-            --radius: 16px;
-            --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        /* --- RESET & BASE --- */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Inter, system-ui, sans-serif;
-            -webkit-font-smoothing: antialiased;
-        }
-
         body {
-            background-color: var(--bg-dark);
-            background-image: var(--bg-gradient);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%), 
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #f8fafc;
         }
-
-        /* --- GLASS CARD --- */
-        .login-card {
-            background: var(--card-bg);
+        .glass-card {
+            background: rgba(30, 41, 59, 0.75);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            width: 100%;
-            max-width: 400px;
-            padding: 40px;
-            margin: 20px;
-            position: relative;
-            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-
-        /* --- TYPOGRAPHY --- */
-        .header {
-            text-align: center;
-            margin-bottom: 32px;
-        }
-
-        .logo-box {
-            width: 56px;
-            height: 56px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-            border-radius: 14px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 16px;
-            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
-        }
-
-        .logo-icon {
-            width: 32px;
-            height: 32px;
-            color: white;
-        }
-
-        h1 {
-            font-size: 26px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            margin-bottom: 6px;
-        }
-
-        .subtitle {
-            color: var(--text-muted);
-            font-size: 15px;
-        }
-
-        /* --- FORMS --- */
-        .input-group {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
         .input-field {
-            width: 100%;
-            padding: 14px 16px 14px 44px;
             background: rgba(15, 23, 42, 0.6);
-            border: 1px solid #334155;
-            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: all 0.3s ease;
+            width: 100%;
             color: white;
-            font-size: 15px;
-            transition: all 0.2s ease;
-        }
-
-        .input-field:focus {
-            border-color: var(--primary);
+            padding: 12px 12px 12px 40px;
+            border-radius: 12px;
             outline: none;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+        }
+        .input-field:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
             background: rgba(15, 23, 42, 0.8);
         }
-
-        .icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            color: var(--text-muted);
-            transition: color 0.2s;
-        }
-
-        .input-field:focus+.icon {
-            color: var(--primary);
-        }
-
-        /* --- ACTIONS --- */
-        .actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-            margin-bottom: 24px;
-        }
-
-        .remember {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-muted);
-            cursor: pointer;
-        }
-
-        .forgot {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
+        .lang-btn {
+            opacity: 0.5;
             transition: 0.2s;
-        }
-
-        .forgot:hover {
-            color: #60a5fa;
-            text-decoration: underline;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 16px;
             cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
-        }
-
-        .btn:hover {
-            background: var(--primary-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
-        }
-
-        .btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* --- FOOTER --- */
-        .footer {
-            text-align: center;
-            margin-top: 28px;
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        .footer a {
-            color: var(--primary);
-            text-decoration: none;
             font-weight: 600;
-            margin-left: 4px;
+            font-size: 0.8rem;
         }
-
-        .footer a:hover {
-            color: #60a5fa;
-        }
-
-        /* --- PROFESSIONAL MODAL --- */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-            z-index: 100;
-        }
-
-        .modal-overlay.active {
+        .lang-btn.active {
             opacity: 1;
-            pointer-events: auto;
-        }
-
-        .modal-box {
-            background: var(--modal-bg);
-            border: 1px solid var(--border);
-            width: 90%;
-            max-width: 360px;
-            padding: 32px 24px;
-            border-radius: 24px;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            text-align: center;
-        }
-
-        .modal-overlay.active .modal-box {
-            transform: scale(1) translateY(0);
-        }
-
-        .modal-icon-wrap {
-            width: 64px;
-            height: 64px;
-            background: rgba(239, 68, 68, 0.1);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px auto;
-            color: var(--danger);
-            box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.05);
-        }
-
-        .modal-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: white;
-        }
-
-        .modal-msg {
-            color: var(--text-muted);
-            font-size: 15px;
-            line-height: 1.5;
-            margin-bottom: 24px;
-        }
-
-        .modal-btn {
-            width: 100%;
-            padding: 12px;
-            background: #334155;
-            color: white;
-            border-radius: 12px;
-            border: none;
-            font-weight: 600;
-            font-size: 15px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .modal-btn:hover {
-            background: #475569;
-        }
-
-        /* --- SPINNER --- */
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-            display: none;
-        }
-
-        .btn.loading .spinner {
-            display: block;
-        }
-
-        .btn.loading span,
-        .btn.loading svg {
-            display: none;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            color: #3b82f6;
         }
     </style>
 </head>
+<body class="flex items-center justify-center min-h-screen p-4 relative overflow-hidden">
 
-<body>
+    <!-- Language Switcher -->
+    <div class="absolute top-6 right-6 flex gap-3 z-50">
+        <button onclick="setLang('en')" id="btn-en" class="lang-btn text-white">EN</button>
+        <span class="text-slate-600">|</span>
+        <button onclick="setLang('fr')" id="btn-fr" class="lang-btn text-white">FR</button>
+    </div>
 
-    <!-- LOGIN CARD -->
-    <div class="login-card">
-        <div class="header">
-            <div class="logo-box">
-                <!-- SVG Logo -->
-                <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
+    <!-- Login Card -->
+    <div class="glass-card w-full max-w-md p-8 rounded-2xl animate-fade-in relative z-10">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-500/30 mb-4">
+                <i data-lucide="layout-grid" class="w-7 h-7 text-white"></i>
             </div>
-            <h1>FleetDash</h1>
-            <p class="subtitle">Secure Fleet Management Access</p>
+            <h1 class="text-2xl font-bold text-white tracking-tight">FleetDash</h1>
+            <p class="text-slate-400 text-sm mt-2" data-i18n="subtitle">Secure Fleet Management Access</p>
         </div>
 
-        <form id="loginForm">
-            <div class="input-group">
-                <input type="text" id="username" name="username" class="input-field" placeholder="Matricule or Email"
-                    required>
-                <!-- User Icon -->
-                <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                </svg>
+        <!-- Form -->
+        <form id="loginForm" class="space-y-5">
+            <div>
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_identity">Identity</label>
+                <div class="relative">
+                    <input type="text" id="username" name="username" class="input-field" data-i18n-placeholder="ph_identity" placeholder="Matricule or Email" required>
+                    <i data-lucide="user" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
+                </div>
             </div>
 
-            <div class="input-group">
-                <input type="password" id="password" name="password" class="input-field" placeholder="Password"
-                    required>
-                <!-- Lock Icon -->
-                <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
+            <div>
+                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1.5 ml-1" data-i18n="lbl_password">Password</label>
+                <div class="relative">
+                    <input type="password" id="password" name="password" class="input-field" data-i18n-placeholder="ph_password" placeholder="••••••••" required>
+                    <i data-lucide="lock" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"></i>
+                </div>
             </div>
 
-            <div class="actions">
-                <label class="remember">
-                    <input type="checkbox" style="accent-color: var(--primary);"> Remember me
+            <div class="flex items-center justify-between text-sm">
+                <label class="flex items-center gap-2 text-slate-400 cursor-pointer hover:text-white transition">
+                    <input type="checkbox" class="rounded bg-slate-800 border-slate-600 text-blue-600 focus:ring-0 cursor-pointer">
+                    <span data-i18n="lbl_remember">Remember me</span>
                 </label>
-                <a href="/forgot-password.html" class="forgot">Forgot Password?</a>
+                <a href="/forgot-password.html" class="text-brand-500 hover:text-blue-400 font-medium transition" data-i18n="lbl_forgot">Forgot Password?</a>
             </div>
 
-            <button type="submit" id="submitBtn" class="btn">
-                <span>Sign In</span>
-                <!-- Arrow Icon -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                </svg>
-                <div class="spinner"></div>
+            <button type="submit" id="submitBtn" class="w-full py-3.5 px-4 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 group">
+                <span data-i18n="btn_signin">Sign In</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
             </button>
         </form>
 
-        <div class="footer">
-            <p>New to the team? <a href="signup.html">Sign up</a></p>
+        <!-- Footer -->
+        <div class="mt-8 text-center pt-6 border-t border-white/5">
+            <p class="text-sm text-slate-400">
+                <span data-i18n="lbl_new">New to the team?</span> 
+                <a href="signup.html" class="text-white hover:text-blue-400 font-semibold ml-1 transition" data-i18n="link_signup">Sign up</a>
+            </p>
         </div>
     </div>
 
-    <!-- PROFESSIONAL ERROR MODAL -->
-    <div id="modal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="modal-icon-wrap">
-                <!-- Alert Triangle Icon -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
+    <!-- Error Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50 transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-sm p-6 rounded-2xl shadow-2xl text-center transform scale-95 transition-transform" id="modalBox">
+            <div class="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+                <i data-lucide="alert-triangle" class="w-8 h-8"></i>
             </div>
-            <div class="modal-title">Access Denied</div>
-            <p id="modalMsg" class="modal-msg">The credentials provided are incorrect. Please try again.</p>
-            <button onclick="closeModal()" class="modal-btn">Try Again</button>
+            <h3 class="text-lg font-bold text-white mb-2" data-i18n="title_error">Access Denied</h3>
+            <p id="modalMsg" class="text-slate-400 text-sm mb-6 leading-relaxed">The credentials provided are incorrect.</p>
+            <button onclick="closeModal()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl text-sm font-medium transition" data-i18n="btn_try_again">Try Again</button>
         </div>
     </div>
 
     <script>
-        // --- LOGIC ---
+        // --- 1. TRANSLATION DICTIONARY ---
+        const dict = {
+            en: {
+                subtitle: "Secure Fleet Management Access",
+                lbl_identity: "Identity",
+                ph_identity: "Matricule or Email",
+                lbl_password: "Password",
+                ph_password: "Password",
+                lbl_remember: "Remember me",
+                lbl_forgot: "Forgot Password?",
+                btn_signin: "Sign In",
+                lbl_new: "New to the team?",
+                link_signup: "Sign up",
+                title_error: "Access Denied",
+                btn_try_again: "Try Again",
+                err_network: "Server unreachable. Check your internet."
+            },
+            fr: {
+                subtitle: "Accès sécurisé à la gestion de flotte",
+                lbl_identity: "Identité",
+                ph_identity: "Matricule ou Email",
+                lbl_password: "Mot de passe",
+                ph_password: "Mot de passe",
+                lbl_remember: "Se souvenir de moi",
+                lbl_forgot: "Mot de passe oublié ?",
+                btn_signin: "Se connecter",
+                lbl_new: "Nouveau dans l'équipe ?",
+                link_signup: "S'inscrire",
+                title_error: "Accès Refusé",
+                btn_try_again: "Réessayer",
+                err_network: "Serveur inaccessible. Vérifiez votre connexion."
+            }
+        };
+
+        // --- 2. THEME & LANGUAGE INIT ---
+        function setLang(lang) {
+            localStorage.setItem('lang', lang);
+            updateUI(lang);
+        }
+
+        function updateUI(lang) {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                if(dict[lang][el.dataset.i18n]) el.innerText = dict[lang][el.dataset.i18n];
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                if(dict[lang][el.dataset.i18nPlaceholder]) el.placeholder = dict[lang][el.dataset.i18nPlaceholder];
+            });
+            
+            document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+            document.getElementById('btn-fr').classList.toggle('active', lang === 'fr');
+        }
+
+        // Initialize
+        (function init() {
+            // Force Dark Mode on Logic if missing
+            if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
+
+            // Auto-detect Language
+            const savedLang = localStorage.getItem('lang');
+            const systemLang = navigator.language.startsWith('fr') ? 'fr' : 'en';
+            const lang = savedLang || systemLang;
+            
+            setLang(lang);
+            lucide.createIcons();
+            
+            // Auto-Redirect if logged in (Optional)
+            if (localStorage.getItem('access_token')) {
+                // window.location.href = '/user/index.html';
+            }
+        })();
+
+        // --- 3. LOGIC ---
         const form = document.getElementById('loginForm');
         const btn = document.getElementById('submitBtn');
         const modal = document.getElementById('modal');
         const modalMsg = document.getElementById('modalMsg');
-
-        // Check if already logged in (Optional UX feature)
-        window.onload = () => {
-            if (localStorage.getItem('access_token')) {
-                // You could uncomment this to auto-redirect
-                // window.location.href = '/dashboard.html';
-            }
-        };
+        const modalBox = document.getElementById('modalBox');
 
         function showModal(msg) {
             modalMsg.innerText = msg;
-            modal.classList.add('active');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => modalBox.style.transform = 'scale(1)', 10);
         }
 
         function closeModal() {
-            modal.classList.remove('active');
+            modalBox.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 200);
         }
 
-        // Close on click outside
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
         });
@@ -436,8 +246,10 @@
             e.preventDefault();
 
             // Loading State
-            btn.classList.add('loading');
             btn.disabled = true;
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-5 h-5"></i>`;
+            lucide.createIcons();
 
             const formData = new FormData(form);
 
@@ -453,25 +265,27 @@
                     throw new Error(data.detail || "Connection failed.");
                 }
 
+                // Store Token
                 localStorage.setItem('access_token', data.access_token);
-                localStorage.setItem('user_role', data.role); // Store the role for the next page
+                localStorage.setItem('user_role', data.role);
                 localStorage.setItem('username', data.username);
 
-                // 2. ONE REDIRECT FOR EVERYONE
-                // We send everyone to the same "Shell" page.
-                // The Shell page will decide what menu items to show.
+                // Redirect
                 setTimeout(() => {
                     window.location.href = '/user/index.html';
                 }, 500);
 
             } catch (error) {
                 // Reset State
-                btn.classList.remove('loading');
                 btn.disabled = false;
+                btn.innerHTML = originalContent;
+                lucide.createIcons();
 
                 // Show Error
+                const lang = localStorage.getItem('lang');
                 let msg = error.message;
-                if (msg === "Failed to fetch") msg = "Server unreachable. Check your internet.";
+                if (msg === "Failed to fetch") msg = dict[lang].err_network;
+                
                 showModal(msg);
             }
         });

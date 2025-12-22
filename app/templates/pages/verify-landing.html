@@ -1,49 +1,194 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="dark">
 <head>
-    <title>Verifying...</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Verification - FleetDash</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#0f172a', 800: '#1e293b' },
+                        brand: { 500: '#3b82f6', 600: '#2563eb' }
+                    },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out' },
+                    keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
+                }
+            }
+        }
+    </script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding-top: 50px; }
-        .message { font-size: 18px; margin-top: 20px; }
+        body {
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%), 
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .lang-btn {
+            opacity: 0.5;
+            transition: 0.2s;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        .lang-btn.active {
+            opacity: 1;
+            color: #3b82f6;
+        }
     </style>
 </head>
-<body>
-    <h2>Account Verification</h2>
-    <p id="msg" class="message">Please wait, verifying your token...</p>
+<body class="flex items-center justify-center min-h-screen p-4 relative">
 
+    <!-- Language Switcher -->
+    <div class="absolute top-6 right-6 flex gap-3 z-50">
+        <button onclick="setLang('en')" id="btn-en" class="lang-btn text-white">EN</button>
+        <span class="text-slate-600">|</span>
+        <button onclick="setLang('fr')" id="btn-fr" class="lang-btn text-white">FR</button>
+    </div>
+
+    <!-- Main Card -->
+    <div class="glass-card w-full max-w-md p-8 rounded-2xl animate-fade-in relative z-10 text-center">
+        
+        <!-- Icon Container -->
+        <div id="statusIcon" class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-blue-500/10 mb-6 shadow-lg shadow-blue-500/10">
+            <i data-lucide="loader-2" class="w-10 h-10 text-blue-400 animate-spin"></i>
+        </div>
+
+        <h1 class="text-2xl font-bold text-white mb-2" id="statusTitle" data-i18n="title_processing">Verifying...</h1>
+        
+        <p class="text-slate-400 text-sm mb-8 leading-relaxed" id="statusMsg" data-i18n="msg_processing">
+            Please wait while we verify your account.
+        </p>
+
+        <!-- Button (Hidden initially) -->
+        <a href="/" id="actionBtn" class="hidden inline-flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-medium transition border border-slate-700 hover:border-slate-600">
+            <span data-i18n="btn_login">Go to Login</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </a>
+    </div>
+
+    <!-- Logic -->
     <script>
-        // Pure JavaScript to read URL and call API
+        const dict = {
+            en: {
+                title_processing: "Verifying...",
+                msg_processing: "Please wait while we verify your account.",
+                title_success: "Account Verified!",
+                msg_success: "Your account is now active. You can close this window or log in.",
+                title_error: "Verification Failed",
+                msg_error: "The link is invalid or has already been used.",
+                msg_invalid: "Invalid or missing parameters.",
+                btn_login: "Go to Login"
+            },
+            fr: {
+                title_processing: "Vérification...",
+                msg_processing: "Veuillez patienter pendant la vérification de votre compte.",
+                title_success: "Compte Vérifié !",
+                msg_success: "Votre compte est maintenant actif. Vous pouvez vous connecter.",
+                title_error: "Échec de la Vérification",
+                msg_error: "Le lien est invalide ou a déjà été utilisé.",
+                msg_invalid: "Paramètres invalides ou manquants.",
+                btn_login: "Se connecter"
+            }
+        };
+
+        function setLang(lang) {
+            localStorage.setItem('lang', lang);
+            updateUI(lang);
+        }
+
+        function updateUI(lang) {
+            // Only update static elements if we aren't in a dynamic state yet
+            // or if we simply need to refresh label text
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                if(dict[lang][el.dataset.i18n]) el.innerText = dict[lang][el.dataset.i18n];
+            });
+            
+            document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+            document.getElementById('btn-fr').classList.toggle('active', lang === 'fr');
+        }
+
+        function updateState(type, msgKey) {
+            const lang = localStorage.getItem('lang') || 'en';
+            const iconEl = document.getElementById('statusIcon');
+            const titleEl = document.getElementById('statusTitle');
+            const msgEl = document.getElementById('statusMsg');
+            const btn = document.getElementById('actionBtn');
+
+            if (type === 'success') {
+                iconEl.className = "inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/10 mb-6 shadow-lg shadow-emerald-500/10";
+                iconEl.innerHTML = `<i data-lucide="check-circle" class="w-10 h-10 text-emerald-400"></i>`;
+                titleEl.innerText = dict[lang].title_success;
+                msgEl.innerText = dict[lang][msgKey] || dict[lang].msg_success;
+                btn.classList.remove('hidden');
+            } else if (type === 'error') {
+                iconEl.className = "inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 mb-6 shadow-lg shadow-red-500/10";
+                iconEl.innerHTML = `<i data-lucide="x-circle" class="w-10 h-10 text-red-400"></i>`;
+                titleEl.innerText = dict[lang].title_error;
+                msgEl.innerText = dict[lang][msgKey] || dict[lang].msg_error;
+                btn.classList.remove('hidden');
+            }
+            
+            lucide.createIcons();
+        }
+
+        // Initialize
+        (function init() {
+            lucide.createIcons();
+            const savedLang = localStorage.getItem('lang');
+            const systemLang = navigator.language.startsWith('fr') ? 'fr' : 'en';
+            const lang = savedLang || systemLang;
+            setLang(lang);
+        })();
+
+        // LOGIC
         window.onload = async function() {
             const params = new URLSearchParams(window.location.search);
             const token = params.get('token');
             const email = params.get('email');
-            const msg = document.getElementById('msg');
 
             if (!token || !email) {
-                msg.innerText = "Invalid Link.";
-                msg.style.color = "red";
+                updateState('error', 'msg_invalid');
                 return;
             }
 
             try {
-                // Call the FastAPI Endpoint
                 const response = await fetch('/api/v1/auth/verify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token: token, email: email })
                 });
 
+                const data = await response.json();
+
                 if (response.ok) {
-                    msg.innerText = "Success! Your account is active. You can close this window.";
-                    msg.style.color = "green";
+                    updateState('success', 'msg_success');
+                    // Auto Redirect after 3s
+                    setTimeout(() => window.location.href = '/', 3000);
                 } else {
-                    const data = await response.json();
-                    msg.innerText = "Error: " + (data.detail || "Verification failed");
-                    msg.style.color = "red";
+                    updateState('error', 'msg_error');
+                    console.error(data.detail);
                 }
             } catch (error) {
-                msg.innerText = "Network Error.";
-                msg.style.color = "red";
+                updateState('error', 'msg_error');
             }
         };
     </script>
