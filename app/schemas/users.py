@@ -1,7 +1,5 @@
 # app/schemas/users.py
 
-# Auth, User, Role, Agency
-
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
@@ -40,21 +38,15 @@ class VerifyUserRequest(BaseModel):
 class EmailRequest(BaseModel):
     email: EmailStr
 
-# --- UPDATED: Matches the Reset Password Logic ---
+
 class ResetRequest(BaseModel):
     token: str
     email: EmailStr
-    password: str
-    confirm_password: str 
+    password: str = Field(..., min_length=8) 
+    confirm_password: str = Field(..., min_length=8)
 
-# --- UPDATED: Handles Email OR Matricule ---
 class ForgotPasswordRequest(BaseModel):
     identifier: str
-
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str = Field(..., min_length=8)
-    confirm_password: str = Field(..., min_length=8)
 
 class PasswordChange(BaseModel):
     current_password: str
