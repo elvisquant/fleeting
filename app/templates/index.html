@@ -174,14 +174,6 @@
 </head>
 <body class="antialiased">
 
-    <!-- Loading Spinner -->
-    <div id="loading-spinner" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
-        <div class="text-center">
-            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            <p class="mt-4 text-white" data-i18n="msg_loading">Loading...</p>
-        </div>
-    </div>
-
     <!-- Desktop Layout -->
     <div class="desktop-layout hidden md:flex">
         <!-- Desktop Sidebar -->
@@ -395,63 +387,6 @@
 
 <!-- LOGIC -->
 <script>
-    // ==========================================
-    // GLOBAL AUTH FETCH FUNCTION
-    // ==========================================
-    window.fetchWithAuth = async function(url, options = {}) {
-        const token = localStorage.getItem('access_token');
-        
-        if (!token) {
-            window.location.href = '/login.html';
-            throw new Error('No authentication token');
-        }
-        
-        const defaultOptions = {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Accept-Language': localStorage.getItem('lang') || 'en'
-            }
-        };
-        
-        const mergedOptions = {
-            ...defaultOptions,
-            ...options,
-            headers: {
-                ...defaultOptions.headers,
-                ...(options.headers || {})
-            }
-        };
-        
-        try {
-            const response = await fetch(url, mergedOptions);
-            
-            if (response.status === 401) {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user_data');
-                localStorage.removeItem('username');
-                localStorage.removeItem('user_role');
-                window.location.href = '/login.html';
-                throw new Error('Session expired');
-            }
-            
-            return response;
-        } catch (error) {
-            console.error('Fetch error:', error);
-            throw error;
-        }
-    };
-    
-    // Global error handler for fetchWithAuth
-    window.handleApiError = function(error) {
-        console.error('API Error:', error);
-        return null;
-    };
-    
-    // ==========================================
-    // MAIN APPLICATION LOGIC
-    // ==========================================
     const API_BASE = '/api/v1'; 
     const token = localStorage.getItem('access_token');
     if(!token) window.location.href = '/';
@@ -467,416 +402,49 @@
     document.getElementById('mobile-user-role').innerText = uRole.toUpperCase();
     document.getElementById('mobile-user-avatar').innerText = uName.charAt(0).toUpperCase();
 
-   
     // ==========================================
     // 1. GLOBAL TRANSLATION DICTIONARY
     // ==========================================
     const resources = {
         en: {
-            // --- MENU ---
             overview: "Overview", dashboard: "Dashboard", analytics: "Analytics",
             management: "Management", vehicles: "Vehicles", requests: "Requests",
             users: "Users", fuel: "Fuel Logs", operations: "Operations",
             maintenance: "Maintenance", panne: "Panne", reparations: "Reparations",
-            settings: "Settings", logout: "Sign Out", theme: "Theme",
-
-            // --- COMMON TABLE HEADERS ---
-            col_id: "ID", col_actions: "Actions", col_status: "Status",
-            col_date: "Date", col_created: "Created At", col_description: "Description",
-            
-            // --- MODULE SPECIFIC HEADERS ---
-            col_requester: "Requester", col_destination: "Destination", 
-            col_departure: "Departure", col_return: "Return", col_progress: "Progress",
-            col_plate: "Plate Number", col_make: "Make/Model", col_type: "Type",
-            col_driver: "Driver", col_mileage: "Mileage", col_year: "Year",
-            col_fullname: "Full Name", col_matricule: "Matricule", col_role: "Role",
-            col_agency: "Agency", col_service: "Service", col_phone: "Phone",
-            col_cost: "Cost", col_garage: "Garage", col_receipt: "Receipt",
-
-            // --- ACTIONS & BUTTONS ---
-            btn_new_request: "New Request", btn_add_vehicle: "Add Vehicle", btn_add_user: "Add User",
-            btn_view: "View", btn_edit: "Edit", btn_delete: "Delete", 
-            btn_save: "Save", btn_update: "Update", btn_cancel: "Cancel", btn_close: "Close",
-            btn_confirm: "Confirm", btn_approve: "Approve", btn_deny: "Deny", 
-            btn_assign: "Assign Resources", btn_verify: "Verify",
-
-            // --- STATUSES ---
-            status_pending: "Pending", 
-            status_approved_chef: "Chef Approved", 
-            status_approved_logistic: "Logistic Approved",
-            status_fully_approved: "Fully Approved", 
-            status_denied: "Denied", 
-            status_in_progress: "In Progress", 
-            status_completed: "Completed",
-            status_available: "Available", status_maintenance: "Maintenance", status_mission: "On Mission",
-            
-            // --- ALERTS & MESSAGES ---
-            title_success: "Success", title_error: "Error", title_warning: "Warning",
-            msg_loading: "Loading data...",
-            msg_no_records: "No records found.",
-            msg_saved: "Record saved successfully.",
-            msg_updated: "Record updated successfully.",
-            msg_deleted: "Record deleted successfully.",
-            msg_assigned: "Resources assigned successfully.",
-            msg_confirm_delete: "Are you sure you want to delete this? This cannot be undone.",
-            msg_validation_fail: "Please check your inputs.",
-            msg_locked: "Locked: Action not permitted.",
-            msg_connection_fail: "Connection failed. Please check internet.",
-            
-            // --- FORM LABELS ---
-            lbl_email: "Email", lbl_password: "Password", lbl_confirm_pass: "Confirm Password",
-            lbl_select_vehicle: "Select Vehicle", lbl_select_driver: "Select Driver",
-
-            //for reparation
-            col_panne_ref: "Panne Ref",
-            col_progress: "Progress",
-            lbl_related_panne: "Related Panne",
-            lbl_repair_status: "Repair Status",
-            btn_log_reparation: "Log Reparation",
-            btn_verify_selected: "Verify Selected",
-            msg_verify_confirm: "This marks the record as verified.",
-
-            //Panne
-            col_plate: "Plate Number",
-            col_category: "Category",
-            btn_report_panne: "Report Breakdown",
-            btn_verify_selected: "Verify Selected",
-            lbl_select_category: "Select Category",
-            msg_verify_confirm: "This marks the report as verified and locks it.",
-            status_verified: "Verified",
-
-            //Maintenance
-            lbl_maintenance_logs: "Maintenance Logs",
-            lbl_track_repairs: "Track repairs, servicing, and validation status.",
-            btn_log_maintenance: "Log Maintenance",
-            lbl_receipt_ref: "Receipt / Invoice Ref",
-            filter_all_status: "All Status",
-
-            //Fuel
-            lbl_fuel_management: "Fuel Management",
-            lbl_track_consumption: "Track fuel consumption and costs.",
-            btn_add_fuel_log: "Add Fuel Log",
-            col_fuel_type: "Fuel Type",
-            col_qty_price: "Qty / Price",
-            col_total_cost: "Total Cost",
-            lbl_auto_select: "Auto-selected based on vehicle",
-            lbl_estimated_cost: "Estimated Total Cost",
-            msg_select_vehicle_first: "Select Vehicle First",
-
-            //Users
-            lbl_staff_management: "Driver & Staff Management",
-            lbl_control_access: "Control access, roles, and operational status.",
-            btn_invite_user: "Invite User",
-            btn_add_user: "Add User",
-            col_user_details: "User Details",
-            col_role_access: "Role & Access",
-            col_department: "Department",
-            lbl_full_name: "Full Name",
-            lbl_account_active: "Account Active",
-            lbl_system_role: "System Role",
-            msg_invite_alert: "Please use the public Signup page to register new users.",
-            msg_user_updated: "User updated successfully.",
-            msg_user_deleted: "User deleted successfully.",
-            status_active: "Active",
-            status_inactive: "Inactive",
-
-            //Dashboard
-            lbl_fleet_dashboard: "Fleet Dashboard",
-            lbl_real_time_insights: "Real-time insights into your fleet operations and expenses",
-            lbl_this_week: "This Week",
-            lbl_this_month: "This Month",
-            lbl_last_3_months: "Last 3 Months",
-            lbl_last_6_months: "Last 6 Months",
-            lbl_last_12_months: "Last 12 Months",
-            lbl_custom_range: "Custom Range",
-            btn_refresh: "Refresh",
-            lbl_start_date: "Start Date",
-            lbl_end_date: "End Date",
-            btn_apply: "Apply",
-            lbl_total_vehicles: "Total Vehicles",
-            lbl_operational_fleet: "Operational fleet",
-            lbl_active_alerts: "Active Alerts",
-            lbl_require_attention: "Require attention",
-            lbl_total_expenses: "Total Expenses",
-            lbl_pending_requests: "Pending Requests",
-            lbl_awaiting_approval: "Awaiting approval",
-            lbl_weekly_fuel_cost: "Weekly fuel cost",
-            lbl_maintenance_costs: "Maintenance costs",
-            lbl_repair_servicing: "Repair & servicing",
-            lbl_purchases: "Purchases",
-            lbl_vehicle_acquisitions: "Vehicle acquisitions",
-            lbl_expense_trends: "Expense Trends",
-            lbl_monthly_expenditure: "Monthly expenditure overview",
-            btn_bar: "Bar",
-            btn_line: "Line",
-            lbl_vehicle_status: "Vehicle Status",
-            lbl_expense_distribution: "Expense Distribution",
-            lbl_recent_alerts: "Recent Alerts",
-            lbl_latest_notifications: "Latest notifications requiring attention",
-            btn_view_all: "View All",
-
-            //Analytics
-            lbl_analytics_reports: "Analytics & Reports",
-            lbl_comprehensive_analysis: "Comprehensive expense analysis and reporting",
-            lbl_period: "Period",
-            opt_last_30: "Last 30 Days",
-            opt_last_90: "Last 90 Days",
-            opt_current_year: "Current Year",
-            lbl_to: "To",
-            lbl_total_fuel_cost: "Total Fuel Cost",
-            lbl_total_reparation_cost: "Total Reparation Cost",
-            lbl_total_maintenance_cost: "Total Maintenance Cost",
-            lbl_total_vehicle_purchase: "Vehicle Purchases",
-            lbl_for_selected_period: "For selected period",
-            lbl_monthly_consumption_trend: "Monthly Consumption Trend",
-            lbl_expense_breakdown: "Expense breakdown by category",
-            lbl_generate_custom_report: "Generate Custom Report",
-            lbl_expense_categories: "Expense Categories",
-            lbl_report_format: "Report Format",
-            btn_generate_report: "Generate Report",
-            lbl_cost_per_mile: "Cost per Mile (Est.)",
-            lbl_fuel_efficiency: "Fuel Efficiency",
-            lbl_avg_monthly_cost: "Avg. Monthly Cost",
-            lbl_highest_expense: "Highest Expense",
-            msg_generating_report: "Generating report...",
-            msg_library_load_fail: "Report libraries failed to load. Please refresh.",
-            msg_no_data_for_report: "No detailed records found for the selected categories and period.",
-
-            //Vehicles
-            lbl_vehicle_management: "Vehicle Management",
-            lbl_manage_fleet: "Manage fleet inventory, details, and status.",
-            btn_export_excel: "Export Excel",
-            btn_export_pdf: "Export PDF",
-            btn_add_vehicle: "Add Vehicle",
-            col_vehicle_info: "Vehicle Info",
-            col_plate_vin: "Plate / VIN",
-            col_year: "Year",
-            col_verified: "Verified?",
-            lbl_identification: "Identification",
-            lbl_specs: "Specs",
-            lbl_acquisition: "Acquisition",
-            lbl_make: "Make",
-            lbl_model: "Model",
-            lbl_year: "Year",
-            lbl_vin: "VIN",
-            lbl_color: "Color",
-            lbl_type: "Type",
-            lbl_mileage: "Mileage (km)",
-            lbl_engine: "Engine (L)",
-            lbl_transmission: "Transmission",
-            lbl_fuel_type: "Fuel Type",
-            lbl_purchase_price: "Purchase Price",
-            lbl_purchase_date: "Purchase Date",
-            lbl_vehicle_details: "Vehicle Details",
-            msg_vehicle_saved: "Vehicle saved successfully.",
-            msg_vehicle_deleted: "Vehicle deleted successfully.",
-            msg_vehicle_verified: "Vehicle verified successfully.",
-
-           
-
-            
+            actions: "Actions", status: "Status", view: "View", edit: "Edit", 
+            delete: "Delete", cancel: "Cancel", save: "Save", close: "Close",
+            confirm: "Confirm", loading: "Loading...", search_placeholder: "Search...",
+            new_request: "New Request", requester: "Requester", destination: "Destination", 
+            departure: "Departure", return: "Return", progress: "Approval Progress",
+            pending: "Pending", approved_chef: "Chef Approved", approved_logistic: "Logistic Approved",
+            fully_approved: "Fully Approved", denied: "Denied", in_progress: "In Progress", completed: "Completed",
+            assign_resources: "Assign Resources", select_vehicle: "Select Vehicle", select_driver: "Select Driver",
+            success: "Success", error: "Error", validation: "Validation",
+            req_submitted: "Request submitted successfully.",
+            res_assigned: "Resources assigned successfully.",
+            locked_msg: "Request Locked: Departure time has passed.",
+            btn_approve: "Approve", btn_deny: "Deny", btn_assign: "Assign",
+            no_records: "No records found.", locked: "Locked"
         },
         fr: {
-            // --- MENU ---
             overview: "Aperçu", dashboard: "Tableau de bord", analytics: "Analytique",
             management: "Gestion", vehicles: "Véhicules", requests: "Demandes",
             users: "Utilisateurs", fuel: "Carburant", operations: "Opérations",
             maintenance: "Entretien", panne: "Pannes", reparations: "Réparations",
-            settings: "Paramètres", logout: "Déconnexion", theme: "Thème",
-
-            // --- HEADERS ---
-            col_id: "ID", col_actions: "Actions", col_status: "Statut",
-            col_date: "Date", col_created: "Créé le", col_description: "Description",
-            
-            // --- MODULES ---
-            col_requester: "Demandeur", col_destination: "Destination", 
-            col_departure: "Départ", col_return: "Retour", col_progress: "Progression",
-            col_plate: "Immatriculation", col_make: "Marque/Modèle", col_type: "Type",
-            col_driver: "Chauffeur", col_mileage: "Kilométrage", col_year: "Année",
-            col_fullname: "Nom Complet", col_matricule: "Matricule", col_role: "Rôle",
-            col_agency: "Agence", col_service: "Service", col_phone: "Téléphone",
-            col_cost: "Coût", col_garage: "Garage", col_receipt: "Reçu/Facture",
-
-            // --- BUTTONS ---
-            btn_new_request: "Nouvelle Demande", btn_add_vehicle: "Ajouter Véhicule", btn_add_user: "Ajouter Utilisateur",
-            btn_view: "Voir", btn_edit: "Modifier", btn_delete: "Supprimer", 
-            btn_save: "Enregistrer", btn_update: "Mettre à jour", btn_cancel: "Annuler", btn_close: "Fermer",
-            btn_confirm: "Confirmer", btn_approve: "Approuver", btn_deny: "Refuser", 
-            btn_assign: "Assigner Ressources", btn_verify: "Vérifier",
-
-            // --- STATUSES ---
-            status_pending: "En attente", 
-            status_approved_chef: "Approuvé (Chef)", 
-            status_approved_logistic: "Approuvé (Logistique)",
-            status_fully_approved: "Approuvé", 
-            status_denied: "Refusé", 
-            status_in_progress: "En cours", 
-            status_completed: "Terminé",
-            status_available: "Disponible", status_maintenance: "Entretien", status_mission: "En Mission",
-            
-            // --- ALERTS ---
-            title_success: "Succès", title_error: "Erreur", title_warning: "Attention",
-            msg_loading: "Chargement...",
-            msg_no_records: "Aucun enregistrement trouvé.",
-            msg_saved: "Enregistré avec succès.",
-            msg_updated: "Mis à jour avec succès.",
-            msg_deleted: "Supprimé avec succès.",
-            msg_assigned: "Ressources assignées.",
-            msg_confirm_delete: "Êtes-vous sûr ? Cette action est irréversible.",
-            msg_validation_fail: "Veuillez vérifier les champs.",
-            msg_locked: "Verrouillé : Action non permise.",
-            msg_connection_fail: "Échec de connexion.",
-
-            // --- FORMS ---
-            lbl_email: "Email", lbl_password: "Mot de passe", lbl_confirm_pass: "Confirmer",
-            lbl_select_vehicle: "Choisir Véhicule", lbl_select_driver: "Choisir Chauffeur",
-
-
-
-            //Reparation
-            col_panne_ref: "Réf Panne",
-            col_progress: "Progression",
-            lbl_related_panne: "Panne Associée",
-            lbl_repair_status: "Statut Réparation",
-            btn_log_reparation: "Enregistrer Réparation",
-            btn_verify_selected: "Vérifier la sélection",
-            msg_verify_confirm: "Ceci marque l'enregistrement comme vérifié.",
-
-            //Panne
-            col_plate: "Immatriculation",
-            col_category: "Catégorie",
-            btn_report_panne: "Signaler Panne",
-            btn_verify_selected: "Vérifier la sélection",
-            lbl_select_category: "Choisir Catégorie",
-            msg_verify_confirm: "Ceci marque le rapport comme vérifié et le verrouille.",
-            status_verified: "Vérifié",
-
-            //Maintenance
-            lbl_maintenance_logs: "Registres d'entretien",
-            lbl_track_repairs: "Suivi des réparations et validations.",
-            btn_log_maintenance: "Enregistrer Entretien",
-            lbl_receipt_ref: "Réf Reçu / Facture",
-            filter_all_status: "Tous les statuts",
-
-            //Fuel
-            lbl_fuel_management: "Gestion Carburant",
-            lbl_track_consumption: "Suivi consommation et coûts.",
-            btn_add_fuel_log: "Ajouter Carburant",
-            col_fuel_type: "Type Carburant",
-            col_qty_price: "Qté / Prix",
-            col_total_cost: "Coût Total",
-            lbl_auto_select: "Auto-sélection selon véhicule",
-            lbl_estimated_cost: "Coût Total Estimé",
-            msg_select_vehicle_first: "Sélectionner Véhicule D'abord",
-
-            //Users
-            lbl_staff_management: "Gestion du Personnel & Chauffeurs",
-            lbl_control_access: "Contrôle d'accès, rôles et statuts.",
-            btn_invite_user: "Inviter",
-            btn_add_user: "Ajouter",
-            col_user_details: "Détails Utilisateur",
-            col_role_access: "Rôle & Accès",
-            col_department: "Département",
-            lbl_full_name: "Nom Complet",
-            lbl_account_active: "Compte Actif",
-            lbl_system_role: "Rôle Système",
-            msg_invite_alert: "Veuillez utiliser la page d'inscription publique.",
-            msg_user_updated: "Utilisateur mis à jour avec succès.",
-            msg_user_deleted: "Utilisateur supprimé avec succès.",
-            status_active: "Actif",
-            status_inactive: "Inactif",
-
-            //Dashboard
-            lbl_fleet_dashboard: "Tableau de Bord Flotte",
-            lbl_real_time_insights: "Aperçu en temps réel des opérations et dépenses",
-            lbl_this_week: "Cette Semaine",
-            lbl_this_month: "Ce Mois",
-            lbl_last_3_months: "3 Derniers Mois",
-            lbl_last_6_months: "6 Derniers Mois",
-            lbl_last_12_months: "12 Derniers Mois",
-            lbl_custom_range: "Période Personnalisée",
-            btn_refresh: "Actualiser",
-            lbl_start_date: "Date Début",
-            lbl_end_date: "Date Fin",
-            btn_apply: "Appliquer",
-            lbl_total_vehicles: "Total Véhicules",
-            lbl_operational_fleet: "Flotte opérationnelle",
-            lbl_active_alerts: "Alertes Actives",
-            lbl_require_attention: "Nécessite attention",
-            lbl_total_expenses: "Dépenses Totales",
-            lbl_pending_requests: "Demandes En Attente",
-            lbl_awaiting_approval: "En attente d'approbation",
-            lbl_weekly_fuel_cost: "Coût carburant hebdo",
-            lbl_maintenance_costs: "Coûts maintenance",
-            lbl_repair_servicing: "Réparations & service",
-            lbl_purchases: "Achats",
-            lbl_vehicle_acquisitions: "Acquisitions véhicules",
-            lbl_expense_trends: "Tendances Dépenses",
-            lbl_monthly_expenditure: "Aperçu mensuel",
-            btn_bar: "Barres",
-            btn_line: "Ligne",
-            lbl_vehicle_status: "Statut Véhicules",
-            lbl_expense_distribution: "Répartition Dépenses",
-            lbl_recent_alerts: "Alertes Récentes",
-            lbl_latest_notifications: "Dernières notifications importantes",
-            btn_view_all: "Voir Tout",
-
-            //Analytics
-            lbl_analytics_reports: "Analyses & Rapports",
-            lbl_comprehensive_analysis: "Analyse complète des dépenses et rapports",
-            lbl_period: "Période",
-            opt_last_30: "Derniers 30 Jours",
-            opt_last_90: "Derniers 90 Jours",
-            opt_current_year: "Cette Année",
-            lbl_to: "À",
-            lbl_total_fuel_cost: "Coût Total Carburant",
-            lbl_total_reparation_cost: "Coût Total Réparation",
-            lbl_total_maintenance_cost: "Coût Total Maintenance",
-            lbl_total_vehicle_purchase: "Achats Véhicules",
-            lbl_for_selected_period: "Pour la période sélectionnée",
-            lbl_monthly_consumption_trend: "Tendance Consommation Mensuelle",
-            lbl_expense_breakdown: "Répartition des dépenses par catégorie",
-            lbl_generate_custom_report: "Générer Rapport Personnalisé",
-            lbl_expense_categories: "Catégories de Dépenses",
-            lbl_report_format: "Format du Rapport",
-            btn_generate_report: "Générer Rapport",
-            lbl_cost_per_mile: "Coût par Km (Est.)",
-            lbl_fuel_efficiency: "Efficacité Carburant",
-            lbl_avg_monthly_cost: "Coût Mensuel Moyen",
-            lbl_highest_expense: "Dépense la plus élevée",
-            msg_generating_report: "Génération du rapport...",
-            msg_library_load_fail: "Échec du chargement des bibliothèques. Veuillez actualiser.",
-            msg_no_data_for_report: "Aucun enregistrement détaillé trouvé pour cette sélection.",
-
-            //Vehicles
-            lbl_vehicle_management: "Gestion des Véhicules",
-            lbl_manage_fleet: "Gérer l'inventaire, les détails et le statut.",
-            btn_export_excel: "Exporter Excel",
-            btn_export_pdf: "Exporter PDF",
-            btn_add_vehicle: "Ajouter Véhicule",
-            col_vehicle_info: "Info Véhicule",
-            col_plate_vin: "Plaque / VIN",
-            col_year: "Année",
-            col_verified: "Vérifié ?",
-            lbl_identification: "Identification",
-            lbl_specs: "Spécifications",
-            lbl_acquisition: "Acquisition",
-            lbl_make: "Marque",
-            lbl_model: "Modèle",
-            lbl_year: "Année",
-            lbl_vin: "VIN",
-            lbl_color: "Couleur",
-            lbl_type: "Type",
-            lbl_mileage: "Kilométrage (km)",
-            lbl_engine: "Moteur (L)",
-            lbl_transmission: "Transmission",
-            lbl_fuel_type: "Type Carburant",
-            lbl_purchase_price: "Prix d'achat",
-            lbl_purchase_date: "Date d'achat",
-            lbl_vehicle_details: "Détails du Véhicule",
-            msg_vehicle_saved: "Véhicule enregistré avec succès.",
-            msg_vehicle_deleted: "Véhicule supprimé avec succès.",
-            msg_vehicle_verified: "Véhicule vérifié avec succès.",
+            actions: "Actions", status: "Statut", view: "Voir", edit: "Modifier", 
+            delete: "Supprimer", cancel: "Annuler", save: "Enregistrer", close: "Fermer",
+            confirm: "Confirmer", loading: "Chargement...", search_placeholder: "Rechercher...",
+            new_request: "Nouvelle Demande", requester: "Demandeur", destination: "Destination", 
+            departure: "Départ", return: "Retour", progress: "Progression",
+            pending: "En attente", approved_chef: "Approuvé par Chef", approved_logistic: "Approuvé par Logistique",
+            fully_approved: "Approuvé", denied: "Refusé", in_progress: "En cours", completed: "Terminé",
+            assign_resources: "Assigner Ressources", select_vehicle: "Choisir Véhicule", select_driver: "Choisir Chauffeur",
+            success: "Succès", error: "Erreur", validation: "Validation",
+            req_submitted: "Demande soumise avec succès.",
+            res_assigned: "Ressources assignées avec succès.",
+            locked_msg: "Demande Verrouillée : L'heure de départ est passée.",
+            btn_approve: "Approuver", btn_deny: "Refuser", btn_assign: "Assigner",
+            no_records: "Aucun enregistrement trouvé.", locked: "Verrouillé"
         }
     };
 
@@ -1138,19 +706,7 @@
         setActiveBottomNav(targetPage);
     });
 
-    // Hide loading spinner when everything is loaded
-    window.addEventListener('load', function() {
-        setTimeout(() => {
-            const spinner = document.getElementById('loading-spinner');
-            if (spinner) {
-                spinner.style.opacity = '0';
-                setTimeout(() => spinner.style.display = 'none', 300);
-            }
-        }, 500);
-    });
-
 </script>
-
 <!-- These libraries helps to generate reports(pdf/excel) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

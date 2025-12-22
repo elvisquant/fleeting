@@ -3,131 +3,117 @@
   <!-- Period Selection Header -->
   <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
     <div>
-      <h2 class="text-2xl font-bold text-gray-800 dark:text-white" data-i18n="lbl_analytics_reports">Analytics & Reports</h2>
-      <p class="text-gray-600 dark:text-gray-400 text-sm mt-1" data-i18n="lbl_comprehensive_analysis">Comprehensive expense analysis and reporting</p>
+      <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Analytics & Reports</h2>
+      <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">Comprehensive expense analysis and reporting</p>
     </div>
     <div class="flex items-center space-x-3">
-      <!-- Theme Toggle Button (Required by analytics.js) -->
-      <button id="theme-toggle-header" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-        <i data-lucide="moon" class="w-5 h-5 text-gray-700 dark:text-gray-300"></i>
-      </button>
-      
-      <label for="reportPeriod" class="text-sm font-medium text-gray-600 dark:text-gray-300 shrink-0" data-i18n="lbl_period">Periode:</label>
+      <label for="reportPeriod" class="text-sm font-medium text-gray-600 dark:text-gray-300 shrink-0">Periode:</label>
       <select id="reportPeriod" class="border dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-black dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent appearance-none">
-        <option value="last30days" data-i18n="opt_last_30">Last 30 Days</option>
-        <option value="last90days" data-i18n="opt_last_90">Last 90 Days</option>
-        <option value="last6months" data-i18n="lbl_last_6_months">Last 6 Months</option>
-        <option value="last12months" selected data-i18n="lbl_last_12_months">Last 12 Months</option>
-        <option value="currentYear" data-i18n="opt_current_year">Current Year</option>
-        <option value="custom" data-i18n="lbl_custom_range">Custom Range</option>
+        <option value="last30days">Dernier 30 Jours</option>
+        <option value="last90days">Dernier 90 Jours</option>
+        <option value="last6months">Dernier 6 Mois</option>
+        <option value="last12months" selected>Dernier 12 Mois</option>
+        <option value="currentYear">Cette Annee</option>
+        <option value="custom">Periode Personalisee</option>
       </select>
-      <!-- Fixed: Using flex class instead of hidden -->
       <div id="customReportDateContainer" class="hidden items-center gap-2">
         <input type="date" id="reportCustomStart" class="border dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-black dark:bg-gray-700 dark:text-white">
-        <span class="text-xs dark:text-gray-400" data-i18n="lbl_to">To</span>
+        <span class="text-xs dark:text-gray-400">A</span>
         <input type="date" id="reportCustomEnd" class="border dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs text-black dark:bg-gray-700 dark:text-white">
-        <button id="applyCustomDateBtn" class="bg-blue-600 text-white px-3 py-1.5 text-xs rounded-md hover:bg-blue-500" data-i18n="btn_apply">Apply</button>
+        <button id="applyCustomDateBtn" class="bg-primary text-white px-3 py-1.5 text-xs rounded-md hover:bg-primary-hover">Appliquer</button>
       </div>
     </div>
   </header>
 
   <!-- KPI Cards -->
   <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-    <!-- Fuel Total -->
     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="lbl_total_fuel_cost">Total Fuel Cost</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Prix Total Carburent</p>
         <div class="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
           <i data-lucide="fuel" class="w-5 h-5"></i>
         </div>
       </div>
       <p id="kpiFuelTotal" class="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white truncate" title="BIF 0.00">BIF 0.00</p>
-      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" data-i18n="lbl_for_selected_period">For selected period</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pour La periode Selectionnee</p>
     </div>
     
-    <!-- Reparation Total -->
     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="lbl_total_reparation_cost">Total Reparation Cost</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Prix Total Reparation</p>
         <div class="p-2 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400">
           <i data-lucide="wrench" class="w-5 h-5"></i>
         </div>
       </div>
       <p id="kpiReparationTotal" class="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white truncate" title="BIF 0.00">BIF 0.00</p>
-      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" data-i18n="lbl_for_selected_period">For selected period</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pour La periode Selectionnee</p>
     </div>
     
-    <!-- Maintenance Total -->
     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="lbl_total_maintenance_cost">Total Maintenance Cost</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Prix Total Maintenance</p>
         <div class="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
           <i data-lucide="settings-2" class="w-5 h-5"></i>
         </div>
       </div>
       <p id="kpiMaintenanceTotal" class="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white truncate" title="BIF 0.00">BIF 0.00</p>
-      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" data-i18n="lbl_for_selected_period">For selected period</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pour La periode Selectionnee</p>
     </div>
     
-    <!-- Vehicle Purchases -->
     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="lbl_total_vehicle_purchase">Vehicle Purchases</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Vehicules Achetes</p>
         <div class="p-2 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
           <i data-lucide="shopping-cart" class="w-5 h-5"></i>
         </div>
       </div>
       <p id="kpiVehiclePurchaseTotal" class="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white truncate" title="BIF 0.00">BIF 0.00</p>
-      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" data-i18n="lbl_for_selected_period">For selected period</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pour La periode Selectionnee</p>
     </div>
   </section>
 
   <!-- Charts Section -->
   <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-    <!-- Monthly Chart -->
     <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200" data-i18n="lbl_monthly_consumption_trend">Monthly Trend</h3>
-          <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="lbl_monthly_expenditure">Monthly expenditure overview</p>
+          <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Tendance Consomation Mensuel</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Monthly expenditure overview</p>
         </div>
       </div>
       <div class="chart-container" style="position: relative; height: 300px;">
         <canvas id="monthlyExpenseChart"></canvas>
       </div>
     </div>
-    
-    <!-- Distribution Chart -->
     <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200" data-i18n="lbl_expense_distribution">Expense Distribution</h3>
-          <p class="text-sm text-gray-500 dark:text-gray-400" data-i18n="lbl_expense_breakdown">Expense breakdown by category</p>
+          <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Depenses Distribues</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Expense breakdown by category</p>
         </div>
       </div>
       <div class="chart-container" style="position: relative; height: 250px;">
         <canvas id="expenseDistributionChart"></canvas>
       </div>
-      <!-- Legend with i18n -->
       <div class="grid grid-cols-2 gap-3 mt-4">
         <div class="flex items-center gap-2">
           <div class="w-3 h-3 rounded-full bg-red-500"></div>
-          <span class="text-xs text-gray-600 dark:text-gray-400" data-i18n="fuel">Fuel</span>
+          <span class="text-xs text-gray-600 dark:text-gray-400">Fuel</span>
           <span class="text-xs font-semibold text-gray-800 dark:text-white ml-auto" id="fuel-percent">0%</span>
         </div>
         <div class="flex items-center gap-2">
           <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-          <span class="text-xs text-gray-600 dark:text-gray-400" data-i18n="reparations">Reparations</span>
+          <span class="text-xs text-gray-600 dark:text-gray-400">Reparations</span>
           <span class="text-xs font-semibold text-gray-800 dark:text-white ml-auto" id="reparation-percent">0%</span>
         </div>
         <div class="flex items-center gap-2">
           <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-          <span class="text-xs text-gray-600 dark:text-gray-400" data-i18n="maintenance">Maintenance</span>
+          <span class="text-xs text-gray-600 dark:text-gray-400">Maintenance</span>
           <span class="text-xs font-semibold text-gray-800 dark:text-white ml-auto" id="maintenance-percent">0%</span>
         </div>
         <div class="flex items-center gap-2">
           <div class="w-3 h-3 rounded-full bg-green-500"></div>
-          <span class="text-xs text-gray-600 dark:text-gray-400" data-i18n="lbl_purchases">Purchases</span>
+          <span class="text-xs text-gray-600 dark:text-gray-400">Purchases</span>
           <span class="text-xs font-semibold text-gray-800 dark:text-white ml-auto" id="purchases-percent">0%</span>
         </div>
       </div>
@@ -136,39 +122,39 @@
   
   <!-- Report Generation Section -->
   <section class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg">
-    <h3 class="text-xl font-semibold mb-6 text-gray-700 dark:text-gray-200" data-i18n="lbl_generate_custom_report">Generate Custom Report</h3>
+    <h3 class="text-xl font-semibold mb-6 text-gray-700 dark:text-gray-200">Genere Un Report Personalise</h3>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" data-i18n="lbl_expense_categories">Expense Categories</label>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expense Categories</label>
         <div class="space-y-2 mt-2">
           <div>
             <label class="inline-flex items-center">
               <input type="checkbox" id="reportCatFuel" value="fuel" class="rounded border-gray-300 dark:border-gray-600 text-primary dark:bg-gray-700 focus:ring-primary" checked>
-              <span class="ml-2 text-sm text-gray-600 dark:text-gray-300" data-i18n="fuel">Carburant</span>
+              <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">Carburant</span>
             </label>
           </div>
           <div>
             <label class="inline-flex items-center">
               <input type="checkbox" id="reportCatReparation" value="reparation" class="rounded border-gray-300 dark:border-gray-600 text-primary dark:bg-gray-700 focus:ring-primary" checked>
-              <span class="ml-2 text-sm text-gray-600 dark:text-gray-300" data-i18n="reparations">Reparations</span>
+              <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">Reparations</span>
             </label>
           </div>
           <div>
             <label class="inline-flex items-center">
               <input type="checkbox" id="reportCatMaintenance" value="maintenance" class="rounded border-gray-300 dark:border-gray-600 text-primary dark:bg-gray-700 focus:ring-primary" checked>
-              <span class="ml-2 text-sm text-gray-600 dark:text-gray-300" data-i18n="maintenance">Maintenance</span>
+              <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">Maintenance</span>
             </label>
           </div>
           <div>
             <label class="inline-flex items-center">
               <input type="checkbox" id="reportCatPurchases" value="purchases" class="rounded border-gray-300 dark:border-gray-600 text-primary dark:bg-gray-700 focus:ring-primary" checked>
-              <span class="ml-2 text-sm text-gray-600 dark:text-gray-300" data-i18n="lbl_total_vehicle_purchase">Achat Vehicules</span>
+              <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">Achat Vehicules</span>
             </label>
           </div>
         </div>
       </div>
       <div>
-        <label for="reportFormat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" data-i18n="lbl_report_format">Format Rapport</label>
+        <label for="reportFormat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Format Rapport</label>
         <select id="reportFormat" class="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm text-black dark:text-white">
           <option value="pdf">PDF Document</option>
           <option value="excel">Excel Spreadsheet</option>
@@ -176,7 +162,7 @@
       </div>
       <div>
         <button id="generateReportBtn" class="w-full bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-medium shadow-sm transition-colors">
-          <i data-lucide="download" class="w-5 h-5"></i> <span data-i18n="btn_generate_report">Genere Report</span>
+          <i data-lucide="download" class="w-5 h-5"></i> Genere Report
         </button>
       </div>
     </div>
@@ -190,19 +176,18 @@
           <i data-lucide="dollar-sign" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
         </div>
         <div>
-          <p class="text-xs text-gray-500 dark:text-gray-400" data-i18n="lbl_cost_per_mile">Cost per Mile (Est.)</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Cost per Mile (Est.)</p>
           <p class="text-sm font-semibold text-gray-800 dark:text-white truncate" id="quickStatCostPerMile">BIF 0.00</p>
         </div>
       </div>
     </div>
-    <!-- These other stats are referenced in analytics.js but not all are updated -->
     <div class="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
       <div class="flex items-center gap-3">
         <div class="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
           <i data-lucide="trending-up" class="w-5 h-5 text-green-600 dark:text-green-400"></i>
         </div>
         <div>
-          <p class="text-xs text-gray-500 dark:text-gray-400" data-i18n="lbl_fuel_efficiency">Fuel Efficiency</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Fuel Efficiency</p>
           <p class="text-sm font-semibold text-gray-800 dark:text-white truncate" id="fuelEfficiency">N/A</p>
         </div>
       </div>
@@ -213,8 +198,7 @@
           <i data-lucide="activity" class="w-5 h-5 text-purple-600 dark:text-purple-400"></i>
         </div>
         <div>
-          <p class="text-xs text-gray-500 dark:text-gray-400" data-i18n="lbl_avg_monthly_cost">Avg. Monthly Cost</p>
-          <!-- Note: This element doesn't exist in analytics.js - it would need to be added -->
+          <p class="text-xs text-gray-500 dark:text-gray-400">Avg. Monthly Cost</p>
           <p class="text-sm font-semibold text-gray-800 dark:text-white truncate" id="avgMonthlyCost">BIF 0.00</p>
         </div>
       </div>
@@ -225,18 +209,12 @@
           <i data-lucide="alert-circle" class="w-5 h-5 text-orange-600 dark:text-orange-400"></i>
         </div>
         <div>
-          <p class="text-xs text-gray-500 dark:text-gray-400" data-i18n="lbl_highest_expense">Highest Expense</p>
-          <!-- Note: This element doesn't exist in analytics.js - it would need to be added -->
+          <p class="text-xs text-gray-500 dark:text-gray-400">Highest Expense</p>
           <p class="text-sm font-semibold text-gray-800 dark:text-white truncate" id="highestExpense">N/A</p>
         </div>
       </div>
     </div>
   </section>
-
-  <!-- Performance Insights Section (Optional - referenced in JS but not implemented) -->
-  <div id="performanceInsights" class="hidden">
-    <!-- This container exists but is hidden by default -->
-  </div>
 
   <!-- Toast Container -->
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>

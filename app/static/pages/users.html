@@ -1,37 +1,28 @@
 <!-- HEADER -->
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
     <div>
-        <h2 class="text-2xl font-bold text-white tracking-tight" data-i18n="lbl_staff_management">Driver & Staff Management</h2>
-        <p class="text-slate-400 text-sm mt-1" data-i18n="lbl_control_access">Control access, roles, and operational status.</p>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Driver & Staff Management</h2>
+        <p class="text-slate-400 text-sm mt-1">Control access, roles, and operational status.</p>
     </div>
     
-    <!-- THEME TOGGLE AND INVITE BUTTON CONTAINER -->
-    <div class="flex items-center gap-3">
-        <!-- THEME TOGGLE BUTTON (Added based on users.js) -->
-        <button id="theme-toggle-header" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition">
-            <!-- Icon will be dynamically set by JavaScript -->
-            <i data-lucide="sun" class="w-5 h-5"></i>
-        </button>
-        
-        <!-- INVITE BUTTON -->
-        <button onclick="alert(window.t('msg_invite_alert'))" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
-            <i data-lucide="user-plus" class="w-4 h-4"></i>
-            <span data-i18n="btn_invite_user">Invite User</span>
-        </button>
-    </div>
+    <!-- INVITE BUTTON -->
+    <button onclick="alert('Please use the public Signup page to register new users.')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
+        <i data-lucide="user-plus" class="w-4 h-4"></i>
+        <span>Invite User</span>
+    </button>
 </div>
 
 <!-- FILTERS -->
 <div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
     <div class="relative w-full md:w-96">
         <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
-        <input type="text" id="userSearch" data-i18n-placeholder="search_placeholder" placeholder="Search name, matricule, or email..." 
+        <input type="text" id="userSearch" placeholder="Search name, matricule, or email..." 
             class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition placeholder-slate-500">
     </div>
     
     <div class="flex items-center gap-3">
         <select id="userRoleFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
-            <option value="all" data-i18n="filter_all_status">All Roles</option>
+            <option value="all">All Roles</option>
             <option value="admin">Admin</option>
             <option value="driver">Driver</option>
             <option value="logistic">Logistic</option>
@@ -47,18 +38,16 @@
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/40">
-                    <th class="p-4 font-semibold" data-i18n="col_user_details">User Details</th>
-                    <th class="p-4 font-semibold" data-i18n="col_role_access">Role & Access</th>
-                    <th class="p-4 font-semibold" data-i18n="col_department">Department</th>
-                    <th class="p-4 font-semibold" data-i18n="col_status">Status</th>
-                    <th class="p-4 font-semibold text-right" data-i18n="col_actions">Actions</th>
+                    <th class="p-4 font-semibold">User Details</th>
+                    <th class="p-4 font-semibold">Role & Access</th>
+                    <th class="p-4 font-semibold">Department</th>
+                    <th class="p-4 font-semibold">Status</th>
+                    <th class="p-4 font-semibold text-right">Actions</th>
                 </tr>
             </thead>
             <tbody id="usersBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
-                <!-- Content will be dynamically populated by JavaScript -->
                 <tr><td colspan="5" class="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
-                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> 
-                    <span data-i18n="msg_loading">Loading...</span>
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> Loading...
                 </td></tr>
             </tbody>
         </table>
@@ -68,5 +57,5 @@
     </div>
 </div>
 
-<!-- TOAST CONTAINER (Added based on users.js showUserToast function) -->
-<div id="user-toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-full"></div>
+<!-- MODALS CONTAINER (Required for JS to inject modals) -->
+<div id="usersModalsContainer"></div>

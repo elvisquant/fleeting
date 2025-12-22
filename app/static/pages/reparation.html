@@ -2,20 +2,20 @@
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
     <div class="flex items-center gap-4">
         <div>
-            <h2 class="text-2xl font-bold text-white tracking-tight" data-i18n="reparations">Reparation Tracking</h2>
-            <p class="text-slate-400 text-sm mt-1" data-i18n="operations">Manage repairs, costs, and garage assignments.</p>
+            <h2 class="text-2xl font-bold text-white tracking-tight">Reparation Tracking</h2>
+            <p class="text-slate-400 text-sm mt-1">Manage repairs, costs, and garage assignments.</p>
         </div>
         
         <!-- BULK VERIFY BUTTON -->
-        <button id="btnRepBulkVerify" onclick="window.reparationModule.executeBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
+        <button id="btnRepBulkVerify" onclick="executeRepBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
             <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-            <span><span data-i18n="btn_verify_selected">Verify Selected</span> (<span id="repSelectedCount">0</span>)</span>
+            <span>Verify Selected (<span id="repSelectedCount">0</span>)</span>
         </button>
     </div>
 
-    <button onclick="window.reparationModule.openAddModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
+    <button onclick="openAddReparationModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
         <i data-lucide="plus" class="w-4 h-4"></i>
-        <span data-i18n="btn_log_reparation">Log Reparation</span>
+        <span>Log Reparation</span>
     </button>
 </div>
 
@@ -23,18 +23,18 @@
 <div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
     <div class="relative w-full md:w-96">
         <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
-        <input type="text" id="repSearch" data-i18n-placeholder="search_placeholder" placeholder="Search receipt or garage..." 
+        <input type="text" id="repSearch" placeholder="Search receipt or garage..." 
             class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition placeholder-slate-500">
     </div>
     
     <div class="flex items-center gap-3">
         <select id="repStatusFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
-            <option value="all" data-i18n="status">All Verification</option>
-            <option value="verified" data-i18n="btn_verify">Verified</option>
-            <option value="pending" data-i18n="status_pending">Pending</option>
+            <option value="all">All Verification</option>
+            <option value="verified">Verified</option>
+            <option value="pending">Pending</option>
         </select>
         <select id="repGarageFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
-            <option value="" data-i18n="col_garage">All Garages</option>
+            <option value="">All Garages</option>
         </select>
     </div>
 </div>
@@ -49,17 +49,17 @@
                     <th class="p-4 w-10">
                         <input type="checkbox" id="selectAllRep" class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">
                     </th>
-                    <th class="p-4 font-semibold" data-i18n="col_panne_ref">Panne Ref</th>
-                    <th class="p-4 font-semibold" data-i18n="col_garage">Garage</th>
-                    <th class="p-4 font-semibold" data-i18n="col_cost">Cost</th>
-                    <th class="p-4 font-semibold" data-i18n="col_progress">Progress</th>
-                    <th class="p-4 font-semibold" data-i18n="col_status">Status</th>
-                    <th class="p-4 font-semibold text-right" data-i18n="col_actions">Actions</th>
+                    <th class="p-4 font-semibold">Panne Ref</th>
+                    <th class="p-4 font-semibold">Garage</th>
+                    <th class="p-4 font-semibold">Cost</th>
+                    <th class="p-4 font-semibold">Progress</th>
+                    <th class="p-4 font-semibold">Status</th>
+                    <th class="p-4 font-semibold text-right">Actions</th>
                 </tr>
             </thead>
             <tbody id="repLogsBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
                 <tr><td colspan="7" class="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
-                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> <span data-i18n="msg_loading">Loading...</span>
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> Loading...
                 </td></tr>
             </tbody>
         </table>
@@ -75,9 +75,10 @@
         
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
             <div>
-                <h3 class="text-lg font-bold text-white" id="repModalTitle" data-i18n="btn_log_reparation">Log Reparation</h3>
+                <h3 class="text-lg font-bold text-white" id="repModalTitle">Log Reparation</h3>
+                <p class="text-xs text-slate-400">Record garage work details.</p>
             </div>
-            <button data-close-modal="addRepModal" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
+            <button onclick="closeModal('addRepModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
@@ -86,7 +87,7 @@
             <input type="hidden" id="repEditId">
             
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" data-i18n="lbl_related_panne">Related Panne</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Related Panne (Breakdown)</label>
                 <div class="relative">
                     <select id="repPanneSelect" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 outline-none appearance-none"></select>
                     <i data-lucide="chevron-down" class="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none"></i>
@@ -94,40 +95,40 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" data-i18n="col_garage">Garage</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Garage</label>
                 <select id="repGarageSelect" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 outline-none"></select>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" data-i18n="col_cost">Cost (BIF)</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Cost (BIF)</label>
                     <input type="number" id="repCost" step="0.01" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="0.00">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" data-i18n="col_date">Date</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Date</label>
                     <input type="date" id="repDate" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none dark-date-input">
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                  <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" data-i18n="col_receipt">Receipt</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Receipt / Invoice</label>
                     <input type="text" id="repReceipt" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="Receipt #">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" data-i18n="lbl_repair_status">Repair Status</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Repair Status</label>
                     <select id="repProgressStatus" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none">
-                        <option value="Inprogress" data-i18n="status_in_progress">In Progress</option>
-                        <option value="Completed" data-i18n="status_completed">Completed</option>
+                        <option value="Inprogress">In Progress</option>
+                        <option value="Completed">Completed</option>
                     </select>
                 </div>
             </div>
         </div>
 
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button data-close-modal="addRepModal" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition" data-i18n="btn_cancel">Cancel</button>
-            <button id="btnSaveRep" onclick="window.reparationModule.saveReparation()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
-                <i data-lucide="plus" class="w-4 h-4"></i> <span data-i18n="btn_save">Save</span>
+            <button onclick="closeModal('addRepModal')" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition">Cancel</button>
+            <button id="btnSaveRep" onclick="saveReparation()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
+                <i data-lucide="plus" class="w-4 h-4"></i> Save
             </button>
         </div>
     </div>
@@ -137,30 +138,37 @@
 <div id="viewRepModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-            <h3 class="text-lg font-bold text-white" data-i18n="reparations">Reparation Details</h3>
-            <button data-close-modal="viewRepModal" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <h3 class="text-lg font-bold text-white">Reparation Details</h3>
+            <button onclick="closeModal('viewRepModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <div class="p-6 text-sm space-y-4" id="viewRepContent"></div>
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-            <button data-close-modal="viewRepModal" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg" data-i18n="btn_close">Close</button>
+            <button onclick="closeModal('viewRepModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg">Close</button>
         </div>
     </div>
 </div>
 
-<!-- CONFIRM MODAL -->
+<!-- CONFIRM MODAL (Custom) -->
 <div id="repConfirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
         <div class="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4 text-blue-500" id="repConfirmIcon">
             <i data-lucide="alert-circle" class="w-6 h-6"></i>
         </div>
-        <h3 class="text-lg font-bold text-white mb-2" id="repConfirmTitle" data-i18n="btn_confirm">Confirm</h3>
+        <h3 class="text-lg font-bold text-white mb-2" id="repConfirmTitle">Confirm Action</h3>
         <p class="text-slate-400 text-sm mb-6" id="repConfirmMessage">Are you sure?</p>
         <div class="flex gap-3 justify-center">
-            <button data-close-modal="repConfirmModal" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full" data-i18n="btn_cancel">Cancel</button>
-            <button id="btnRepConfirmAction" onclick="window.reparationModule.executeConfirmAction()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm w-full font-medium" data-i18n="btn_confirm">Confirm</button>
+            <button onclick="closeModal('repConfirmModal')" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full">Cancel</button>
+            <button id="btnRepConfirmAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm w-full font-medium">Confirm</button>
         </div>
     </div>
 </div>
 
-<!-- Toast Container for notifications -->
-<div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-md"></div>
+<!-- ALERT MODAL -->
+<div id="repAlertModal" class="fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" id="repAlertIcon"></div>
+        <h3 class="text-lg font-bold text-white mb-2" id="repAlertTitle"></h3>
+        <p class="text-slate-400 text-sm mb-6" id="repAlertMessage"></p>
+        <button onclick="closeModal('repAlertModal')" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm w-full">OK</button>
+    </div>
+</div>
