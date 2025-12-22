@@ -1,3 +1,5 @@
+# app/routers/user.py
+
 from datetime import datetime, timedelta
 from typing import List, Optional
 import logging
@@ -37,20 +39,12 @@ from app.oauth2 import (
     get_current_user_from_header
 )
 
-# Email Services
-
-""" # OLD
-from app.email import (
-    send_account_verification_email,
-    send_account_activation_confirmation_email,
-    send_password_reset_email
-) """
-
 # NEW (Correct)
 from app.utils.mailer import (
     send_account_verification_email,
     send_account_activation_confirmation_email,
-    send_password_reset_email
+    send_password_reset_email,
+    send_password_changed_email # <--- Added this import
 )
 
 
@@ -281,7 +275,7 @@ async def verify_account(
 
 @router.post("/auth/forgot-password", status_code=status.HTTP_200_OK)
 async def forgot_password(
-    data: schemas.ForgotPasswordRequest, # <--- Updated Schema
+    data: schemas.ForgotPasswordRequest, 
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
@@ -307,6 +301,7 @@ async def forgot_password(
 @router.put("/auth/reset-password", status_code=status.HTTP_200_OK)
 def reset_password(
     data: schemas.ResetRequest,
+    background_tasks: BackgroundTasks, # <--- Added BackgroundTasks
     db: Session = Depends(get_db)
 ):
     """
@@ -334,6 +329,9 @@ def reset_password(
     db.add(user)
     db.commit()
     
+    # 4. Send Confirmation Email (Background Task)
+    background_tasks.add_task(send_password_changed_email, user)
+
     return JSONResponse({"message": "Password updated successfully."})
 
 
@@ -355,7 +353,8 @@ def get_current_user_profile(
 def get_all_users(
     db: Session = Depends(get_db),
     # Use Admin Dependency directly for cleaner code
-    current_user: models.User = Depends(require_admin_role_for_api)
+    current_user: models.User = Depends(require_admin_role_for_api),
+    limit: int = 100, skip: int = 0 # Added Pagination support
 ):
     """
     Get list of all users. Restricted to Admins.
@@ -364,7 +363,7 @@ def get_all_users(
         joinedload(models.User.role),
         joinedload(models.User.agency),
         joinedload(models.User.service)
-    ).all()
+    ).limit(limit).offset(skip).all()
 
 # 2. GET SINGLE USER
 @router.get("/users/{id}", response_model=schemas.UserResponse)
@@ -447,13 +446,13 @@ async def serve_verification_page(request: Request):
     """
     Serves the HTML page for account verification.
     """
-    # Looks for file in app/templates/pages/verify-landing.html
     return templates.TemplateResponse("pages/verify-landing.html", {"request": request})
 
 @router.get("/auth/reset-ui", response_class=HTMLResponse)
 async def serve_reset_page(request: Request):
     """
-    Serves the HTML page for password reset.
+    Serves the HTML page for password reset (Fallback route).
     """
-    # Looks for file in app/templates/pages/reset-landing.html
+    # This points to the OLD reset landing page if any legacy links exist
+    # You might want to point this to reset-password.html now
     return templates.TemplateResponse("pages/reset-landing.html", {"request": request})

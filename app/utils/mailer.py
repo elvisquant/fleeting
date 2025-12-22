@@ -22,7 +22,7 @@ conf = ConnectionConfig(
 )
 
 # ==============================================================================
-# INTERNAL HELPER
+# INTERNAL HELPERS
 # ==============================================================================
 async def _send(email_to, subject, html_body, attachments=None):
     message = MessageSchema(
@@ -48,7 +48,7 @@ async def _send_with_pdf(email_to, subject, html_body, pdf_bytes, filename):
             os.remove(tmp_path)
 
 # ==============================================================================
-# AUTH EMAILS (Registration & Password Reset)
+# AUTH EMAILS (Registration, Password Reset, Confirmation)
 # ==============================================================================
 
 async def send_account_verification_email(user, background_tasks):
@@ -57,7 +57,6 @@ async def send_account_verification_email(user, background_tasks):
     token = hash_password(string_context)
     
     # 2. Construct URL -> Points to STATIC file
-    # Ensure you have 'verify-landing.html' accessible
     activate_url = f"{settings.FRONTEND_HOST}/verify-landing.html?token={token}&email={user.email}"
     
     html = f"""
@@ -94,7 +93,6 @@ async def send_password_reset_email(user, background_tasks):
     token = hash_password(string_context)
     
     # 2. Construct URL -> Points to STATIC file 'reset-password.html'
-    # FIX: Point to the actual HTML file, not the API
     reset_url = f"{settings.FRONTEND_HOST}/reset-password.html?token={token}&email={user.email}"
     
     html = f"""
@@ -112,6 +110,31 @@ async def send_password_reset_email(user, background_tasks):
     </html>
     """
     await _send(user.email, f"Reset Password - {settings.APP_NAME}", html)
+
+async def send_password_changed_email(user):
+    """
+    Sends a security notification confirming the password was changed.
+    """
+    html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                <h2 style="color: #2c3e50;">Security Alert: Password Updated</h2>
+                <p>Dear <strong>{user.full_name}</strong>,</p>
+                <p>This email is to confirm that the password for your <strong>{settings.APP_NAME}</strong> account has been changed successfully.</p>
+                
+                <div style="background-color: #f0f8ff; padding: 15px; border-left: 4px solid #3498db; margin: 20px 0;">
+                    <p style="margin: 0;">If you did not perform this action, please contact your administrator immediately.</p>
+                </div>
+
+                <p>You can now log in with your new password.</p>
+                <hr style="border: 0; border-top: 1px solid #eee;">
+                <p style="font-size: 12px; color: #888;">FleetDash Security Team</p>
+            </div>
+        </body>
+    </html>
+    """
+    await _send(user.email, f"Security Alert - Password Changed", html)
 
 # ==============================================================================
 # REQUEST & MISSION EMAILS
