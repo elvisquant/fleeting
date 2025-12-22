@@ -31,7 +31,6 @@ from app.security import (
     str_decode,
     str_encode
 )
-# We import specific dependencies for cleaner code
 from app.oauth2 import (
     get_current_user, 
     oauth2_scheme, 
@@ -39,12 +38,12 @@ from app.oauth2 import (
     get_current_user_from_header
 )
 
-# NEW (Correct)
+# Email Services
 from app.utils.mailer import (
     send_account_verification_email,
     send_account_activation_confirmation_email,
     send_password_reset_email,
-    send_password_changed_email # <--- Added this import
+    send_password_changed_email # <--- Ensure this is imported
 )
 
 
@@ -125,26 +124,22 @@ async def register_user(
     """
     Register a new user account.
     """
-    # 1. Check if email already exists
     if db.query(models.User).filter(models.User.email == user_data.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists.")
     
-    # 2. Check if matricule already exists
     if db.query(models.User).filter(models.User.matricule == user_data.matricule).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Matricule already exists.")
     
-    # 3. Validate Password Strength
     if not is_password_strong_enough(user_data.password):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide a strong password.")
     
-    # 4. Create User Object
     new_user = models.User(
         full_name=user_data.full_name,
         matricule=user_data.matricule,
         email=user_data.email,
         telephone=user_data.telephone,
         password=hash_password(user_data.password),
-        is_active=False, # User must verify email first
+        is_active=False,
         agency_id=user_data.agency_id,
         service_id=user_data.service_id,
         role_id=user_data.role_id,
@@ -155,7 +150,6 @@ async def register_user(
     db.commit()
     db.refresh(new_user)
     
-    # 5. Send Verification Email
     await send_account_verification_email(new_user, background_tasks=background_tasks)
     
     return new_user
@@ -169,7 +163,6 @@ async def login(
     """
     Authenticate a user and return tokens.
     """
-    # 1. Find User (with relationships Eager Loaded to prevent lazy loading errors)
     user = db.query(models.User).options(
         joinedload(models.User.role),
         joinedload(models.User.agency),
@@ -177,7 +170,6 @@ async def login(
     ).filter(models.User.matricule == form_data.username).first()
     
     if not user:
-        # Fallback: Check Email if username wasn't matricule
         user = db.query(models.User).options(
             joinedload(models.User.role),
             joinedload(models.User.agency),
@@ -187,17 +179,14 @@ async def login(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email/matricule or password.")
 
-    # 2. Check Password
     if not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email/matricule or password.")
 
-    # 3. Check Status
     if not user.verified_at:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account not verified. Please check your email.")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated. Contact support.")
 
-    # 4. Generate Tokens
     return _generate_tokens_helper(user, db)
 
 
@@ -209,7 +198,6 @@ def refresh_token(
     """
     Refresh access token using a valid refresh token.
     """
-    # 1. Decode Token
     token_payload = get_token_payload(refresh_token, settings.SECRET_KEY, settings.JWT_ALGORITHM)
     if not token_payload:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token.")
@@ -218,7 +206,6 @@ def refresh_token(
     access_key = token_payload.get('a')
     user_id = str_decode(token_payload.get('sub'))
 
-    # 2. Find matching token in DB (with relationships eager loaded)
     user_token = db.query(models.UserToken).options(
         joinedload(models.UserToken.user).joinedload(models.User.role),
         joinedload(models.UserToken.user).joinedload(models.User.agency),
@@ -233,12 +220,10 @@ def refresh_token(
     if not user_token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token.")
 
-    # 3. Rotate Token (Expire old one)
     user_token.expires_at = datetime.utcnow()
     db.add(user_token)
     db.commit()
 
-    # 4. Generate New Tokens
     return _generate_tokens_helper(user_token.user, db)
 
 
@@ -255,12 +240,10 @@ async def verify_account(
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid link.")
 
-    # Validate Context String
     context_str = user.get_context_string(context=USER_VERIFY_ACCOUNT)
     if not verify_password(context_str, data.token):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link expired or invalid.")
 
-    # Activate
     user.is_active = True
     user.updated_at = datetime.utcnow()
     user.verified_at = datetime.utcnow()
@@ -272,7 +255,6 @@ async def verify_account(
     return JSONResponse({"message": "Account activated successfully."})
 
 
-
 @router.post("/auth/forgot-password", status_code=status.HTTP_200_OK)
 async def forgot_password(
     data: schemas.ForgotPasswordRequest, 
@@ -282,7 +264,6 @@ async def forgot_password(
     """
     Initiate password reset process using Email OR Matricule.
     """
-    # Search for user by Email OR Matricule
     user = db.query(models.User).filter(
         or_(
             models.User.email == data.identifier,
@@ -290,18 +271,16 @@ async def forgot_password(
         )
     ).first()
     
-    # Security: Don't reveal if user exists. Only send if found and active.
     if user and user.email and user.is_active:
         await send_password_reset_email(user, background_tasks)
     
-    # Always return success message to prevent user enumeration attacks
     return JSONResponse({"message": "If an account exists, a reset link has been sent."})
 
 
 @router.put("/auth/reset-password", status_code=status.HTTP_200_OK)
 def reset_password(
     data: schemas.ResetRequest,
-    background_tasks: BackgroundTasks, # <--- Added BackgroundTasks
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """
@@ -310,16 +289,14 @@ def reset_password(
     if data.password != data.confirm_password:
          raise HTTPException(status_code=400, detail="Passwords do not match.")
 
-    # 1. Find User by Email (passed from frontend)
+    # 1. Find User by Email
     user = db.query(models.User).filter(models.User.email == data.email).first()
     
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request.")
 
     # 2. Verify Token
-    # Re-generate the expected token based on the user's current security context
     context_str = user.get_context_string(context=FORGOT_PASSWORD)
-    
     if not verify_password(context_str, data.token):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link is invalid or has expired.")
 
@@ -330,7 +307,8 @@ def reset_password(
     db.commit()
     
     # 4. Send Confirmation Email (Background Task)
-    background_tasks.add_task(send_password_changed_email, user)
+    # FIX: Pass strings (email, name) instead of user object to avoid DetachedInstanceError
+    background_tasks.add_task(send_password_changed_email, user.email, user.full_name)
 
     return JSONResponse({"message": "Password updated successfully."})
 
@@ -343,38 +321,26 @@ def reset_password(
 def get_current_user_profile(
     current_user: models.User = Depends(get_current_user)
 ):
-    """
-    Get the currently logged-in user's profile.
-    """
     return current_user
 
-# 1. LIST ALL USERS
 @router.get("/users", response_model=List[schemas.UserResponse])
 def get_all_users(
     db: Session = Depends(get_db),
-    # Use Admin Dependency directly for cleaner code
     current_user: models.User = Depends(require_admin_role_for_api),
-    limit: int = 100, skip: int = 0 # Added Pagination support
+    limit: int = 100, skip: int = 0
 ):
-    """
-    Get list of all users. Restricted to Admins.
-    """
     return db.query(models.User).options(
         joinedload(models.User.role),
         joinedload(models.User.agency),
         joinedload(models.User.service)
     ).limit(limit).offset(skip).all()
 
-# 2. GET SINGLE USER
 @router.get("/users/{id}", response_model=schemas.UserResponse)
 def get_user_by_id(
     id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin_role_for_api)
 ):
-    """
-    Get a specific user by ID.
-    """
     user = db.query(models.User).options(
         joinedload(models.User.role),
         joinedload(models.User.agency),
@@ -385,7 +351,6 @@ def get_user_by_id(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
     return user
 
-# 3. UPDATE USER (The missing piece for your Edit Modal)
 @router.put("/users/{id}", response_model=schemas.UserResponse)
 def update_user(
     id: int,
@@ -393,14 +358,10 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin_role_for_api)
 ):
-    """
-    Update a user's role, status, agency, etc. Restricted to Admins.
-    """
     user = db.query(models.User).filter(models.User.id == id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Update only provided fields
     update_data = user_update.model_dump(exclude_unset=True)
     
     for key, value in update_data.items():
@@ -415,21 +376,16 @@ def update_user(
 
     return user
 
-# 4. DELETE USER
 @router.delete("/users/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_admin_role_for_api)
 ):
-    """
-    Delete a user account.
-    """
     user = db.query(models.User).filter(models.User.id == id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    # Optional: Prevent deleting yourself
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
 
@@ -443,16 +399,8 @@ def delete_user(
 
 @router.get("/auth/verify-ui", response_class=HTMLResponse)
 async def serve_verification_page(request: Request):
-    """
-    Serves the HTML page for account verification.
-    """
     return templates.TemplateResponse("pages/verify-landing.html", {"request": request})
 
 @router.get("/auth/reset-ui", response_class=HTMLResponse)
 async def serve_reset_page(request: Request):
-    """
-    Serves the HTML page for password reset (Fallback route).
-    """
-    # This points to the OLD reset landing page if any legacy links exist
-    # You might want to point this to reset-password.html now
     return templates.TemplateResponse("pages/reset-landing.html", {"request": request})
