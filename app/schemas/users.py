@@ -1,3 +1,5 @@
+# app/schemas/users.py
+
 # Auth, User, Role, Agency
 
 from typing import Optional
@@ -38,11 +40,14 @@ class VerifyUserRequest(BaseModel):
 class EmailRequest(BaseModel):
     email: EmailStr
 
+# --- UPDATED: Matches the Reset Password Logic ---
 class ResetRequest(BaseModel):
     token: str
     email: EmailStr
     password: str
+    confirm_password: str 
 
+# --- UPDATED: Handles Email OR Matricule ---
 class ForgotPasswordRequest(BaseModel):
     identifier: str
 

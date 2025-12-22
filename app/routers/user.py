@@ -10,6 +10,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, or_
 
 # --- Project Imports ---
 from app import models, schemas, oauth2
@@ -267,22 +268,30 @@ async def verify_account(
     return JSONResponse({"message": "Account activated successfully."})
 
 
+
 @router.post("/auth/forgot-password", status_code=status.HTTP_200_OK)
 async def forgot_password(
-    data: schemas.EmailRequest,
+    data: schemas.ForgotPasswordRequest, # <--- Updated Schema
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """
-    Initiate password reset process.
+    Initiate password reset process using Email OR Matricule.
     """
-    user = db.query(models.User).filter(models.User.email == data.email).first()
+    # Search for user by Email OR Matricule
+    user = db.query(models.User).filter(
+        or_(
+            models.User.email == data.identifier,
+            models.User.matricule == data.identifier
+        )
+    ).first()
     
-    # Security: Don't error if user not found, just return success to avoid enumeration
-    if user and user.verified_at and user.is_active:
+    # Security: Don't reveal if user exists. Only send if found and active.
+    if user and user.email and user.is_active:
         await send_password_reset_email(user, background_tasks)
     
-    return JSONResponse({"message": "If the email exists, a reset link has been sent."})
+    # Always return success message to prevent user enumeration attacks
+    return JSONResponse({"message": "If an account exists, a reset link has been sent."})
 
 
 @router.put("/auth/reset-password", status_code=status.HTTP_200_OK)
@@ -293,17 +302,23 @@ def reset_password(
     """
     Complete password reset with token.
     """
+    if data.password != data.confirm_password:
+         raise HTTPException(status_code=400, detail="Passwords do not match.")
+
+    # 1. Find User by Email (passed from frontend)
     user = db.query(models.User).filter(models.User.email == data.email).first()
     
-    if not user or not user.verified_at or not user.is_active:
+    if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request.")
 
-    # Verify Token
+    # 2. Verify Token
+    # Re-generate the expected token based on the user's current security context
     context_str = user.get_context_string(context=FORGOT_PASSWORD)
+    
     if not verify_password(context_str, data.token):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link is invalid or has expired.")
 
-    # Update Password
+    # 3. Update Password
     user.password = hash_password(data.password)
     user.updated_at = datetime.utcnow()
     db.add(user)
