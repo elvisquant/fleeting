@@ -8,7 +8,7 @@ let panneUserRole = 'user';
 // --- PAGINATION & FILTER STATE ---
 let panneCurrentPage = 1;
 let pannePageLimit = 10;
-let filteredPannes = []; 
+let filteredPannes = []; // Stores logs after search/filters are applied
 
 // --- ACTION STATE ---
 let panneActionType = null; // 'delete', 'verify', 'bulk-verify'
@@ -35,10 +35,10 @@ function getPanneEl(id) {
 // 1. INITIALIZATION
 // =================================================================
 async function initPanne() {
-    console.log("Panne Module: Full Init (Pagination + LIFO + Lock-on-Resolved)");
+    console.log("Panne Module: Final Full Implementation");
     panneUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
     
-    // DOM Elements
+    // DOM Elements using mobile-compatible getter
     const search = getPanneEl('panneSearch');
     const vFilter = getPanneEl('panneVehicleFilter');
     const sFilter = getPanneEl('panneStatusFilter');
@@ -46,15 +46,20 @@ async function initPanne() {
     const confirmBtn = getPanneEl('btnPanneConfirmAction');
     const bulkBtn = getPanneEl('btnPanneBulkVerify');
     
-    // Attach Listeners for Search and Filters (Resets to page 1)
+    // Attach Listeners for Search and Filters (Resets to page 1 on change)
     if(search) search.addEventListener('input', () => { panneCurrentPage = 1; renderPanneTable(); });
     if(vFilter) vFilter.addEventListener('change', () => { panneCurrentPage = 1; renderPanneTable(); });
     if(sFilter) sFilter.addEventListener('change', () => { panneCurrentPage = 1; renderPanneTable(); });
     
     if(selectAll) selectAll.addEventListener('change', togglePanneSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executePanneConfirmAction);
-    if(bulkBtn) bulkBtn.onclick = triggerPanneBulkVerify;
     
+    // Bulk verify button setup
+    if(bulkBtn) {
+        bulkBtn.onclick = triggerPanneBulkVerify;
+    }
+    
+    // Initial data fetch
     await Promise.all([fetchPanneDropdowns(), loadPanneData()]);
 }
 
@@ -65,24 +70,30 @@ async function loadPanneData() {
     const tbody = getPanneEl('panneLogsBody');
     if(!tbody) return;
     
-    // Loading State (Colspan 8 for fixed alignment)
-    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading reports...</td></tr>`;
+    // Loading State
+    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Refreshing data...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
     try {
+        // Fetch all (high limit) to allow client-side LIFO/Filter/Pagination
         const data = await window.fetchWithAuth('/panne/?limit=1000');
+        
+        // Handle pagination or list response
         const items = data.items || data;
         
         if (Array.isArray(items)) {
-            // LIFO SORTING: Sort by ID descending (newest entries first)
+            // LIFO SORTING: Sort by ID Descending (Newest records first)
             allPannes = items.sort((a, b) => b.id - a.id);
             selectedPanneIds.clear();
             renderPanneTable();
         } else {
-            tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">Error: Could not load data.</td></tr>`;
+            handleFriendlyError(data, "load");
+            tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">Error loading logs.</td></tr>`;
         }
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">System Error: ${error.message}</td></tr>`;
+        console.error("Panne Load Error:", error);
+        showPanneAlert("Connection Error", "The server is unreachable. Please check your connection.", false);
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">Network connection failed.</td></tr>`;
     }
 }
 
@@ -99,8 +110,9 @@ async function fetchPanneDropdowns() {
         populateSelect('panneVehicleFilter', panneOptions.vehicles, '', 'plate_number', 'All Vehicles');
         populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', 'Select Vehicle');
         populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', 'Select Category');
-    } catch(e) { 
-        console.warn("Dropdown load error", e); 
+
+    } catch(e) {
+        console.warn("Dropdown Error:", e);
     }
 }
 
@@ -111,11 +123,12 @@ function renderPanneTable() {
     const tbody = getPanneEl('panneLogsBody');
     if(!tbody) return;
 
-    // A. Filter Data
+    // Get current filter values
     const searchVal = getPanneEl('panneSearch')?.value.toLowerCase() || '';
     const vFilterVal = getPanneEl('panneVehicleFilter')?.value || '';
     const sFilterVal = getPanneEl('panneStatusFilter')?.value || 'all';
 
+    // A. Apply Filtering
     filteredPannes = allPannes.filter(log => {
         const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
@@ -131,37 +144,36 @@ function renderPanneTable() {
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
-    // B. Update Pagination Info
+    // B. Handle Pagination State
     updatePannePaginationUI();
 
-    // C. Slice for Pagination
-    const start = (panneCurrentPage - 1) * pannePageLimit;
-    const paginatedItems = filteredPannes.slice(start, start + pannePageLimit);
+    // C. Slice Data for Current Page
+    const startIdx = (panneCurrentPage - 1) * pannePageLimit;
+    const paginatedItems = filteredPannes.slice(startIdx, startIdx + pannePageLimit);
 
     if (paginatedItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No records found matching filters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No records found.</td></tr>`;
         return;
     }
 
     const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
 
+    // D. Generate HTML Rows
     tbody.innerHTML = paginatedItems.map(log => {
         const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
         const cat = panneOptions.cats.find(c => c.id === log.category_panne_id);
         const plate = vehicle ? vehicle.plate_number : `ID ${log.vehicle_id}`;
         const catName = cat ? cat.panne_name : `-`;
         const date = new Date(log.panne_date).toLocaleDateString();
-        const shortDesc = log.description ? (log.description.length > 30 ? log.description.substring(0, 30) + '...' : log.description) : '-';
+        const shortDesc = log.description ? (log.description.length > 35 ? log.description.substring(0, 35) + '...' : log.description) : '-';
         
-        // LOCK LOGIC: Locked if Progress Status is 'resolved'
-        const isLocked = log.status === 'resolved';
+        // Progress Lock Check: Lock row only if status is 'resolved'
+        const isResolved = log.status === 'resolved';
 
-        // Progress Badge
-        const progressBadge = isLocked 
+        const progressBadge = isResolved 
             ? `<span class="px-2 py-1 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Resolved</span>`
             : `<span class="px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">Active</span>`;
 
-        // Verification Badge (Does NOT lock the row)
         const verifyBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
@@ -176,11 +188,11 @@ function renderPanneTable() {
 
         let actions = `<button onclick="openViewPanneModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
-        if (isLocked) {
-            // Row is Locked
-            actions += `<span class="p-1.5 text-slate-600" title="Locked: Resolved reports cannot be modified"><i data-lucide="lock" class="w-4 h-4"></i></span>`;
+        if (isResolved) {
+            // Row is Locked for editing/deleting because it's Resolved
+            actions += `<span class="p-1.5 text-slate-600 cursor-not-allowed" title="Completed records are locked"><i data-lucide="lock" class="w-4 h-4"></i></span>`;
         } else if (canManage) {
-            // Row is Editable
+            // Row is still Active: Management buttons available
             actions += `
                 <button onclick="reqPanneVerify(${log.id})" class="p-1.5 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
                 <button onclick="openEditPanneModal(${log.id})" class="p-1.5 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
@@ -205,27 +217,29 @@ function renderPanneTable() {
 }
 
 // =================================================================
-// 4. PAGINATION CONTROLS
+// 4. PAGINATION LOGIC
 // =================================================================
 window.changePannePage = function(direction) {
     const totalPages = Math.ceil(filteredPannes.length / pannePageLimit);
     const newPage = panneCurrentPage + direction;
+    
     if (newPage >= 1 && newPage <= totalPages) {
         panneCurrentPage = newPage;
         renderPanneTable();
-        // Scroll to top of table for UX
-        getPanneEl('panneLogsBody').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Scroll to top of table for better mobile experience
+        const container = getPanneEl('panneLogsBody');
+        if(container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 }
 
 function updatePannePaginationUI() {
-    const prevBtn = getPanneEl('prevPannePage');
-    const nextBtn = getPanneEl('nextPannePage');
-    const indicator = getPanneEl('pannePageIndicator');
-    const countEl = getPanneEl('panneCount');
-
     const totalLogs = filteredPannes.length;
     const totalPages = Math.ceil(totalLogs / pannePageLimit) || 1;
+
+    const indicator = getPanneEl('pannePageIndicator');
+    const countEl = getPanneEl('panneCount');
+    const prevBtn = getPanneEl('prevPannePage');
+    const nextBtn = getPanneEl('nextPannePage');
 
     if(indicator) indicator.innerText = `Page ${panneCurrentPage} / ${totalPages}`;
     if(prevBtn) prevBtn.disabled = (panneCurrentPage === 1);
@@ -234,12 +248,12 @@ function updatePannePaginationUI() {
     if(countEl) {
         const start = (panneCurrentPage - 1) * pannePageLimit + 1;
         const end = Math.min(start + pannePageLimit - 1, totalLogs);
-        countEl.innerText = totalLogs > 0 ? `Showing ${start}-${end} of ${totalLogs} records` : "0 records found";
+        countEl.innerText = totalLogs > 0 ? `Showing ${start}-${end} of ${totalLogs} reports` : "0 records found";
     }
 }
 
 // =================================================================
-// 5. BULK SELECTION
+// 5. BULK OPERATIONS
 // =================================================================
 window.togglePanneRow = function(id) {
     if (selectedPanneIds.has(id)) selectedPanneIds.delete(id);
@@ -250,54 +264,59 @@ window.togglePanneRow = function(id) {
 window.togglePanneSelectAll = function() {
     const mainCheck = getPanneEl('selectAllPanne');
     if (!mainCheck) return;
+    
     const isChecked = mainCheck.checked;
     selectedPanneIds.clear();
+    
     if (isChecked) {
         const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
-        filteredPannes.forEach(log => { if(canManage && !log.is_verified) selectedPanneIds.add(log.id); });
+        // Only select items that are visible in current filters and unverified
+        filteredPannes.forEach(log => {
+             if(canManage && !log.is_verified) selectedPanneIds.add(log.id);
+        });
     }
     renderPanneTable();
-    updatePanneBulkUI();
 }
 
 function updatePanneBulkUI() {
     const btn = getPanneEl('btnPanneBulkVerify');
     const countSpan = getPanneEl('panneSelectedCount');
-    if (countSpan) countSpan.innerText = selectedPanneIds.size;
-    if (btn) {
-        if (selectedPanneIds.size > 0) btn.classList.remove('hidden');
-        else btn.classList.add('hidden');
-    }
+    if (!btn || !countSpan) return;
+
+    countSpan.innerText = selectedPanneIds.size;
+    if (selectedPanneIds.size > 0) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
 }
 
-// =================================================================
-// 6. ACTIONS (Verify/Delete/Confirm)
-// =================================================================
 window.triggerPanneBulkVerify = function() {
     if (selectedPanneIds.size === 0) return;
     panneActionType = 'bulk-verify';
     panneActionId = null;
-    showPanneConfirmModal("Bulk Verify", `Verify ${selectedPanneIds.size} selected reports?`, "shield-check", "bg-emerald-600");
+    showPanneConfirmModal("Bulk Verify", `Verify ${selectedPanneIds.size} selected reports? This confirms they have been inspected.`, "shield-check", "bg-emerald-600");
 }
 
+// =================================================================
+// 6. SINGLE ACTIONS & EXECUTION
+// =================================================================
 window.reqPanneVerify = function(id) { 
     panneActionType = 'verify'; 
     panneActionId = id; 
-    showPanneConfirmModal("Verify Report", "Mark this report as verified?", "check-circle", "bg-green-600"); 
+    showPanneConfirmModal("Verify Report", "Mark this report as verified? Verified reports remain editable until resolved.", "check-circle", "bg-green-600"); 
 }
 
 window.reqPanneDelete = function(id) { 
     panneActionType = 'delete'; 
     panneActionId = id; 
-    showPanneConfirmModal("Delete Report", "Permanently remove this record?", "trash-2", "bg-red-600"); 
+    showPanneConfirmModal("Delete Report", "Are you sure? This action is permanent and cannot be undone.", "trash-2", "bg-red-600"); 
 }
 
 async function executePanneConfirmAction() {
     const btn = getPanneEl('btnPanneConfirmAction');
     if(!btn) return;
-    
+
     btn.disabled = true; 
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-4 h-4 mr-2"></i> Processing...`;
+    if(window.lucide) window.lucide.createIcons();
 
     try {
         let res;
@@ -313,15 +332,14 @@ async function executePanneConfirmAction() {
         window.closeModal('panneConfirmModal');
         
         if(res !== null && !res.detail) {
-            if(panneActionType === 'bulk-verify') selectedPanneIds.clear();
-            await loadPanneData();
-            showPanneAlert("Success", "Action completed successfully.", true);
+            await loadPanneData(); // Full refresh
+            showPanneAlert("Success", "The action was completed successfully.", true);
         } else {
-            showPanneAlert("Error", res?.detail || "Action failed.", false);
+            handleFriendlyError(res, "action");
         }
     } catch(e) { 
         window.closeModal('panneConfirmModal'); 
-        showPanneAlert("Error", e.message, false); 
+        showPanneAlert("Error", "Server unreachable. Check your connection.", false); 
     }
     
     btn.disabled = false; 
@@ -330,31 +348,39 @@ async function executePanneConfirmAction() {
 }
 
 // =================================================================
-// 7. SAVE / EDIT / VIEW MODALS
+// 7. SAVE / EDIT / VIEW LOGIC
 // =================================================================
 window.openAddPanneModal = function() {
+    // Reset Hidden ID
     getPanneEl('panneEditId').value = "";
     getPanneEl('panneModalTitle').innerText = "Report Breakdown";
+    
+    // Fill Dropdowns
     populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', 'Select Vehicle');
     populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', 'Select Category');
     
+    // Reset Fields
     getPanneEl('panneDesc').value = "";
     getPanneEl('panneDate').value = new Date().toISOString().split('T')[0];
     
+    // Default status
     const statusSelect = getPanneEl('panneStatusSelect');
     if(statusSelect) statusSelect.value = "active";
 
-    const modal = getPanneEl('addPanneModal');
-    if (modal) modal.classList.remove('hidden');
+    getPanneEl('addPanneModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.openEditPanneModal = function(id) {
     const log = allPannes.find(l => l.id === id);
-    if(!log || log.status === 'resolved') return; // Double check lock
+    if(!log || log.status === 'resolved') {
+        showPanneAlert("Locked", "Completed reports are archived and cannot be edited.", false);
+        return;
+    }
 
     getPanneEl('panneEditId').value = log.id;
     getPanneEl('panneModalTitle').innerText = "Edit Breakdown Report";
+    
     populateSelect('panneVehicleSelect', panneOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('panneCatSelect', panneOptions.cats, log.category_panne_id, 'panne_name', 'Category');
     
@@ -364,8 +390,7 @@ window.openEditPanneModal = function(id) {
     const statusSelect = getPanneEl('panneStatusSelect');
     if(statusSelect) statusSelect.value = log.status || "active";
 
-    const modal = getPanneEl('addPanneModal');
-    if (modal) modal.classList.remove('hidden');
+    getPanneEl('addPanneModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -376,30 +401,32 @@ window.savePanne = async function() {
     const payload = {
         vehicle_id: parseInt(getPanneEl('panneVehicleSelect').value),
         category_panne_id: parseInt(getPanneEl('panneCatSelect').value),
-        description: getPanneEl('panneDesc').value,
+        description: getPanneEl('panneDesc').value.trim(),
         panne_date: new Date(getPanneEl('panneDate').value).toISOString(),
         status: getPanneEl('panneStatusSelect').value 
     };
 
     if(!payload.vehicle_id || !payload.category_panne_id || !payload.description) {
-        showPanneAlert("Validation", "Please fill in all required fields.", false);
+        showPanneAlert("Incomplete Form", "Vehicle, Category, and Description are required.", false);
         return;
     }
 
-    btn.disabled = true; btn.innerHTML = "Saving...";
+    btn.disabled = true; btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-4 h-4 mr-2"></i> Saving...`;
+    if(window.lucide) window.lucide.createIcons();
+
     try {
-        const url = id ? `/panne/${id}` : '/panne/';
         const method = id ? 'PUT' : 'POST';
+        const url = id ? `/panne/${id}` : '/panne/';
         const res = await window.fetchWithAuth(url, method, payload);
         
         if(res && !res.detail) {
             window.closeModal('addPanneModal');
             await loadPanneData();
-            showPanneAlert("Success", "Report saved. Vehicle status has been updated.", true);
+            showPanneAlert("Success", "Report saved successfully. Vehicle status updated.", true);
         } else {
-            showPanneAlert("Error", res?.detail || "Failed to save record.", false);
+            handleFriendlyError(res, "save");
         }
-    } catch(e) { showPanneAlert("Error", e.message, false); }
+    } catch(e) { showPanneAlert("Error", "A system error occurred. Please try again.", false); }
     
     btn.disabled = false; 
     btn.innerHTML = id ? "Update Report" : "Save Report";
@@ -408,47 +435,73 @@ window.savePanne = async function() {
 window.openViewPanneModal = function(id) {
     const log = allPannes.find(l => l.id === id);
     if (!log) return;
+    
     const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
     const cat = panneOptions.cats.find(c => c.id === log.category_panne_id);
     
     const content = `
         <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
-                <div><span class="text-slate-500 text-[10px] uppercase block mb-1">Vehicle</span><span class="text-white font-mono text-sm">${vehicle?.plate_number || '-'}</span></div>
-                <div><span class="text-slate-500 text-[10px] uppercase block mb-1">Category</span><span class="text-white text-sm">${cat?.panne_name || '-'}</span></div>
+                <div><span class="text-slate-500 text-[10px] uppercase block mb-1">Vehicle</span><span class="text-white font-mono text-sm">${vehicle?.plate_number || 'N/A'}</span></div>
+                <div><span class="text-slate-500 text-[10px] uppercase block mb-1">Category</span><span class="text-white text-sm">${cat?.panne_name || 'N/A'}</span></div>
             </div>
             <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                <span class="text-slate-500 text-[10px] uppercase">Progress Status</span>
+                <span class="text-slate-500 text-[10px] uppercase">Incident Status</span>
                 <span class="font-bold ${log.status === 'active' ? 'text-red-400' : 'text-blue-400'} uppercase text-xs">${log.status}</span>
             </div>
             <div>
-                <span class="text-slate-500 text-[10px] uppercase block mb-1">Description</span>
-                <div class="text-slate-300 text-sm bg-slate-900/50 p-3 rounded border border-slate-800">${log.description || 'No description provided'}</div>
+                <span class="text-slate-500 text-[10px] uppercase block mb-1">Detailed Description</span>
+                <div class="text-slate-300 text-sm bg-slate-900/50 p-4 rounded border border-slate-800 italic">${log.description || 'No notes provided.'}</div>
             </div>
-            <div class="flex justify-between items-center text-[10px] text-slate-500 pt-2">
-                <span>Incident Date: ${new Date(log.panne_date).toLocaleDateString()}</span>
-                <span>ID: #${log.id}</span>
+            <div class="flex justify-between items-center text-[10px] text-slate-600 pt-2 border-t border-slate-800">
+                <span>Date Logged: ${new Date(log.panne_date).toLocaleDateString()}</span>
+                <span>Ref: #${log.id}</span>
             </div>
         </div>`;
     
     const viewContent = getPanneEl('viewPanneContent');
     if (viewContent) viewContent.innerHTML = content;
+    
     const modal = getPanneEl('viewPanneModal');
     if (modal) modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
 // =================================================================
-// 8. GLOBAL HELPERS
+// 8. ERROR HANDLER (Friendly UI Messages)
+// =================================================================
+function handleFriendlyError(res, type) {
+    let msg = "An unexpected error occurred.";
+    let title = "Action Blocked";
+
+    if (res && res.detail) {
+        const detail = (typeof res.detail === 'string') ? res.detail.toLowerCase() : JSON.stringify(res.detail).toLowerCase();
+        
+        if (detail.includes("verified and cannot be modified")) {
+            title = "Verification Lock";
+            msg = "This record is officially verified. To change its progress, please contact an admin to unverify it first.";
+        } else if (detail.includes("completed reports are locked")) {
+            title = "Resolved Lock";
+            msg = "This breakdown is marked as 'Resolved'. Completed reports are locked for data integrity.";
+        } else {
+            msg = res.detail;
+        }
+    }
+    showPanneAlert(title, msg, false);
+}
+
+// =================================================================
+// 9. HELPERS (Alerts, Modals, Selects)
 // =================================================================
 window.closeModal = function(id) { const el = getPanneEl(id) || document.getElementById(id); if(el) el.classList.add('hidden'); }
 
 function showPanneConfirmModal(title, message, icon, color) {
     getPanneEl('panneConfirmTitle').innerText = title;
-    getPanneEl('panneConfirmMessage').innerHTML = message;
+    getPanneEl('panneConfirmMessage').innerText = message;
     const btn = getPanneEl('btnPanneConfirmAction');
-    if(btn) btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
-    getPanneEl('panneConfirmIcon').innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
+    if(btn) btn.className = `px-4 py-2.5 text-white rounded-lg text-sm w-full font-medium ${color} hover:opacity-90 transition-all`;
+    const iconDiv = getPanneEl('panneConfirmIcon');
+    if(iconDiv) iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
     getPanneEl('panneConfirmModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
@@ -464,18 +517,20 @@ function showPanneAlert(title, message, isSuccess) {
                 <div id="panneAlertIcon" class="mb-4"></div>
                 <h3 id="panneAlertTitle" class="text-white font-bold mb-2"></h3>
                 <p id="panneAlertMessage" class="text-slate-400 text-sm mb-6"></p>
-                <button onclick="closeModal('panneAlertModal')" class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition">OK</button>
+                <button onclick="closeModal('panneAlertModal')" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-all">Dismiss</button>
             </div>`;
         document.body.appendChild(modal);
     }
     modal.querySelector('#panneAlertTitle').innerText = title;
-    modal.querySelector('#panneAlertMessage').innerHTML = message;
+    modal.querySelector('#panneAlertMessage').innerText = message;
     const iconDiv = modal.querySelector('#panneAlertIcon');
-    iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${isSuccess ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`;
-    iconDiv.innerHTML = `<i data-lucide="${isSuccess ? 'check' : 'x'}"></i>`;
+    if(iconDiv) {
+        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${isSuccess ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`;
+        iconDiv.innerHTML = `<i data-lucide="${isSuccess ? 'check' : 'x'}"></i>`;
+    }
     modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
-    if(isSuccess) setTimeout(() => modal.classList.add('hidden'), 3000);
+    if(isSuccess) setTimeout(() => modal.classList.add('hidden'), 4000);
 }
 
 function populateSelect(id, list, selectedValue, labelKey, defaultText) {
@@ -485,5 +540,6 @@ function populateSelect(id, list, selectedValue, labelKey, defaultText) {
     el.innerHTML = opt;
 }
 
+// Startup
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPanne);
 else initPanne();

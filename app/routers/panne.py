@@ -110,30 +110,26 @@ def get_panne_by_id(
 # UPDATE (Admin/Charoi) - LOCKED IF VERIFIED
 # =================================================================================
 @router.put("/{id}", response_model=schemas.PanneOut)
-def update_panne(
-    id: int,
-    panne_data: schemas.PanneUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.require_charoi_role) 
-):
+def update_panne(id: int, panne_update: schemas.PanneUpdate, db: Session = Depends(get_db)):
     panne = db.query(models.Panne).filter(models.Panne.id == id).first()
     if not panne:
-        raise HTTPException(status_code=404, detail="Panne not found.")
+        raise HTTPException(status_code=404, detail="Record not found")
 
-    if panne.is_verified:
-        raise HTTPException(status_code=403, detail="This record is verified and cannot be modified.")
+    # FIX: Block update ONLY if already resolved. 
+    # Do NOT block just because it is verified.
+    if panne.status == "resolved":
+        raise HTTPException(status_code=403, detail="Completed reports are locked and cannot be modified.")
 
-    update_data = panne_data.model_dump(exclude_unset=True)
+    update_data = panne_update.model_dump(exclude_unset=True)
 
-    if "vehicle_id" in update_data:
-        if not db.query(models.Vehicle).filter(models.Vehicle.id == update_data["vehicle_id"]).first():
-            raise HTTPException(status_code=404, detail="Vehicle not found.")
-
-    if "is_verified" in update_data:
-        if update_data["is_verified"] is True:
-            panne.verified_at = datetime.utcnow()
-        else:
-            panne.verified_at = None
+    # Logic to update Vehicle status automatically
+    if "status" in update_data:
+        vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne.vehicle_id).first()
+        if vehicle:
+            if update_data["status"] == "resolved":
+                vehicle.is_active = True  # Vehicle is back in service
+            else:
+                vehicle.is_active = False # Vehicle is broken
 
     for key, value in update_data.items():
         setattr(panne, key, value)
