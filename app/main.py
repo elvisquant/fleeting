@@ -40,7 +40,8 @@ app.add_middleware(
 # =================================================================
 # REGISTER API ROUTERS
 # =================================================================
-app.include_router(user.router)       
+app.include_router(user.router)  
+app.include_router(user.ui_router)     
 app.include_router(dashboard.router) 
 app.include_router(analytics_api.router) 
 app.include_router(vehicle.router)    
@@ -100,3 +101,4 @@ async def redirect_old(request: Request):
 async def favicon():
     # Ensure the path matches where you put the file in Step 1
     return FileResponse("app/static/img/logo.png")
+

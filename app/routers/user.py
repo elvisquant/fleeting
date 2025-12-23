@@ -58,6 +58,9 @@ router = APIRouter(
     tags=['Users & Auth']
 )
 
+ui_router = APIRouter(
+    tags=['Users & Auth UI']
+)
 # =================================================================================
 # HELPER FUNCTIONS (Internal)
 # =================================================================================
@@ -411,11 +414,28 @@ def delete_user(
 # =================================================================================
 # UI PAGE SERVING ROUTES (HTML)
 # =================================================================================
-
+""" 
 @router.get("/auth/verify-ui", response_class=HTMLResponse)
 async def serve_verification_page(request: Request):
     return templates.TemplateResponse("pages/verify-landing.html", {"request": request})
 
 @router.get("/auth/reset-ui", response_class=HTMLResponse)
 async def serve_reset_page(request: Request):
+    return templates.TemplateResponse("pages/reset-landing.html", {"request": request})  """
+
+
+
+@ui_router.get("/auth/verify-ui", response_class=HTMLResponse)
+async def serve_verification_page(request: Request):
+    return templates.TemplateResponse("pages/verify-landing.html", {"request": request})
+
+@ui_router.get("/auth/reset-ui", response_class=HTMLResponse)
+async def serve_reset_page(request: Request):
     return templates.TemplateResponse("pages/reset-landing.html", {"request": request})
+
+
+
+
+
+
+

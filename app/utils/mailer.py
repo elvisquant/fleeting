@@ -56,17 +56,25 @@ async def send_account_verification_email(user, background_tasks):
     string_context = user.get_context_string(context=USER_VERIFY_ACCOUNT)
     token = hash_password(string_context)
     
-    # 2. Construct URL -> Points to STATIC file
-    activate_url = f"{settings.FRONTEND_HOST}/verify-landing.html?token={token}&email={user.email}"
+    # 2. Construct CLEAN URL -> Matches the ui_router in user.py
+    # We remove /api/v1/ here for a professional look
+    activate_url = f"{settings.FRONTEND_HOST}/auth/verify-ui?token={token}&email={user.email}"
     
     html = f"""
     <html>
-        <body>
-            <h3>Welcome to {settings.APP_NAME}!</h3>
-            <p>Dear {user.full_name},</p>
-            <p>Please activate your account by clicking the link below:</p>
-            <a href="{activate_url}" style="background:#3b82f6;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Activate Account</a>
-            <p>Or paste this link: {activate_url}</p>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #2563eb;">Welcome to {settings.APP_NAME}!</h2>
+                <p>Dear <strong>{user.full_name}</strong>,</p>
+                <p>Thank you for signing up. To complete your registration and secure your account, please click the button below:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{activate_url}" style="background:#2563eb; color:white; padding:12px 25px; text-decoration:none; border-radius:8px; font-weight: bold; display: inline-block;">Activate My Account</a>
+                </div>
+                <p style="font-size: 13px; color: #64748b;">If the button above doesn't work, copy and paste this link into your browser:</p>
+                <p style="font-size: 12px; word-break: break-all;"><a href="{activate_url}" style="color: #2563eb;">{activate_url}</a></p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                <p style="font-size: 12px; color: #94a3b8;">{settings.APP_NAME} Team</p>
+            </div>
         </body>
     </html>
     """
@@ -77,11 +85,16 @@ async def send_account_activation_confirmation_email(user, background_tasks):
     
     html = f"""
     <html>
-        <body>
-            <h3>Account Activated!</h3>
-            <p>Dear {user.full_name},</p>
-            <p>Your account is now active. You can log in here:</p>
-            <a href="{login_url}">Go to Login</a>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #10b981;">Account Activated!</h2>
+                <p>Dear <strong>{user.full_name}</strong>,</p>
+                <p>Your account has been successfully verified. You can now access all the features of {settings.APP_NAME}.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{login_url}" style="background:#10b981; color:white; padding:12px 25px; text-decoration:none; border-radius:8px; font-weight: bold; display: inline-block;">Sign In Now</a>
+                </div>
+                <p>Best regards,<br>{settings.APP_NAME} Team</p>
+            </div>
         </body>
     </html>
     """
@@ -92,30 +105,28 @@ async def send_password_reset_email(user, background_tasks):
     string_context = user.get_context_string(context=FORGOT_PASSWORD)
     token = hash_password(string_context)
     
-    # 2. Construct URL -> Points to STATIC file 'reset-password.html'
+    # 2. Construct CLEAN URL -> Matches the route in main.py
     reset_url = f"{settings.FRONTEND_HOST}/reset-password.html?token={token}&email={user.email}"
     
     html = f"""
     <html>
-        <body>
-            <h3>Reset Your Password</h3>
-            <p>Dear {user.full_name},</p>
-            <p>We received a request to reset your password. Click the link below to set a new password:</p>
-            <br>
-            <a href="{reset_url}" style="background:#3b82f6;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Reset Password</a>
-            <br><br>
-            <p>Or paste this link: {reset_url}</p>
-            <p>If you did not request this, please ignore this email.</p>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #ef4444;">Reset Your Password</h2>
+                <p>Dear <strong>{user.full_name}</strong>,</p>
+                <p>We received a request to reset the password for your account. Click the button below to set a new password:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{reset_url}" style="background:#ef4444; color:white; padding:12px 25px; text-decoration:none; border-radius:8px; font-weight: bold; display: inline-block;">Reset Password</a>
+                </div>
+                <p style="font-size: 13px; color: #64748b;">If you did not request this, you can safely ignore this email.</p>
+                <p style="font-size: 12px; word-break: break-all; color: #94a3b8;">Link: {reset_url}</p>
+            </div>
         </body>
     </html>
     """
     await _send(user.email, f"Reset Password - {settings.APP_NAME}", html)
 
 async def send_password_changed_email(email: str, full_name: str):
-    """
-    Sends a security notification confirming the password was changed.
-    Uses strings (not User object) to avoid DetachedInstanceError.
-    """
     html = f"""
     <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
@@ -123,14 +134,11 @@ async def send_password_changed_email(email: str, full_name: str):
                 <h2 style="color: #2c3e50;">Security Alert: Password Updated</h2>
                 <p>Dear <strong>{full_name}</strong>,</p>
                 <p>This email is to confirm that the password for your <strong>{settings.APP_NAME}</strong> account has been changed successfully.</p>
-                
-                <div style="background-color: #f0f8ff; padding: 15px; border-left: 4px solid #3498db; margin: 20px 0;">
+                <div style="background-color: #f8fafc; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0;">
                     <p style="margin: 0;">If you did not perform this action, please contact your administrator immediately.</p>
                 </div>
-
-                <p>You can now log in with your new password.</p>
                 <hr style="border: 0; border-top: 1px solid #eee;">
-                <p style="font-size: 12px; color: #888;">FleetDash Security Team</p>
+                <p style="font-size: 12px; color: #888;">{settings.APP_NAME} Security Team</p>
             </div>
         </body>
     </html>
@@ -138,69 +146,21 @@ async def send_password_changed_email(email: str, full_name: str):
     await _send(email, f"Security Alert - Password Changed", html)
 
 # ==============================================================================
-# REQUEST & MISSION EMAILS
+# REQUEST & MISSION EMAILS (KEEPING ORIGINAL LOGIC)
 # ==============================================================================
 
 async def send_mission_order_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
-    html = f"""
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-                <h2 style="color: #27ae60;">Mission Order Approved</h2>
-                <p>Dear <strong>{requester_name}</strong>,</p>
-                <p>Your vehicle request has been <strong>fully approved</strong>.</p>
-                <p>Attached is the official <strong>Mission Order</strong>.</p>
-                <hr style="border: 0; border-top: 1px solid #eee;">
-                <p style="font-size: 12px; color: #888;">FleetDash Automated System</p>
-            </div>
-        </body>
-    </html>
-    """
+    html = f"""<html><body><p>Dear {requester_name}, your mission order is approved and attached.</p></body></html>"""
     await _send_with_pdf(email_to, f"APPROVED: Mission Order - {filename}", html, pdf_file, filename)
 
 async def send_mission_update_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
-    html = f"""
-    <html>
-        <body>
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #3498db; border-radius: 8px;">
-                <h2 style="color: #2980b9;">Mission Details Updated</h2>
-                <p>Dear <strong>{requester_name}</strong>,</p>
-                <p>The resources for your mission have been <strong>updated</strong>.</p>
-                <p>Please use the attached <strong>Revised Mission Order</strong>.</p>
-            </div>
-        </body>
-    </html>
-    """
+    html = f"""<html><body><p>Dear {requester_name}, details updated for your mission.</p></body></html>"""
     await _send_with_pdf(email_to, f"UPDATED: Mission Order - {filename}", html, pdf_file, filename)
 
 async def send_driver_assignment_email(email_to: str, driver_name: str, requester_name: str, destination: str, pdf_file: bytes, filename: str):
-    html = f"""
-    <html>
-        <body>
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #3498db; border-radius: 8px;">
-                <h2 style="color: #2980b9;">New Mission Assignment</h2>
-                <p>Hello <strong>{driver_name}</strong>,</p>
-                <p>You have been assigned as the driver for a new mission.</p>
-                <p><strong>Destination:</strong> {destination}</p>
-                <p>See attached Mission Order for details.</p>
-            </div>
-        </body>
-    </html>
-    """
+    html = f"""<html><body><p>Hello {driver_name}, you have a new mission to {destination}.</p></body></html>"""
     await _send_with_pdf(email_to, f"ASSIGNMENT: New Mission to {destination}", html, pdf_file, filename)
 
 async def send_rejection_email(email_to: str, requester_name: str, request_id: int, reason: str, approver_name: str):
-    html = f"""
-    <html>
-        <body>
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #fab1a0; border-radius: 8px; background-color: #fff5f5;">
-                <h2 style="color: #c0392b;">Request Denied</h2>
-                <p>Dear <strong>{requester_name}</strong>,</p>
-                <p>Your request <strong>#{request_id}</strong> was denied.</p>
-                <p><strong>Reason:</strong> "{reason}"</p>
-                <p><strong>Reviewer:</strong> {approver_name}</p>
-            </div>
-        </body>
-    </html>
-    """
+    html = f"""<html><body><p>Dear {requester_name}, your request #{request_id} was denied. Reason: {reason}</p></body></html>"""
     await _send(email_to, f"DENIED: Vehicle Request #{request_id}", html)
