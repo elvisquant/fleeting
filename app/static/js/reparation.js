@@ -5,6 +5,11 @@ let allRepLogs = [];
 let repOptions = { pannes: [], garages: [] };
 let repUserRole = 'user';
 
+// --- PAGINATION & FILTER STATE ---
+let repCurrentPage = 1;
+let repPageLimit = 10;
+let filteredRepLogs = []; // Stores logs after search/filters are applied
+
 // --- ACTION STATE ---
 let repActionType = null; // 'delete', 'verify', 'bulk-verify'
 let repActionId = null;
@@ -14,15 +19,12 @@ let selectedRepIds = new Set();
 // MOBILE-COMPATIBLE ELEMENT GETTER
 // =================================================================
 function getRepEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
@@ -30,194 +32,206 @@ function getRepEl(id) {
 // 1. INITIALIZATION
 // =================================================================
 async function initReparation() {
-    console.log("Reparation Module: Init");
+    console.log("Reparation Module: Full Logic Start");
     repUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
-    // DOM Elements using mobile-compatible getter
+    // DOM Elements
     const search = getRepEl('repSearch');
     const garageFilter = getRepEl('repGarageFilter');
     const statusFilter = getRepEl('repStatusFilter');
     const selectAll = getRepEl('selectAllRep');
     const confirmBtn = getRepEl('btnRepConfirmAction');
+    const bulkBtn = getRepEl('btnRepBulkVerify');
     
-    // Attach Listeners
-    if(search) search.addEventListener('input', renderRepTable);
-    if(garageFilter) garageFilter.addEventListener('change', renderRepTable);
-    if(statusFilter) statusFilter.addEventListener('change', renderRepTable);
+    // Attach Listeners for Search and Filters (Resets to page 1)
+    if(search) search.addEventListener('input', () => { repCurrentPage = 1; renderRepTable(); });
+    if(garageFilter) garageFilter.addEventListener('change', () => { repCurrentPage = 1; renderRepTable(); });
+    if(statusFilter) statusFilter.addEventListener('change', () => { repCurrentPage = 1; renderRepTable(); });
+    
+    // Selection listeners
     if(selectAll) selectAll.addEventListener('change', toggleRepSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executeRepConfirmAction);
+    
+    if(bulkBtn) bulkBtn.onclick = triggerRepBulkVerify;
 
     await Promise.all([loadRepData(), fetchRepDropdowns()]);
 }
 
 // =================================================================
-// 2. DATA LOADING
+// 2. DATA LOADING (LIFO SORTING)
 // =================================================================
 async function loadRepData() {
     const tbody = getRepEl('repLogsBody');
     if(!tbody) return;
     
-    // Loading State
-    tbody.innerHTML = `<tr><td colspan="7" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Refreshing Reparation Logs...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
-    // FIX: Added trailing slash to prevent 307 Redirect
-    const data = await window.fetchWithAuth('/reparation/'); 
-    
-    // Handle pagination or list response
-    const items = data.items || data;
-    
-    if (Array.isArray(items)) {
-        allRepLogs = items;
-        selectedRepIds.clear(); // Clear selections on reload
-        updateRepBulkUI();
-        renderRepTable();
-    } else {
-        const msg = data && data.detail ? data.detail : "Failed to load data.";
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${msg}</td></tr>`;
+    try {
+        const data = await window.fetchWithAuth('/reparation/?limit=1000'); 
+        const items = data.items || data;
+        
+        if (Array.isArray(items)) {
+            // LIFO SORTING: Newest repairs (highest ID) first
+            allRepLogs = items.sort((a, b) => b.id - a.id);
+            selectedRepIds.clear(); 
+            renderRepTable();
+        } else {
+            handleFriendlyRepError(data, "load");
+        }
+    } catch (e) {
+        showRepAlert("Connection Error", "Could not connect to the server.", false);
     }
 }
 
 async function fetchRepDropdowns() {
     try {
-        // FIX: Added trailing slashes to prevent 307 Redirects
         const [pannes, garages] = await Promise.all([
-            window.fetchWithAuth('/panne/'), 
+            window.fetchWithAuth('/panne/?limit=1000'), 
             window.fetchWithAuth('/garage/') 
         ]);
 
-        // Handle Potential Pagination Wrappers
         repOptions.pannes = Array.isArray(pannes) ? pannes : (pannes.items || []);
         repOptions.garages = Array.isArray(garages) ? garages : (garages.items || []);
         
-        // Populate Filter Dropdowns
         populateSelect('repGarageFilter', repOptions.garages, '', 'nom_garage', 'All Garages');
-        
-        // Populate Modal Dropdowns
-        populatePanneSelect('repPanneSelect', repOptions.pannes);
         populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', 'Select Garage');
+        
+        // Modal Dropdown: Only show ACTIVE pannes for new repairs
+        populateActivePanneSelect('repPanneSelect', repOptions.pannes);
 
-    } catch (e) { 
-        console.warn("Rep Dropdown Error:", e); 
-    }
+    } catch (e) { console.warn("Dropdown load error", e); }
 }
 
 // =================================================================
-// 3. TABLE RENDERING
+// 3. CORE TABLE RENDERING (8 COLUMNS + LOCK LOGIC)
 // =================================================================
 function renderRepTable() {
     const tbody = getRepEl('repLogsBody');
     if (!tbody) return;
 
-    // Get Filter Values
-    const search = getRepEl('repSearch');
-    const garageFilter = getRepEl('repGarageFilter');
-    const statusFilter = getRepEl('repStatusFilter');
-    
-    const searchValue = search ? search.value.toLowerCase() : '';
-    const gFilter = garageFilter ? garageFilter.value : '';
-    const sFilter = statusFilter ? statusFilter.value : '';
+    const searchVal = getRepEl('repSearch')?.value.toLowerCase() || '';
+    const gFilterVal = getRepEl('repGarageFilter')?.value || '';
+    const sFilterVal = getRepEl('repStatusFilter')?.value || 'all';
 
-    // Filter Data
-    let filtered = allRepLogs.filter(log => {
+    // A. Apply Filtering
+    filteredRepLogs = allRepLogs.filter(log => {
         const garage = repOptions.garages.find(g => g.id === log.garage_id);
         const gName = garage ? garage.nom_garage.toLowerCase() : "";
-        const receipt = log.receipt ? log.receipt.toLowerCase() : "";
+        const receipt = (log.receipt || "").toLowerCase();
         
-        const matchesSearch = gName.includes(searchValue) || receipt.includes(searchValue);
-        const matchesGarage = gFilter === "" || log.garage_id == gFilter;
+        const matchesSearch = gName.includes(searchVal) || receipt.includes(searchVal);
+        const matchesGarage = gFilterVal === "" || log.garage_id == gFilterVal;
         
         let matchesStatus = true;
-        if (sFilter === 'verified') matchesStatus = log.is_verified === true;
-        if (sFilter === 'pending') matchesStatus = log.is_verified !== true;
+        if (sFilterVal === 'verified') matchesStatus = log.is_verified === true;
+        else if (sFilterVal === 'pending') matchesStatus = log.is_verified !== true;
 
         return matchesSearch && matchesGarage && matchesStatus;
     });
 
-    // Update Counts
-    const repCountEl = getRepEl('repCount');
-    if (repCountEl) repCountEl.innerText = `${filtered.length} records found`;
+    // B. Handle Pagination State
+    updateRepPaginationUI();
 
-    // Empty State
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No records found.</td></tr>`;
+    // C. Slice for current page
+    const start = (repCurrentPage - 1) * repPageLimit;
+    const paginatedItems = filteredRepLogs.slice(start, start + repPageLimit);
+
+    if (paginatedItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No records found matching filters.</td></tr>`;
         return;
     }
 
-    // Role Check
     const canManage = ['admin', 'superadmin', 'charoi'].includes(repUserRole);
 
-    // Generate Rows
-    tbody.innerHTML = filtered.map(log => {
+    // D. Generate Rows
+    tbody.innerHTML = paginatedItems.map(log => {
         const garage = repOptions.garages.find(g => g.id === log.garage_id);
-        const panne = repOptions.pannes.find(p => p.id === log.panne_id);
         const date = new Date(log.repair_date).toLocaleDateString();
 
-        // Status Badges
+        // Lock Logic: Lock if status is 'Completed'
+        const isLocked = log.status === 'Completed';
+
+        const progressBadge = isLocked
+            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Completed</span>`
+            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">In Progress</span>`;
+
         const verifyBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
 
-        const progressBadge = log.status === 'Completed'
-            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Completed</span>`
-            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">In Progress</span>`;
+        let checkboxHtml = (canManage && !log.is_verified) 
+            ? `<input type="checkbox" onchange="toggleRepRow(${log.id})" ${selectedRepIds.has(log.id) ? 'checked' : ''} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`
+            : `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30">`;
 
-        // --- NEW LOCK LOGIC ---
-        // Lock row ONLY if verified AND Completed.
-        // If it is verified but NOT Completed (e.g. In Progress), allow editing.
-        const isLocked = log.is_verified && log.status === 'Completed';
-
-        // Checkbox Logic (Disable if Locked OR user cannot manage)
-        let checkboxHtml = '';
-        if (canManage && !isLocked) {
-            const isChecked = selectedRepIds.has(log.id) ? 'checked' : '';
-            checkboxHtml = `<input type="checkbox" onchange="toggleRepRow(${log.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`;
-        } else {
-            checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30 cursor-not-allowed">`;
-        }
-
-        // Action Buttons Logic
-        let actions = '';
-        const viewBtn = `<button onclick="openViewRepModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
+        let actions = `<button onclick="openViewRepModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View Details"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
         if (isLocked) {
-             // Show Lock Icon if Completed + Verified
-             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}<span class="text-slate-600 cursor-not-allowed" title="Locked (Verified & Completed)"><i data-lucide="lock" class="w-4 h-4"></i></span></div>`;
+             // LOCKED row: Only View and Lock icon
+             actions += `<span class="p-1.5 text-slate-600 cursor-not-allowed" title="Record Locked: Completed repairs cannot be modified."><i data-lucide="lock" class="w-4 h-4"></i></span>`;
         } else if (canManage) {
-             // Allow actions if NOT locked (even if verified, as long as it's not completed)
-             actions = `
-                <div class="flex items-center justify-end gap-2">
-                    ${viewBtn}
-                    ${!log.is_verified ? `<button onclick="reqRepVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>` : ''}
-                    <button onclick="openEditRepModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                    <button onclick="reqRepDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>`;
-        } else {
-             actions = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
+             // EDITABLE row: All buttons
+             actions += `
+                <button onclick="reqRepVerify(${log.id})" class="p-1.5 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                <button onclick="openEditRepModal(${log.id})" class="p-1.5 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                <button onclick="reqRepDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
         }
 
         return `
-            <tr class="hover:bg-white/5 border-b border-slate-700/30 ${isLocked ? 'opacity-70 bg-slate-800/30' : ''}">
-                <td class="p-4 text-center">${checkboxHtml}</td>
-                <td class="p-4">
-                    <div class="text-white font-mono text-xs">Pan #${log.panne_id}</div>
-                    <div class="text-xs text-slate-500 truncate max-w-[150px]">${panne && panne.description ? panne.description.substring(0, 30) + (panne.description.length > 30 ? '...' : '') : 'Unknown Panne'}</div>
-                </td>
-                <td class="p-4 text-slate-300 text-sm">${garage ? garage.nom_garage : 'ID ' + log.garage_id}</td>
-                <td class="p-4 text-right font-bold text-emerald-400">${log.cost ? log.cost.toFixed(2) : '0.00'}</td>
-                <td class="p-4">${progressBadge}</td>
-                <td class="p-4">${verifyBadge}</td>
-                <td class="p-4 text-right">${actions}</td>
+            <tr class="hover:bg-white/[0.02] border-b border-slate-700/30 transition-colors">
+                <td class="p-4 text-center align-middle">${checkboxHtml}</td>
+                <td class="p-4 align-middle text-white font-mono text-xs">PAN-${log.panne_id}</td>
+                <td class="p-4 align-middle text-slate-300 text-sm">${garage ? garage.nom_garage : 'ID ' + log.garage_id}</td>
+                <td class="p-4 align-middle text-right font-bold text-emerald-400">${log.cost ? log.cost.toFixed(2) : '0.00'}</td>
+                <td class="p-4 align-middle">${progressBadge}</td>
+                <td class="p-4 align-middle">${verifyBadge}</td>
+                <td class="p-4 align-middle text-slate-500 text-xs">${date}</td>
+                <td class="p-4 align-middle text-right flex justify-end gap-2">${actions}</td>
             </tr>`;
     }).join('');
     
+    updateRepBulkUI();
     if(window.lucide) window.lucide.createIcons();
 }
 
 // =================================================================
-// 4. BULK OPERATIONS
+// 4. PAGINATION UI CONTROLS
 // =================================================================
+window.changeRepPage = function(direction) {
+    const totalPages = Math.ceil(filteredRepLogs.length / repPageLimit);
+    const newPage = repCurrentPage + direction;
+    if (newPage >= 1 && newPage <= totalPages) {
+        repCurrentPage = newPage;
+        renderRepTable();
+        // Return to top of table
+        const body = getRepEl('repLogsBody');
+        if(body) body.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
 
+function updateRepPaginationUI() {
+    const totalLogs = filteredRepLogs.length;
+    const totalPages = Math.ceil(totalLogs / repPageLimit) || 1;
+    
+    const indicator = getRepEl('repPageIndicator');
+    const countEl = getRepEl('repCount');
+    const prevBtn = getRepEl('prevRepPage');
+    const nextBtn = getRepEl('nextRepPage');
+
+    if(indicator) indicator.innerText = `Page ${repCurrentPage} / ${totalPages}`;
+    if(prevBtn) prevBtn.disabled = (repCurrentPage === 1);
+    if(nextBtn) nextBtn.disabled = (repCurrentPage === totalPages || totalLogs === 0);
+
+    if(countEl) {
+        const start = (repCurrentPage - 1) * repPageLimit + 1;
+        const end = Math.min(start + repPageLimit - 1, totalLogs);
+        countEl.innerText = totalLogs > 0 ? `Showing ${start}-${end} of ${totalLogs} repairs` : "0 records found";
+    }
+}
+
+// =================================================================
+// 5. BULK SELECTION
+// =================================================================
 window.toggleRepRow = function(id) {
     if (selectedRepIds.has(id)) selectedRepIds.delete(id);
     else selectedRepIds.add(id);
@@ -228,15 +242,12 @@ window.toggleRepSelectAll = function() {
     const mainCheck = getRepEl('selectAllRep');
     if (!mainCheck) return;
     
-    const isChecked = mainCheck.checked;
     selectedRepIds.clear();
-    
-    if (isChecked) {
+    if (mainCheck.checked) {
         const canManage = ['admin', 'superadmin', 'charoi'].includes(repUserRole);
-        allRepLogs.forEach(log => {
-             // Only select items that are NOT locked
-             const isLocked = log.is_verified && log.status === 'Completed';
-             if(canManage && !isLocked && !log.is_verified) selectedRepIds.add(log.id);
+        // Select only visible, unverified items
+        filteredRepLogs.forEach(log => {
+             if(canManage && !log.is_verified) selectedRepIds.add(log.id);
         });
     }
     renderRepTable();
@@ -246,377 +257,228 @@ window.toggleRepSelectAll = function() {
 function updateRepBulkUI() {
     const btn = getRepEl('btnRepBulkVerify');
     const countSpan = getRepEl('repSelectedCount');
-    if (!btn) return;
+    if (!btn || !countSpan) return;
 
-    if (countSpan) countSpan.innerText = selectedRepIds.size;
+    countSpan.innerText = selectedRepIds.size;
     if (selectedRepIds.size > 0) btn.classList.remove('hidden');
     else btn.classList.add('hidden');
 }
 
-window.executeRepBulkVerify = async function() {
+window.triggerRepBulkVerify = function() {
     if (selectedRepIds.size === 0) return;
-    
     repActionType = 'bulk-verify';
-    repActionId = null;
-    
-    showRepConfirmModal(
-        "Verify Selected?", 
-        `Verify ${selectedRepIds.size} records? This cannot be undone.`, 
-        "check-circle", 
-        "bg-emerald-600"
-    );
+    showRepConfirmModal("Bulk Verify", `You are verifying ${selectedRepIds.size} records. This confirms they have been reviewed.`, "shield-check", "bg-emerald-600");
 }
 
 // =================================================================
-// 5. SINGLE ACTIONS (Trigger Modal)
+// 6. SAVE / EDIT / VIEW LOGIC
 // =================================================================
-
-window.reqRepVerify = function(id) {
-    repActionType = 'verify'; 
-    repActionId = id;
-    showRepConfirmModal("Verify Reparation?", "This marks the record as verified.", "check-circle", "bg-green-600");
-}
-
-window.reqRepDelete = function(id) {
-    repActionType = 'delete'; 
-    repActionId = id;
-    showRepConfirmModal("Delete Reparation?", "This cannot be undone.", "trash-2", "bg-red-600");
-}
-
-// =================================================================
-// 6. EXECUTE ACTION (Confirm Modal Click)
-// =================================================================
-
-async function executeRepConfirmAction() {
-    const btn = getRepEl('btnRepConfirmAction');
-    if (!btn) return;
-    
-    btn.disabled = true; 
-    btn.innerText = "Processing...";
-
-    try {
-        let result;
-        
-        // --- DELETE ---
-        if (repActionType === 'delete') {
-            // FIX: No slash for ID
-            result = await window.fetchWithAuth(`/reparation/${repActionId}`, 'DELETE');
-        } 
-        // --- VERIFY (Single) ---
-        else if (repActionType === 'verify') {
-            const payload = { ids: [parseInt(repActionId)] };
-            result = await window.fetchWithAuth(`/reparation/verify-bulk`, 'PUT', payload);
-        }
-        // --- VERIFY (Bulk) ---
-        else if (repActionType === 'bulk-verify') {
-            const idList = Array.from(selectedRepIds).map(id => parseInt(id));
-            const payload = { ids: idList };
-            result = await window.fetchWithAuth('/reparation/verify-bulk', 'PUT', payload);
-        }
-
-        window.closeModal('repConfirmModal');
-        
-        if (result !== null && result !== false) {
-            if (repActionType === 'bulk-verify') selectedRepIds.clear();
-            await loadRepData();
-            showRepAlert("Success", "Action completed successfully.", true);
-        } else {
-            showRepAlert("Failed", "Action could not be completed.", false);
-        }
-    } catch(e) {
-        window.closeModal('repConfirmModal');
-        showRepAlert("Error", e.message || "An unexpected error occurred.", false);
-    }
-    
-    btn.disabled = false; 
-    btn.innerText = "Confirm"; 
-    repActionId = null; 
-    repActionType = null;
-}
-
-// =================================================================
-// 7. ADD / EDIT / VIEW LOGIC
-// =================================================================
-
 window.openAddReparationModal = function() {
-    const editIdEl = getRepEl('repEditId');
-    const modalTitle = getRepEl('repModalTitle');
-    const saveBtn = getRepEl('btnSaveRep');
+    getRepEl('repEditId').value = "";
+    getRepEl('repModalTitle').innerText = "Log Reparation";
     
-    if (editIdEl) editIdEl.value = "";
-    if (modalTitle) modalTitle.innerText = "Log Reparation";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> Save`;
-    
-    populatePanneSelect('repPanneSelect', repOptions.pannes);
+    // Only show ACTIVE pannes for new repairs
+    populateActivePanneSelect('repPanneSelect', repOptions.pannes);
     populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', 'Select Garage');
     
-    const costEl = getRepEl('repCost');
-    const dateEl = getRepEl('repDate');
-    const receiptEl = getRepEl('repReceipt');
-    const statusEl = getRepEl('repProgressStatus');
-    
-    if (costEl) costEl.value = "";
-    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
-    if (receiptEl) receiptEl.value = "";
-    if (statusEl) statusEl.value = "Inprogress";
+    getRepEl('repCost').value = "";
+    getRepEl('repDate').value = new Date().toISOString().split('T')[0];
+    getRepEl('repReceipt').value = "";
+    getRepEl('repProgressStatus').value = "Inprogress";
 
-    const modal = getRepEl('addRepModal');
-    if (modal) modal.classList.remove('hidden');
-    
+    getRepEl('addRepModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.openEditRepModal = function(id) {
     const log = allRepLogs.find(l => l.id === id);
-    if(!log) return;
+    if(!log || log.status === 'Completed') {
+        showRepAlert("Record Locked", "Completed repairs cannot be edited.", false);
+        return;
+    }
 
-    const editIdEl = getRepEl('repEditId');
-    const modalTitle = getRepEl('repModalTitle');
-    const saveBtn = getRepEl('btnSaveRep');
+    getRepEl('repEditId').value = log.id;
+    getRepEl('repModalTitle').innerText = "Update Repair Progress";
     
-    if (editIdEl) editIdEl.value = log.id;
-    if (modalTitle) modalTitle.innerText = "Edit Reparation";
-    if (saveBtn) saveBtn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Update`;
-
-    populatePanneSelect('repPanneSelect', repOptions.pannes, log.panne_id);
+    // During edit, include the current panne in dropdown even if it were resolved
+    populateSelect('repPanneSelect', repOptions.pannes, log.panne_id, 'description', 'Select Panne');
     populateSelect('repGarageSelect', repOptions.garages, log.garage_id, 'nom_garage', 'Select Garage');
     
-    const costEl = getRepEl('repCost');
-    const dateEl = getRepEl('repDate');
-    const receiptEl = getRepEl('repReceipt');
-    const statusEl = getRepEl('repProgressStatus');
-    
-    if (costEl) costEl.value = log.cost || "";
-    if (dateEl) dateEl.value = log.repair_date ? new Date(log.repair_date).toISOString().split('T')[0] : "";
-    if (receiptEl) receiptEl.value = log.receipt || "";
-    if (statusEl) statusEl.value = log.status || "Inprogress";
+    getRepEl('repCost').value = log.cost;
+    getRepEl('repDate').value = new Date(log.repair_date).toISOString().split('T')[0];
+    getRepEl('repReceipt').value = log.receipt;
+    getRepEl('repProgressStatus').value = log.status;
 
-    const modal = getRepEl('addRepModal');
-    if (modal) modal.classList.remove('hidden');
-    
+    getRepEl('addRepModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.saveReparation = async function() {
-    const editIdEl = getRepEl('repEditId');
-    const id = editIdEl ? editIdEl.value : '';
-    
-    // Get form values
-    const panneId = getRepEl('repPanneSelect');
-    const garageId = getRepEl('repGarageSelect');
-    const cost = getRepEl('repCost');
-    const dateVal = getRepEl('repDate');
-    const receipt = getRepEl('repReceipt');
-    const statusVal = getRepEl('repProgressStatus');
-
-    // VALIDATION
-    if(!panneId || !panneId.value) { 
-        showRepAlert("Validation", "Please select a Panne.", false); 
-        return; 
-    }
-    if(!garageId || !garageId.value) { 
-        showRepAlert("Validation", "Please select a Garage.", false); 
-        return; 
-    }
-    if(!cost || !cost.value || isNaN(cost.value) || parseFloat(cost.value) <= 0) { 
-        showRepAlert("Validation", "Please enter a valid cost.", false); 
-        return; 
-    }
-    if(!dateVal || !dateVal.value) { 
-        showRepAlert("Validation", "Please select a date.", false); 
-        return; 
-    }
-    if(!receipt || !receipt.value.trim()) { 
-        showRepAlert("Validation", "Please enter receipt reference.", false); 
-        return; 
-    }
+    const id = getRepEl('repEditId').value;
+    const btn = getRepEl('btnSaveRep');
 
     const payload = {
-        panne_id: parseInt(panneId.value),
-        garage_id: parseInt(garageId.value),
-        cost: parseFloat(cost.value),
-        repair_date: new Date(dateVal.value).toISOString(),
-        receipt: receipt.value.trim(),
-        status: statusVal ? statusVal.value : "Inprogress"
+        panne_id: parseInt(getRepEl('repPanneSelect').value),
+        garage_id: parseInt(getRepEl('repGarageSelect').value),
+        cost: parseFloat(getRepEl('repCost').value),
+        repair_date: new Date(getRepEl('repDate').value).toISOString(),
+        receipt: getRepEl('repReceipt').value.trim(),
+        status: getRepEl('repProgressStatus').value
     };
 
-    const btn = getRepEl('btnSaveRep');
-    if (!btn) return;
-    
-    btn.disabled = true; 
-    btn.innerHTML = "Saving...";
-    
-    try {
-        let result;
-        if(id) {
-            // PUT (Update) - No trailing slash for ID
-            result = await window.fetchWithAuth(`/reparation/${id}`, 'PUT', payload);
-        } else {
-            // POST (Create) - FIX: Added trailing slash to avoid 307
-            result = await window.fetchWithAuth('/reparation/', 'POST', payload);
-        }
+    if(!payload.panne_id || !payload.garage_id || isNaN(payload.cost)) {
+        showRepAlert("Validation Error", "Please select a Panne, Garage, and enter a valid cost.", false);
+        return;
+    }
 
-        if(result && !result.detail) {
+    btn.disabled = true; btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-4 h-4 mr-2"></i> Saving...`;
+    if(window.lucide) window.lucide.createIcons();
+
+    try {
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/reparation/${id}` : '/reparation/';
+        const res = await window.fetchWithAuth(url, method, payload);
+        
+        if(res && !res.detail) {
             window.closeModal('addRepModal');
             await loadRepData();
-            showRepAlert("Success", "Saved successfully.", true);
+            showRepAlert("Success", "Repair log saved. Vehicle status updated.", true);
         } else {
-            // Handle Pydantic Error Details
-            const msg = result?.detail ? JSON.stringify(result.detail) : "Failed to save reparation.";
-            showRepAlert("Error", msg, false);
+            handleFriendlyRepError(res, "save");
         }
-    } catch(e) { 
-        showRepAlert("System Error", e.message || "Failed to save reparation.", false); 
+    } catch(e) { showRepAlert("Error", "Server unreachable. Please try again.", false); }
+    btn.disabled = false; btn.innerHTML = "Save Record";
+}
+
+// =================================================================
+// 7. ACTIONS (VERIFY / DELETE / EXECUTION)
+// =================================================================
+window.reqRepVerify = function(id) { 
+    repActionType = 'verify'; 
+    repActionId = id; 
+    showRepConfirmModal("Verify Repair?", "Mark this record as inspected?", "check-circle", "bg-green-600"); 
+}
+
+window.reqRepDelete = function(id) { 
+    repActionType = 'delete'; 
+    repActionId = id; 
+    showRepConfirmModal("Delete Repair?", "Permanently remove this repair record?", "trash-2", "bg-red-600"); 
+}
+
+async function executeRepConfirmAction() {
+    const btn = getRepEl('btnRepConfirmAction');
+    btn.disabled = true; btn.innerText = "Processing...";
+    try {
+        let res;
+        if (repActionType === 'delete') {
+            res = await window.fetchWithAuth(`/reparation/${repActionId}`, 'DELETE');
+        } else if (repActionType === 'verify') {
+            res = await window.fetchWithAuth(`/reparation/verify-bulk`, 'PUT', { ids: [parseInt(repActionId)] });
+        } else if (repActionType === 'bulk-verify') {
+            res = await window.fetchWithAuth('/reparation/verify-bulk', 'PUT', { ids: Array.from(selectedRepIds).map(id => parseInt(id)) });
+        }
+
+        window.closeModal('repConfirmModal');
+        if(res !== null && !res.detail) {
+            await loadRepData();
+            showRepAlert("Success", "Action completed.", true);
+        } else {
+            handleFriendlyRepError(res, "action");
+        }
+    } catch(e) { window.closeModal('repConfirmModal'); showRepAlert("Error", "Check network connection.", false); }
+    btn.disabled = false; btn.innerText = "Confirm";
+}
+
+// =================================================================
+// 8. ERROR HANDLING & UI HELPERS
+// =================================================================
+function handleFriendlyRepError(res, type) {
+    let msg = "An unexpected error occurred.";
+    let title = "Action Blocked";
+
+    if (res && res.detail) {
+        const detail = JSON.stringify(res.detail).toLowerCase();
+        if (detail.includes("verified and cannot be modified")) {
+            title = "Verification Lock";
+            msg = "This record is verified. To modify its progress, please ask an admin to unverify it first.";
+        } else if (detail.includes("completed and verified records are locked")) {
+            title = "History Locked";
+            msg = "Resolved and verified repairs cannot be changed. Create a new entry if needed.";
+        } else if (detail.includes("already undergoing another repair")) {
+            title = "Repair Conflict";
+            msg = "This vehicle already has an active repair session. Complete that one first.";
+        } else { msg = res.detail; }
     }
+    showRepAlert(title, msg, false);
+}
+
+function populateActivePanneSelect(id, list) {
+    const el = getRepEl(id); if(!el) return;
+    const activeOnes = list.filter(p => p.status === 'active');
     
-    btn.disabled = false; 
-    btn.innerHTML = id ? `<i data-lucide="save"></i> Update` : `<i data-lucide="plus"></i> Save`;
-    if(window.lucide) window.lucide.createIcons();
+    let opt = `<option value="">Select Active Panne...</option>`;
+    if(activeOnes.length === 0) opt = `<option disabled>No Broken Vehicles Found</option>`;
+    else opt += activeOnes.map(i => `<option value="${i.id}">#${i.id} - ${i.description.substring(0,35)}...</option>`).join('');
+    el.innerHTML = opt;
 }
 
 window.openViewRepModal = function(id) {
     const log = allRepLogs.find(l => l.id === id);
     if (!log) return;
-    const garage = repOptions.garages.find(g => g.id === log.garage_id);
     const panne = repOptions.pannes.find(p => p.id === log.panne_id);
+    const garage = repOptions.garages.find(g => g.id === log.garage_id);
 
     const content = `
-        <div class="grid grid-cols-2 gap-y-4">
-            <div class="col-span-2">
-                <span class="text-slate-500 text-xs uppercase block">Panne Description</span>
-                <span class="text-white bg-slate-800 p-2 rounded block mt-1 text-sm">${panne && panne.description ? panne.description : 'ID '+log.panne_id}</span>
+        <div class="space-y-4">
+            <div class="bg-slate-800/50 p-3 rounded border border-slate-700">
+                <span class="text-slate-500 text-[10px] uppercase block mb-1">Issue Details</span>
+                <span class="text-white text-sm">#${log.panne_id} - ${panne?.description || 'N/A'}</span>
             </div>
-            <div><span class="text-slate-500 text-xs uppercase block">Garage</span><span class="text-white">${garage ? garage.nom_garage : 'ID ' + log.garage_id}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Status</span><span class="text-blue-400 font-bold capitalize">${log.status || 'Unknown'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Receipt</span><span class="text-white font-mono">${log.receipt || 'N/A'}</span></div>
-            <div><span class="text-slate-500 text-xs uppercase block">Date</span><span class="text-white">${log.repair_date ? new Date(log.repair_date).toLocaleDateString() : 'N/A'}</span></div>
-            <div class="col-span-2 border-t border-slate-700 pt-2 flex justify-between items-center">
-                <span class="text-slate-500 text-xs uppercase">Total Cost</span>
-                <span class="text-emerald-400 font-bold text-lg">BIF ${log.cost ? log.cost.toFixed(2) : '0.00'}</span>
+            <div class="grid grid-cols-2 gap-4">
+                <div><span class="text-slate-500 text-[10px] uppercase block">Garage</span><span class="text-white text-xs">${garage?.nom_garage || '-'}</span></div>
+                <div><span class="text-slate-500 text-[10px] uppercase block">Cost</span><span class="text-emerald-400 font-bold text-xs">BIF ${log.cost.toFixed(2)}</span></div>
+            </div>
+            <div class="flex justify-between items-center bg-blue-500/10 p-2 rounded">
+                <span class="text-slate-400 text-[10px] uppercase">Progress</span>
+                <span class="font-bold text-blue-400 uppercase text-xs">${log.status}</span>
             </div>
         </div>`;
-    
-    const viewContent = getRepEl('viewRepContent');
-    if (viewContent) viewContent.innerHTML = content;
-    
-    const modal = getRepEl('viewRepModal');
-    if (modal) modal.classList.remove('hidden');
+    getRepEl('viewRepContent').innerHTML = content;
+    getRepEl('viewRepModal').classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
 }
 
-// =================================================================
-// 8. HELPER FUNCTIONS
-// =================================================================
-
-window.closeModal = function(id) { 
-    const modal = getRepEl(id) || document.getElementById(id);
-    if (modal) modal.classList.add('hidden'); 
-}
+window.closeModal = function(id) { const el = getRepEl(id) || document.getElementById(id); if(el) el.classList.add('hidden'); }
 
 function showRepConfirmModal(title, message, icon, color) {
-    const modal = getRepEl('repConfirmModal');
-    if(!modal) return;
-    
-    const titleEl = getRepEl('repConfirmTitle');
-    const messageEl = getRepEl('repConfirmMessage');
-    
-    if (titleEl) titleEl.innerText = title;
-    if (messageEl) messageEl.innerText = message;
-    
+    getRepEl('repConfirmTitle').innerText = title;
+    getRepEl('repConfirmMessage').innerText = message;
     const btn = getRepEl('btnRepConfirmAction');
-    if (btn) {
-        btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
-    }
-    
-    // Icon Logic
-    const iconDiv = getRepEl('repConfirmIcon');
-    if(iconDiv) {
-        iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${color.replace('bg-', 'text-').replace('600', '500')} bg-opacity-20`;
-        iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
-    }
-
-    modal.classList.remove('hidden');
+    if(btn) btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
+    getRepEl('repConfirmIcon').innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
+    getRepEl('repConfirmModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
-// FIXED: Use the existing repAlertModal with isSuccess parameter
 function showRepAlert(title, message, isSuccess) {
     const modal = getRepEl('repAlertModal');
-    if(!modal) { 
-        // Fallback to browser alert if modal doesn't exist
-        alert(`${title}: ${message}`);
-        return; 
-    }
-    
-    const titleEl = getRepEl('repAlertTitle');
-    const messageEl = getRepEl('repAlertMessage');
-    
-    if (titleEl) titleEl.innerText = title;
-    if (messageEl) messageEl.innerText = message;
-    
-    const iconDiv = getRepEl('repAlertIcon');
-    if(iconDiv) {
-        if(isSuccess) {
-            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 text-green-500";
-            iconDiv.innerHTML = '<i data-lucide="check" class="w-6 h-6"></i>';
-        } else {
-            iconDiv.className = "w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-red-500/10 text-red-500";
-            iconDiv.innerHTML = '<i data-lucide="x" class="w-6 h-6"></i>';
-        }
-    }
-    
+    if(!modal) return;
+    modal.querySelector('#repAlertTitle').innerText = title;
+    modal.querySelector('#repAlertMessage').innerText = message;
+    const iconDiv = modal.querySelector('#repAlertIcon');
+    iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${isSuccess ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`;
+    iconDiv.innerHTML = `<i data-lucide="${isSuccess ? 'check' : 'x'}"></i>`;
     modal.classList.remove('hidden');
-    
-    // Auto close after appropriate time
-    const closeTime = isSuccess ? 3000 : 5000; // 3 seconds for success, 5 for errors
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, closeTime);
-    
     if(window.lucide) window.lucide.createIcons();
+    if(isSuccess) setTimeout(() => modal.classList.add('hidden'), 4000);
 }
 
-function populateSelect(id, list, selectedValue, labelKey, defaultText = 'Select...') {
-    const el = getRepEl(id);
-    if(!el) return;
-    
-    let options = `<option value="">${defaultText}</option>`;
-    
-    if (Array.isArray(list)) {
-        options += list.map(item => {
-            const value = item.id;
-            const label = item[labelKey] || item.name || `ID ${value}`;
-            const isSelected = value == selectedValue ? 'selected' : '';
-            return `<option value="${value}" ${isSelected}>${label}</option>`;
-        }).join('');
-    }
-    
-    el.innerHTML = options;
+function populateSelect(id, list, selectedValue, labelKey, defaultText) {
+    const el = getRepEl(id); if(!el) return;
+    let opt = `<option value="">${defaultText}</option>`;
+    if (Array.isArray(list)) opt += list.map(i => `<option value="${i.id}" ${i.id == selectedValue ? 'selected' : ''}>${i[labelKey] || i.id}</option>`).join('');
+    el.innerHTML = opt;
 }
 
-function populatePanneSelect(id, list, selectedValue) {
-    const el = getRepEl(id);
-    if(!el) return;
-    
-    if(!list || list.length === 0) { 
-        el.innerHTML = '<option disabled>No Active Pannes Found</option>'; 
-        return; 
-    }
-    
-    let options = `<option value="">Select Panne</option>`;
-    options += list.map(item => {
-        const desc = item.description ? 
-            (item.description.length > 30 ? item.description.substring(0, 30) + '...' : item.description) : 
-            'No description';
-        const isSelected = item.id == selectedValue ? 'selected' : '';
-        return `<option value="${item.id}" ${isSelected}>#${item.id}: ${desc}</option>`;
-    }).join('');
-    
-    el.innerHTML = options;
-}
-
-// Initialize on page load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initReparation);
-} else {
-    initReparation();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initReparation);
+else initReparation();

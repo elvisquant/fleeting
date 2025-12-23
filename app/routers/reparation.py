@@ -44,30 +44,37 @@ def verify_reparation_bulk(
 # ============================================================
 # CREATE (Authenticated) - Default Unverified
 # ============================================================
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.ReparationResponse)
+@router.post("/", status_code=201, response_model=schemas.ReparationResponse)
 def create_reparation(
     reparation_data: schemas.ReparationCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.require_charoi_role)
 ):
-    # Verify relations
-    if not db.query(models.Panne).filter(models.Panne.id == reparation_data.panne_id).first():
+    # 1. Fetch Panne and Vehicle
+    panne = db.query(models.Panne).filter(models.Panne.id == reparation_data.panne_id).first()
+    if not panne:
         raise HTTPException(status_code=404, detail="Panne not found.")
     
-    if not db.query(models.Garage).filter(models.Garage.id == reparation_data.garage_id).first():
-        raise HTTPException(status_code=404, detail="Garage not found.")
+    # 2. Prevent duplicate active reparations for the same vehicle
+    existing_repair = db.query(models.Reparation).filter(
+        models.Reparation.vehicle_id == panne.vehicle_id,
+        models.Reparation.status == "Inprogress"
+    ).first()
+    
+    if existing_repair:
+        raise HTTPException(status_code=400, detail="This vehicle is already undergoing another repair.")
 
+    # 3. Create the record
     new_reparation = models.Reparation(
         **reparation_data.model_dump(),
+        vehicle_id=panne.vehicle_id, # Ensure vehicle ID is synced
         is_verified=False,
-        verified_at=None
+        status="Inprogress"
     )
-
-    # Auto-update panne status
-    panne = db.query(models.Panne).filter(models.Panne.id == reparation_data.panne_id).first()
-    if panne:
-        panne.status = "in_progress"
-
+    
+    # 4. Update Panne status to indicate repair has started
+    panne.status = "active" # Keep active while repairing
+    
     db.add(new_reparation)
     db.commit()
     db.refresh(new_reparation)
@@ -107,6 +114,7 @@ def get_reparation_by_id(
 # ============================================================
 # UPDATE (Admin/Charoi) - LOCKED IF VERIFIED
 # ============================================================
+
 @router.put("/{id}", response_model=schemas.ReparationResponse)
 def update_reparation(
     id: int,
@@ -118,27 +126,32 @@ def update_reparation(
     if not reparation:
         raise HTTPException(status_code=404, detail="Reparation not found.")
 
-    # LOCK CHECK
-    if reparation.is_verified:
-        raise HTTPException(status_code=403, detail="This record is verified and cannot be modified.")
+    # Only allow editing if not verified or if progress is being updated
+    if reparation.is_verified and reparation.status == "Completed":
+        raise HTTPException(status_code=403, detail="Completed and verified records are locked.")
 
     update_data = reparation_data.model_dump(exclude_unset=True)
 
-    # Verification Logic
-    if "is_verified" in update_data:
-        if update_data["is_verified"] is True:
-            reparation.verified_at = datetime.utcnow()
-        else:
-            reparation.verified_at = None
-
-    for key, value in update_data.items():
-        setattr(reparation, key, value)
-
-    # Auto-update panne status on complete
-    if update_data.get("status") == schemas.ReparationStatusEnum.COMPLETED:
+    # 5. SYNC LOGIC: Reparation -> Panne -> Vehicle
+    if update_data.get("status") == "Completed":
+        # Mark Panne as Resolved
         panne = db.query(models.Panne).filter(models.Panne.id == reparation.panne_id).first()
         if panne:
             panne.status = "resolved"
+            
+            # Check if this was the LAST active panne for the vehicle
+            remaining_active = db.query(models.Panne).filter(
+                models.Panne.vehicle_id == panne.vehicle_id,
+                models.Panne.status == "active"
+            ).count()
+            
+            if remaining_active == 0:
+                vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne.vehicle_id).first()
+                if vehicle:
+                    vehicle.is_active = True # Vehicle is now available!
+
+    for key, value in update_data.items():
+        setattr(reparation, key, value)
 
     db.commit()
     db.refresh(reparation)
@@ -164,3 +177,10 @@ def delete_reparation(
     db.delete(reparation)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+
+
+
+
+
