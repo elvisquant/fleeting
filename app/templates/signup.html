@@ -4,22 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sign Up - FleetDash</title>
+    <!-- Professional Icons and Fonts -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        /* --- PROFESSIONAL VARIABLES --- */
+        /* --- BRANDING & UI VARIABLES --- */
         :root {
             --primary: #3b82f6; --primary-hover: #2563eb;
-            --bg-dark: #0f172a; --bg-gradient: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
-            --card-bg: rgba(30, 41, 59, 0.75);
-            --modal-bg: rgba(15, 23, 42, 0.98);
-            --border: rgba(148, 163, 184, 0.15);
+            --bg-dark: #0f172a; --bg-gradient: radial-gradient(at top right, #1e293b 0%, #0f172a 100%);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --modal-bg: #1e293b;
+            --border: rgba(255, 255, 255, 0.08);
             --text-main: #f8fafc; --text-muted: #94a3b8;
-            --danger: #ef4444; --success: #10b981; --warning: #f59e0b;
+            --danger: #ef4444; --success: #10b981;
             --radius: 16px; --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        /* --- RESET & BASE --- */
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+        /* --- BASE STYLES --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
         
         body {
             background-color: var(--bg-dark);
@@ -32,7 +35,7 @@
             padding: 20px;
         }
 
-        /* --- GLASS CARD --- */
+        /* --- MAIN REGISTRATION CARD --- */
         .signup-card {
             background: var(--card-bg);
             backdrop-filter: blur(20px);
@@ -42,7 +45,7 @@
             width: 100%;
             max-width: 600px;
             padding: 40px;
-            z-index: 10;
+            animation: fadeIn 0.5s ease-out;
         }
 
         .header { text-align: center; margin-bottom: 32px; }
@@ -54,11 +57,11 @@
             margin-bottom: 12px;
             box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.4);
         }
-        h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.5px; }
         .subtitle { color: var(--text-muted); font-size: 14px; }
 
-        /* --- FORM GRID --- */
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        /* --- FORM LAYOUT --- */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
         .full-width { grid-column: span 2; }
 
         @media (max-width: 540px) {
@@ -66,13 +69,12 @@
             .full-width { grid-column: span 1; }
         }
 
-        /* --- INPUTS --- */
         .input-group { position: relative; }
-        .label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         
         .input-field {
             width: 100%;
-            padding: 12px 16px 12px 40px;
+            padding: 12px 16px 12px 42px;
             background: rgba(15, 23, 42, 0.6);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 10px;
@@ -84,13 +86,13 @@
         .input-field:focus {
             border-color: var(--primary);
             outline: none;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
             background: rgba(15, 23, 42, 0.8);
         }
 
         .icon {
             position: absolute;
-            left: 12px; bottom: 12px;
+            left: 14px; bottom: 12px;
             width: 18px; height: 18px;
             color: #64748b;
             pointer-events: none;
@@ -108,11 +110,14 @@
             font-size: 15px;
             cursor: pointer;
             transition: 0.2s;
-            margin-top: 20px;
+            margin-top: 10px;
             display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-ghost { background: transparent; border: 1px solid #475569; color: var(--text-muted); }
+        .btn-ghost:hover { background: rgba(255,255,255,0.05); color: white; }
 
         .footer { text-align: center; margin-top: 24px; font-size: 14px; color: var(--text-muted); }
         .footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
@@ -120,8 +125,8 @@
         /* --- MODAL SYSTEM --- */
         .modal-overlay {
             position: fixed; inset: 0;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(10px);
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
             display: flex; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none;
             transition: all 0.3s ease;
@@ -136,35 +141,30 @@
             padding: 32px;
             border-radius: 24px;
             text-align: center;
-            transform: scale(0.9) translateY(20px);
+            transform: translateY(20px);
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .modal-overlay.active .modal-box { transform: scale(1) translateY(0); }
+        .modal-overlay.active .modal-box { transform: translateY(0); }
 
-        /* Status Icon Wrappers */
         .status-icon-wrap {
-            width: 64px; height: 64px;
-            border-radius: 20px;
+            width: 60px; height: 60px;
+            border-radius: 18px;
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto 20px auto;
         }
-        .icon-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-        .icon-error { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
-        .icon-confirm { background: rgba(59, 130, 246, 0.1); color: var(--primary); }
+        .bg-blue { background: rgba(59, 130, 246, 0.1); color: var(--primary); }
+        .bg-green { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .bg-red { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
 
-        .modal-title { font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px; }
-        .modal-desc { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
-
-        .summary-list { text-align: left; background: rgba(255,255,255,0.03); border-radius: 12px; padding: 16px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
-        .summary-item { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; }
-        .summary-item:last-child { border: none; margin: 0; }
+        .summary-list { text-align: left; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 16px; margin: 20px 0; font-size: 13px; }
+        .summary-item { display: flex; justify-content: space-between; margin-bottom: 8px; }
         .s-label { color: var(--text-muted); }
-        .s-value { color: white; font-weight: 500; }
+        .s-value { color: white; font-weight: 600; }
 
-        /* SPINNER */
+        /* --- LOADING SPINNER --- */
         .spinner {
-            width: 20px; height: 20px;
-            border: 2px solid rgba(255,255,255,0.2);
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
             border-top-color: white; border-radius: 50%;
             animation: spin 0.8s linear infinite;
             display: none;
@@ -172,21 +172,22 @@
         .btn.loading .spinner { display: block; }
         .btn.loading span { display: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .pass-match-msg { font-size: 12px; margin-top: 4px; display: none; }
     </style>
 </head>
 <body>
 
     <div class="signup-card">
         <div class="header">
-            <div class="logo-box"><i data-lucide="user-plus" style="color:white; width:28px; height:28px;"></i></div>
+            <div class="logo-box"><i data-lucide="shield-plus" style="color:white;"></i></div>
             <h1>Create Account</h1>
-            <p class="subtitle">Enter your professional details below</p>
+            <p class="subtitle">Join the FleetDash management system</p>
         </div>
 
         <form id="signupForm">
             <div class="form-grid">
+                <!-- Name Row -->
                 <div class="input-group">
                     <label class="label">First Name</label>
                     <input type="text" id="fname" class="input-field" placeholder="John" required>
@@ -197,67 +198,74 @@
                     <input type="text" id="lname" class="input-field" placeholder="Doe" required>
                     <i data-lucide="user" class="icon"></i>
                 </div>
+
+                <!-- Professional IDs -->
                 <div class="input-group">
-                    <label class="label">Matricule</label>
-                    <input type="text" id="matricule" class="input-field" placeholder="EMP-001" required>
-                    <i data-lucide="fingerprint" class="icon"></i>
+                    <label class="label">Matricule (ID)</label>
+                    <input type="text" id="matricule" class="input-field" placeholder="EMP-000" required>
+                    <i data-lucide="id-card" class="icon"></i>
                 </div>
                 <div class="input-group">
-                    <label class="label">Phone</label>
+                    <label class="label">Phone Number</label>
                     <input type="tel" id="phone" class="input-field" placeholder="+257..." required>
-                    <i data-lucide="phone" class="icon"></i>
+                    <i data-lucide="smartphone" class="icon"></i>
                 </div>
+
+                <!-- Organization Dropdowns -->
                 <div class="input-group full-width">
-                    <label class="label">Agency</label>
+                    <label class="label">Assign to Agency</label>
                     <select id="agency" class="input-field" required>
-                        <option value="" disabled selected>Select your location...</option>
+                        <option value="" disabled selected>Loading agencies...</option>
                     </select>
-                    <i data-lucide="building-2" class="icon"></i>
+                    <i data-lucide="map-pin" class="icon"></i>
                 </div>
                 <div class="input-group full-width">
                     <label class="label">Department / Service</label>
                     <select id="service" class="input-field" required>
-                        <option value="" disabled selected>Select your department...</option>
+                        <option value="" disabled selected>Loading departments...</option>
                     </select>
-                    <i data-lucide="briefcase" class="icon"></i>
+                    <i data-lucide="component" class="icon"></i>
                 </div>
+
+                <!-- Auth -->
                 <div class="input-group full-width">
-                    <label class="label">Email Address</label>
-                    <input type="email" id="email" class="input-field" placeholder="name@company.com" required>
+                    <label class="label">Work Email</label>
+                    <input type="email" id="email" class="input-field" placeholder="name@domain.com" required>
                     <i data-lucide="mail" class="icon"></i>
                 </div>
                 <div class="input-group">
                     <label class="label">Password</label>
-                    <input type="password" id="pass" class="input-field" placeholder="Min. 8 chars" required minlength="8">
+                    <input type="password" id="pass" class="input-field" placeholder="••••••••" required minlength="8">
                     <i data-lucide="lock" class="icon"></i>
                 </div>
                 <div class="input-group">
                     <label class="label">Confirm</label>
-                    <input type="password" id="conf" class="input-field" placeholder="Repeat password" required>
-                    <i data-lucide="shield-check" class="icon"></i>
+                    <input type="password" id="conf" class="input-field" placeholder="••••••••" required>
+                    <i data-lucide="check-square" class="icon"></i>
                 </div>
             </div>
-            <p id="pass-error" class="pass-match-msg" style="color:var(--danger)">Passwords do not match</p>
-            
-            <button type="submit" class="btn"><span>Review & Submit</span></button>
+
+            <button type="submit" class="btn" style="margin-top: 25px;">
+                <span>Create Account</span>
+            </button>
         </form>
 
         <div class="footer">
-            <p>Already registered? <a href="/">Sign In</a></p>
+            <p>Already have an account? <a href="/">Sign In</a></p>
         </div>
     </div>
 
     <!-- MODAL: CONFIRMATION -->
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-box">
-            <div class="status-icon-wrap icon-confirm"><i data-lucide="help-circle"></i></div>
-            <div class="modal-title">Confirm Details</div>
-            <p class="modal-desc">Please ensure your identity information is correct before proceeding.</p>
+            <div class="status-icon-wrap bg-blue"><i data-lucide="help-circle"></i></div>
+            <div class="modal-title">Check Your Details</div>
+            <p class="modal-desc">Please verify your information. This will be used for your official identity in the fleet system.</p>
             <div id="summary" class="summary-list"></div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                <button onclick="closeModal('confirmModal')" class="btn" style="background:#334155; margin:0;">Edit</button>
-                <button onclick="sendData()" id="finalBtn" class="btn" style="margin:0;">
-                    <span>Confirm</span>
+                <button onclick="closeModal('confirmModal')" class="btn btn-ghost">Edit</button>
+                <button onclick="sendRegistration()" id="finalSubmitBtn" class="btn">
+                    <span>Submit</span>
                     <div class="spinner"></div>
                 </button>
             </div>
@@ -267,20 +275,20 @@
     <!-- MODAL: SUCCESS -->
     <div id="successModal" class="modal-overlay">
         <div class="modal-box">
-            <div class="status-icon-wrap icon-success"><i data-lucide="check-circle-2"></i></div>
+            <div class="status-icon-wrap bg-green"><i data-lucide="check-circle-2"></i></div>
             <div class="modal-title">Success!</div>
-            <p class="modal-desc">Your account has been created. A verification email has been sent to your inbox. Please activate it to log in.</p>
-            <button onclick="window.location.href='/'" class="btn">Go to Login</button>
+            <p class="modal-desc">Your account has been created. A verification link has been sent to your email. You must activate it before you can log in.</p>
+            <button onclick="window.location.href='/'" class="btn">Back to Login</button>
         </div>
     </div>
 
-    <!-- MODAL: ERROR (The Friendly Fix) -->
+    <!-- MODAL: ERROR (User Friendly) -->
     <div id="errorModal" class="modal-overlay">
         <div class="modal-box">
-            <div class="status-icon-wrap icon-error"><i data-lucide="alert-circle"></i></div>
-            <div id="errorTitle" class="modal-title">Registration Failed</div>
-            <p id="errorDesc" class="modal-desc">Something went wrong.</p>
-            <button onclick="closeModal('errorModal')" class="btn" style="background:var(--danger)">Try Again</button>
+            <div class="status-icon-wrap bg-red"><i data-lucide="alert-triangle"></i></div>
+            <div id="errorTitle" class="modal-title">Unable to Sign Up</div>
+            <p id="errorDesc" class="modal-desc"></p>
+            <button onclick="closeModal('errorModal')" class="btn" style="background:var(--danger)">Fix Errors</button>
         </div>
     </div>
 
@@ -289,59 +297,62 @@
         const form = document.getElementById('signupForm');
         const agencySel = document.getElementById('agency');
         const serviceSel = document.getElementById('service');
-        let cache = {};
+        let registrationData = {};
 
-        // 1. Load Dropdowns
-        async function loadData() {
+        // 1. Fetch Organization Data
+        async function loadOptions() {
             try {
-                const [aR, sR] = await Promise.all([fetch('/api/v1/agencies/'), fetch('/api/v1/services/')]);
-                if (aR.ok) {
-                    const data = await aR.json();
+                const [aRes, sRes] = await Promise.all([fetch('/api/v1/agencies/'), fetch('/api/v1/services/')]);
+                if (aRes.ok) {
+                    const data = await aRes.json();
                     agencySel.innerHTML = '<option value="" disabled selected>Select Agency</option>' + 
                         data.map(i => `<option value="${i.id}">${i.agency_name}</option>`).join('');
                 }
-                if (sR.ok) {
-                    const data = await sR.json();
-                    serviceSel.innerHTML = '<option value="" disabled selected>Select Service</option>' + 
+                if (sRes.ok) {
+                    const data = await sRes.json();
+                    serviceSel.innerHTML = '<option value="" disabled selected>Select Department</option>' + 
                         data.map(i => `<option value="${i.id}">${i.service_name}</option>`).join('');
                 }
-            } catch (e) { console.error("Dropdown error", e); }
+            } catch (e) { 
+                console.error("Connection failed");
+                agencySel.innerHTML = '<option disabled>Offline</option>';
+            }
         }
-        loadData();
+        loadOptions();
 
-        // 2. Pass Check
-        const pass = document.getElementById('pass');
-        const conf = document.getElementById('conf');
-        const pErr = document.getElementById('pass-error');
-        conf.oninput = () => { pErr.style.display = (pass.value !== conf.value) ? 'block' : 'none'; };
-
-        // 3. Form Submit
+        // 2. Initial Form Validation
         form.onsubmit = (e) => {
             e.preventDefault();
-            if(pass.value !== conf.value) return;
+            const p1 = document.getElementById('pass').value;
+            const p2 = document.getElementById('conf').value;
 
-            cache = {
-                matricule: document.getElementById('matricule').value,
-                full_name: document.getElementById('fname').value + " " + document.getElementById('lname').value,
-                telephone: document.getElementById('phone').value,
-                email: document.getElementById('email').value,
-                password: pass.value,
+            if(p1 !== p2) {
+                showError("Password Mismatch", "The two passwords you entered do not match. Please re-type them.");
+                return;
+            }
+
+            registrationData = {
+                matricule: document.getElementById('matricule').value.trim(),
+                full_name: document.getElementById('fname').value.trim() + " " + document.getElementById('lname').value.trim(),
+                telephone: document.getElementById('phone').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                password: p1,
                 agency_id: parseInt(agencySel.value),
                 service_id: parseInt(serviceSel.value),
-                role_id: 2, is_active: false
+                // role_id is handled by backend for security
             };
 
             document.getElementById('summary').innerHTML = `
-                <div class="summary-item"><span class="s-label">Name</span><span class="s-value">${cache.full_name}</span></div>
-                <div class="summary-item"><span class="s-label">Matricule</span><span class="s-value">${cache.matricule}</span></div>
-                <div class="summary-item"><span class="s-label">Email</span><span class="s-value">${cache.email}</span></div>
+                <div class="summary-item"><span class="s-label">Identity</span><span class="s-value">${registrationData.full_name}</span></div>
+                <div class="summary-item"><span class="s-label">Matricule</span><span class="s-value">${registrationData.matricule}</span></div>
+                <div class="summary-item"><span class="s-label">Email</span><span class="s-value">${registrationData.email}</span></div>
             `;
             document.getElementById('confirmModal').classList.add('active');
         };
 
-        // 4. API Send Data
-        async function sendData() {
-            const btn = document.getElementById('finalBtn');
+        // 3. Send Registration to Backend
+        async function sendRegistration() {
+            const btn = document.getElementById('finalSubmitBtn');
             btn.classList.add('loading');
             btn.disabled = true;
 
@@ -349,46 +360,46 @@
                 const response = await fetch('/api/v1/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(cache)
+                    body: JSON.stringify(registrationData)
                 });
 
                 const result = await response.json();
 
                 if (!response.ok) {
-                    handleFriendlyError(result);
+                    handleBackendError(result);
                     return;
                 }
 
-                document.getElementById('confirmModal').classList.remove('active');
+                closeModal('confirmModal');
                 document.getElementById('successModal').classList.add('active');
 
             } catch (error) {
-                showError("Connection Error", "The server is currently unreachable. Please check your network.");
+                showError("Connection Error", "The server could not be reached. Please check your network and try again.");
             } finally {
                 btn.classList.remove('loading');
                 btn.disabled = false;
             }
         }
 
-        // 5. Friendly Error Logic
-        function handleFriendlyError(data) {
-            document.getElementById('confirmModal').classList.remove('active');
+        // 4. Smart Error Parsing
+        function handleBackendError(data) {
+            closeModal('confirmModal');
             let title = "Registration Error";
-            let msg = "We couldn't create your account right now.";
+            let msg = "We encountered a problem with your submission.";
 
             const detail = typeof data.detail === 'string' ? data.detail.toLowerCase() : JSON.stringify(data.detail).toLowerCase();
 
             if (detail.includes("email already exists")) {
-                title = "Email in Use";
-                msg = "The email address you entered is already registered. Please use another email or sign in.";
+                title = "Email Registered";
+                msg = "This email address is already connected to an account. Try signing in instead.";
             } else if (detail.includes("matricule already exists")) {
                 title = "Matricule Taken";
-                msg = "This Matricule ID is already assigned to an existing account. Please verify your ID.";
+                msg = "This Matricule ID is already in use. Please ensure you typed your correct employee ID.";
             } else if (detail.includes("strong password")) {
                 title = "Weak Password";
-                msg = "Your password is not secure enough. Try adding numbers and symbols.";
+                msg = "For security, your password must include a mix of letters, numbers, and symbols.";
             } else {
-                msg = data.detail || "Please verify your information and try again.";
+                msg = data.detail || "Please check your information and try again.";
             }
 
             showError(title, msg);

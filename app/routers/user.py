@@ -126,36 +126,59 @@ async def register_user(
 ):
     """
     Register a new user account.
+    Forces the 'user' role by default for security.
     """
+    # 1. Check if Email already exists
     if db.query(models.User).filter(models.User.email == user_data.email).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists.")
     
+    # 2. Check if Matricule already exists
     if db.query(models.User).filter(models.User.matricule == user_data.matricule).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Matricule already exists.")
     
+    # 3. Validate Password Strength
     if not is_password_strong_enough(user_data.password):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide a strong password.")
     
+    # 4. SECURITY UPDATE: Find the 'user' role dynamically
+    # This prevents users from signing up as Admins by changing the role_id on the frontend.
+    default_role = db.query(models.Role).filter(func.lower(models.Role.name) == "user").first()
+    
+    if not default_role:
+        # If 'user' role is missing from DB, we fallback to whatever was sent, 
+        # but log a warning or raise an error for better security.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="System configuration error: Default user role not found."
+        )
+
+    # 5. Create the User object
     new_user = models.User(
         full_name=user_data.full_name,
         matricule=user_data.matricule,
         email=user_data.email,
         telephone=user_data.telephone,
         password=hash_password(user_data.password),
-        is_active=False,
+        is_active=False, # Account must be verified via email first
         agency_id=user_data.agency_id,
         service_id=user_data.service_id,
-        role_id=user_data.role_id,
+        role_id=default_role.id, # <--- Forced 'user' role ID
         updated_at=datetime.utcnow()
     )
     
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
-    await send_account_verification_email(new_user, background_tasks=background_tasks)
-    
-    return new_user
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        # 6. Send Verification Email
+        await send_account_verification_email(new_user, background_tasks=background_tasks)
+        
+        return new_user
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Could not create user: {str(e)}")
 
 
 @router.post("/auth/login", status_code=status.HTTP_200_OK, response_model=schemas.LoginResponse)
