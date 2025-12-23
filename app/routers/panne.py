@@ -44,26 +44,17 @@ def verify_panne_bulk(
 # =================================================================================
 # CREATE (Authenticated) - Default Unverified
 # =================================================================================
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.PanneOut)
-def create_panne(
-    panne_data: schemas.PanneCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.get_current_user_from_header)
-):
-    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne_data.vehicle_id).first()
-    if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found.")
-
-    category = db.query(models.CategoryPanne).filter(models.CategoryPanne.id == panne_data.category_panne_id).first()
-    if not category:
-        raise HTTPException(status_code=404, detail="Panne category not found.")
-
-    new_panne = models.Panne(
-        **panne_data.model_dump(),
-        is_verified=False,
-        verified_at=None
-    )
+@router.post("/", status_code=201)
+def create_panne(panne_data: schemas.PanneCreate, db: Session = Depends(get_db)):
+    # 1. Create the Panne
+    new_panne = models.Panne(**panne_data.model_dump())
     db.add(new_panne)
+    
+    # 2. IMMEDIATELY update Vehicle to Inactive (Broken)
+    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne_data.vehicle_id).first()
+    if vehicle:
+        vehicle.is_active = False  # Vehicle is now broken
+    
     db.commit()
     db.refresh(new_panne)
     return new_panne
@@ -109,35 +100,33 @@ def get_panne_by_id(
 # =================================================================================
 # UPDATE (Admin/Charoi) - LOCKED IF VERIFIED
 # =================================================================================
-@router.put("/{id}", response_model=schemas.PanneOut)
+@router.put("/{id}")
 def update_panne(id: int, panne_update: schemas.PanneUpdate, db: Session = Depends(get_db)):
     panne = db.query(models.Panne).filter(models.Panne.id == id).first()
     if not panne:
         raise HTTPException(status_code=404, detail="Record not found")
 
-    # FIX: Block update ONLY if already resolved. 
-    # Do NOT block just because it is verified.
+    # If it was already resolved, don't allow changes
     if panne.status == "resolved":
-        raise HTTPException(status_code=403, detail="Completed reports are locked and cannot be modified.")
+        raise HTTPException(status_code=403, detail="Completed reports are locked.")
 
     update_data = panne_update.model_dump(exclude_unset=True)
 
-    # Logic to update Vehicle status automatically
+    # 3. LOGIC TO SYNC VEHICLE STATUS
     if "status" in update_data:
         vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne.vehicle_id).first()
         if vehicle:
             if update_data["status"] == "resolved":
-                vehicle.is_active = True  # Vehicle is back in service
+                vehicle.is_active = True   # Fixed! Mark vehicle as active again
             else:
-                vehicle.is_active = False # Vehicle is broken
-
+                vehicle.is_active = False  # Still broken
+    
     for key, value in update_data.items():
         setattr(panne, key, value)
 
     db.commit()
     db.refresh(panne)
     return panne
-
 # =================================================================================
 # DELETE (Admin/Charoi) - LOCKED IF VERIFIED
 # =================================================================================
