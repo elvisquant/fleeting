@@ -1,6 +1,6 @@
 # app/routers/request.py
 
-from fastapi import APIRouter, Depends, status, HTTPException, Response, BackgroundTasks
+from fastapi import APIRouter, Depends, status, HTTPException, Response, BackgroundTasks, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from typing import List
@@ -10,6 +10,10 @@ from datetime import datetime
 from app.schemas import operations as schemas
 from app import models, oauth2
 from app.database import get_db
+
+# Imports for PDF & Email
+from app.utils.pdf_generator import generate_mission_order_pdf
+from app.utils.mailer import send_mission_update_email, send_driver_assignment_email
 
 router = APIRouter(
     prefix="/api/v1/requests",
@@ -23,7 +27,6 @@ router = APIRouter(
 def get_active_drivers(db: Session = Depends(get_db)):
     """
     Fetches all users who have the 'driver' role and are active.
-    Used to populate the assignment dropdown.
     """
     drivers = db.query(models.User).join(models.Role).filter(
         func.lower(models.Role.name) == "driver",
@@ -40,32 +43,10 @@ def create_request(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user_from_header)
 ):
-    """
-    Creates a new Vehicle Request.
-    """
-    # 1. Prepare Passenger List
     passenger_list = request_data.passengers if request_data.passengers else []
-
-    # 2. Auto-add Requester
     if current_user.matricule and current_user.matricule not in passenger_list:
         passenger_list.append(current_user.matricule)
 
-    # 3. Validate Passengers
-    if passenger_list:
-        existing_users = db.query(models.User).filter(
-            models.User.matricule.in_(passenger_list)
-        ).all()
-        
-        found_matricules = {u.matricule for u in existing_users}
-        missing = [m for m in passenger_list if m not in found_matricules]
-        
-        if missing:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"The following passenger matricules do not exist: {', '.join(missing)}"
-            )
-
-    # 4. Create Database Object
     new_request = models.VehicleRequest(
         destination=request_data.destination,
         description=request_data.description,
@@ -82,136 +63,13 @@ def create_request(
     return new_request
 
 # =================================================================================
-# 2. ASSIGN VEHICLE & DRIVER (Charoi/Admin Only)
-# =================================================================================
-@router.put("/{id}/assign", response_model=schemas.VehicleRequestOut)
-def assign_vehicle_and_driver(
-    id: int,
-    assignment_data: schemas.RequestAssignment, 
-    background_tasks: BackgroundTasks, # <--- Added BackgroundTasks
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.require_role(["admin", "superadmin", "charoi"]))
-):
-    """
-    Assigns a Vehicle and a Driver.
-    If the request was already fully approved, it resends notifications with updated details.
-    """
-    # 1. Fetch Request with relationships needed for PDF
-    req = db.query(models.VehicleRequest).options(
-        joinedload(models.VehicleRequest.requester).joinedload(models.User.service),
-        joinedload(models.VehicleRequest.vehicle),
-        joinedload(models.VehicleRequest.driver)
-    ).filter(models.VehicleRequest.id == id).first()
-
-    if not req:
-        raise HTTPException(status_code=404, detail="Request not found")
-
-    # 2. Verify Vehicle
-    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == assignment_data.vehicle_id).first()
-    if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
-    
-    # 3. Verify Driver
-    driver = db.query(models.User).options(joinedload(models.User.role)).filter(models.User.id == assignment_data.driver_id).first()
-    if not driver or not driver.is_active or (driver.role and driver.role.name.lower() != "driver"):
-        raise HTTPException(status_code=400, detail="Invalid or inactive driver selected.")
-
-    # 4. Apply Assignment
-    req.vehicle_id = assignment_data.vehicle_id
-    req.driver_id = assignment_data.driver_id
-    
-    # Refresh the relationship objects explicitly for PDF generation
-    req.vehicle = vehicle
-    req.driver = driver
-
-    db.commit()
-    db.refresh(req)
-
-    # ==============================================================================
-    # NOTIFICATION LOGIC (Only if request is in an approved state)
-    # ==============================================================================
-    if req.status in ["fully_approved", "in_progress", "completed"]:
-        
-        # A. Fetch Passenger Details for PDF
-        passenger_matricules = req.passengers if req.passengers else []
-        passenger_details = []
-        if passenger_matricules:
-            passenger_details = db.query(models.User).options(
-                joinedload(models.User.agency),
-                joinedload(models.User.service),
-                joinedload(models.User.role)
-            ).filter(models.User.matricule.in_(passenger_matricules)).all()
-
-        # B. Regenerate PDF with NEW details
-        # We use the current user (Charoi/Admin) as the "Approver/Modifier" name on the PDF
-        pdf_buffer = generate_mission_order_pdf(
-            request=req, 
-            approver_name=f"{current_user.full_name} (Update)",
-            passenger_details=passenger_details
-        )
-        pdf_bytes = pdf_buffer.getvalue()
-        filename = f"Mission_Order_{req.id}_Rev.pdf"
-
-        # C. Send Update Email to Requester
-        if req.requester.email:
-            background_tasks.add_task(
-                send_mission_update_email,
-                email_to=req.requester.email,
-                requester_name=req.requester.full_name,
-                pdf_file=pdf_bytes,
-                filename=filename
-            )
-
-        # D. Send Assignment Email to NEW Driver
-        if driver.email:
-            background_tasks.add_task(
-                send_driver_assignment_email,
-                email_to=driver.email,
-                driver_name=driver.full_name,
-                requester_name=req.requester.full_name,
-                destination=req.destination,
-                pdf_file=pdf_bytes,
-                filename=filename
-            )
-
-    return req
-
-# =================================================================================
-# 3. REJECT REQUEST
-# =================================================================================
-@router.put("/{id}/reject", response_model=schemas.VehicleRequestOut)
-def reject_request(
-    id: int,
-    rejection_data: schemas.VehicleRequestReject,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.require_role(["admin", "superadmin", "logistic", "charoi", "chef"]))
-):
-    req = db.query(models.VehicleRequest).filter(models.VehicleRequest.id == id).first()
-    if not req:
-        raise HTTPException(status_code=404, detail="Request not found")
-
-    req.status = "denied"
-    req.rejection_reason = rejection_data.rejection_reason
-    db.commit()
-    db.refresh(req)
-    return req
-
-# =================================================================================
-# 4. GET PENDING COUNT
-# =================================================================================
-@router.get("/count/pending", response_model=schemas.PendingRequestsCount)
-def get_pending_requests_count(db: Session = Depends(get_db)):
-    count = db.query(models.VehicleRequest).filter(models.VehicleRequest.status == "pending").count()
-    return {"count": count}
-
-# =================================================================================
-# 5. GET ALL REQUESTS (With Strict Role-Based Visibility)
+# 2. READ ALL (With Pagination & Role Visibility)
 # =================================================================================
 @router.get("/", response_model=List[schemas.VehicleRequestOut])
 def get_all_requests(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user_from_header),
-    limit: int = 100, skip: int = 0
+    limit: int = 1000, skip: int = 0
 ):
     query = db.query(models.VehicleRequest).options(
         joinedload(models.VehicleRequest.requester).joinedload(models.User.service),
@@ -222,73 +80,49 @@ def get_all_requests(
 
     user_role = current_user.role.name.lower() if current_user.role else "user"
 
-    # --- ADMIN / SUPERADMIN ---
-    if user_role in ["admin", "superadmin"]:
-        pass 
-
-    # --- CHAROI ---
-    elif user_role == "charoi":
-        query = query.filter(models.VehicleRequest.status.in_([
-            "approved_by_logistic", "fully_approved", "in_progress", "completed"
-        ]))
-
-    # --- LOGISTIC ---
+    # Role filters
+    if user_role == "charoi":
+        query = query.filter(models.VehicleRequest.status.in_(["approved_by_logistic", "fully_approved", "in_progress", "completed"]))
     elif user_role == "logistic":
-        query = query.filter(models.VehicleRequest.status.in_([
-            "approved_by_chef", "approved_by_logistic", "fully_approved", "in_progress", "completed"
-        ]))
-
-    # --- CHEF ---
+        query = query.filter(models.VehicleRequest.status.in_(["approved_by_chef", "approved_by_logistic", "fully_approved", "in_progress", "completed"]))
     elif user_role == "chef":
-        if current_user.service_id:
-            query = query.join(models.User, models.VehicleRequest.requester_id == models.User.id)\
-                         .filter(models.User.service_id == current_user.service_id)
-        else:
-            query = query.filter(models.VehicleRequest.requester_id == current_user.id)
-
-    # --- DRIVER ---
+        query = query.join(models.User, models.VehicleRequest.requester_id == models.User.id).filter(models.User.service_id == current_user.service_id)
     elif user_role == "driver":
-        # Driver sees assigned tasks OR their own requests
-        query = query.filter(
-            or_(
-                models.VehicleRequest.driver_id == current_user.id,
-                models.VehicleRequest.requester_id == current_user.id
-            )
-        )
-
-    # --- EVERYONE ELSE (User, Operateur, Technicien) ---
-    else:
+        query = query.filter(or_(models.VehicleRequest.driver_id == current_user.id, models.VehicleRequest.requester_id == current_user.id))
+    elif user_role not in ["admin", "superadmin"]:
         query = query.filter(models.VehicleRequest.requester_id == current_user.id)
     
-    return query.order_by(models.VehicleRequest.created_at.desc()).limit(limit).offset(skip).all()
+    return query.order_by(models.VehicleRequest.id.desc()).limit(limit).offset(skip).all()
 
+# =================================================================================
+# 3. ASSIGN VEHICLE & DRIVER
+# =================================================================================
+@router.put("/{id}/assign", response_model=schemas.VehicleRequestOut)
+def assign_vehicle_and_driver(
+    id: int,
+    assignment_data: schemas.RequestAssignment, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(oauth2.require_role(["admin", "superadmin", "charoi"]))
+):
+    req = db.query(models.VehicleRequest).filter(models.VehicleRequest.id == id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
 
+    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == assignment_data.vehicle_id).first()
+    driver = db.query(models.User).filter(models.User.id == assignment_data.driver_id).first()
 
+    req.vehicle_id = assignment_data.vehicle_id
+    req.driver_id = assignment_data.driver_id
+    
+    db.commit()
+    db.refresh(req)
+    return req
 
-
-
-# app/routers/request.py
-
-from fastapi import APIRouter, Depends, status, HTTPException, Response, BackgroundTasks
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_
-from typing import List
-from datetime import datetime
-
-# Import Schemas and Models
-from app.schemas import operations as schemas
-from app import models, oauth2
-from app.database import get_db
-
-# --- NEW IMPORTS FOR PDF & EMAIL ---
-from app.utils.pdf_generator import generate_mission_order_pdf
-from app.utils.mailer import send_mission_update_email, send_driver_assignment_email
-
-router = APIRouter(
-    prefix="/api/v1/requests",
-    tags=['Requests API']
-)
-
-
-
-
+# =================================================================================
+# 4. PENDING COUNT
+# =================================================================================
+@router.get("/count/pending")
+def get_pending_requests_count(db: Session = Depends(get_db)):
+    count = db.query(models.VehicleRequest).filter(models.VehicleRequest.status == "pending").count()
+    return {"count": count}
