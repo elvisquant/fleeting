@@ -4,21 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sign Up - FleetDash</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* --- PROFESSIONAL VARIABLES --- */
         :root {
             --primary: #3b82f6; --primary-hover: #2563eb;
             --bg-dark: #0f172a; --bg-gradient: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
             --card-bg: rgba(30, 41, 59, 0.75);
-            --modal-bg: rgba(15, 23, 42, 0.95);
+            --modal-bg: rgba(15, 23, 42, 0.98);
             --border: rgba(148, 163, 184, 0.15);
             --text-main: #f8fafc; --text-muted: #94a3b8;
-            --danger: #ef4444; --success: #10b981;
+            --danger: #ef4444; --success: #10b981; --warning: #f59e0b;
             --radius: 16px; --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
         /* --- RESET & BASE --- */
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Inter, system-ui, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
         
         body {
             background-color: var(--bg-dark);
@@ -35,54 +36,49 @@
         .signup-card {
             background: var(--card-bg);
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             width: 100%;
             max-width: 600px;
             padding: 40px;
-            position: relative;
             z-index: 10;
         }
 
-        /* --- HEADER --- */
         .header { text-align: center; margin-bottom: 32px; }
         .logo-box {
-            width: 56px; height: 56px;
+            width: 50px; height: 50px;
             background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-            border-radius: 14px;
+            border-radius: 12px;
             display: inline-flex; align-items: center; justify-content: center;
-            margin-bottom: 16px;
-            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
+            margin-bottom: 12px;
+            box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.4);
         }
-        .logo-icon { width: 32px; height: 32px; color: white; }
-        h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
-        .subtitle { color: var(--text-muted); font-size: 15px; }
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        .subtitle { color: var(--text-muted); font-size: 14px; }
 
         /* --- FORM GRID --- */
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .full-width { grid-column: span 2; }
 
-        @media (max-width: 500px) {
+        @media (max-width: 540px) {
             .form-grid { grid-template-columns: 1fr; }
             .full-width { grid-column: span 1; }
         }
 
         /* --- INPUTS --- */
-        .input-group { position: relative; margin-bottom: 5px; }
-        .label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+        .input-group { position: relative; }
+        .label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         
         .input-field {
             width: 100%;
             padding: 12px 16px 12px 40px;
             background: rgba(15, 23, 42, 0.6);
-            border: 1px solid #334155;
-            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
             color: white;
             font-size: 14px;
             transition: all 0.2s ease;
-            appearance: none;
         }
         
         .input-field:focus {
@@ -92,24 +88,13 @@
             background: rgba(15, 23, 42, 0.8);
         }
 
-        /* Dropdown Arrow */
-        select.input-field {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
-        }
-
         .icon {
             position: absolute;
             left: 12px; bottom: 12px;
             width: 18px; height: 18px;
-            color: var(--text-muted);
+            color: #64748b;
             pointer-events: none;
-            transition: color 0.2s;
         }
-        
-        .input-field:focus + .icon { color: var(--primary); }
 
         /* --- BUTTONS --- */
         .btn {
@@ -118,81 +103,69 @@
             background: var(--primary);
             color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             font-weight: 600;
             font-size: 15px;
             cursor: pointer;
             transition: 0.2s;
-            margin-top: 10px;
+            margin-top: 20px;
             display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
-        .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* --- FOOTER --- */
         .footer { text-align: center; margin-top: 24px; font-size: 14px; color: var(--text-muted); }
         .footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
-
-        /* --- ERROR TEXT --- */
-        .error-msg {
-            color: var(--danger); font-size: 12px; margin-top: 4px; display: none;
-        }
 
         /* --- MODAL SYSTEM --- */
         .modal-overlay {
             position: fixed; inset: 0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
             display: flex; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none;
-            transition: opacity 0.3s ease;
-            z-index: 100;
+            transition: all 0.3s ease;
+            z-index: 100; padding: 20px;
         }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
         
         .modal-box {
             background: var(--modal-bg);
             border: 1px solid var(--border);
-            width: 90%; max-width: 380px;
-            padding: 24px;
-            border-radius: 20px;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            width: 100%; max-width: 400px;
+            padding: 32px;
+            border-radius: 24px;
+            text-align: center;
+            transform: scale(0.9) translateY(20px);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .modal-overlay.active .modal-box { transform: scale(1) translateY(0); }
 
-        /* Confirmation Modal Styles */
-        .modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
-        .modal-icon { color: var(--primary); }
-        .modal-title { font-size: 18px; font-weight: 700; color: white; }
-        
-        .summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
-        .summary-label { color: var(--text-muted); }
-        .summary-val { color: white; font-weight: 500; text-align: right; }
-
-        .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
-        .btn-cancel { background: transparent; border: 1px solid #475569; color: var(--text-muted); }
-        .btn-cancel:hover { background: rgba(255,255,255,0.05); color: white; }
-
-        /* SUCCESS MODAL SPECIFIC STYLES */
-        .success-icon-wrap {
+        /* Status Icon Wrappers */
+        .status-icon-wrap {
             width: 64px; height: 64px;
-            background: rgba(16, 185, 129, 0.1);
-            border-radius: 50%;
+            border-radius: 20px;
             display: flex; align-items: center; justify-content: center;
             margin: 0 auto 20px auto;
-            color: var(--success);
-            box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.05);
         }
-        .text-center { text-align: center; }
-        .success-desc { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
-        
+        .icon-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .icon-error { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .icon-confirm { background: rgba(59, 130, 246, 0.1); color: var(--primary); }
+
+        .modal-title { font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px; }
+        .modal-desc { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+
+        .summary-list { text-align: left; background: rgba(255,255,255,0.03); border-radius: 12px; padding: 16px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+        .summary-item { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; }
+        .summary-item:last-child { border: none; margin: 0; }
+        .s-label { color: var(--text-muted); }
+        .s-value { color: white; font-weight: 500; }
+
         /* SPINNER */
         .spinner {
-            width: 18px; height: 18px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 50%; border-top-color: white;
+            width: 20px; height: 20px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: white; border-radius: 50%;
             animation: spin 0.8s linear infinite;
             display: none;
         }
@@ -200,212 +173,154 @@
         .btn.loading span { display: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        .pass-match-msg { font-size: 12px; margin-top: 4px; display: none; }
     </style>
 </head>
 <body>
 
     <div class="signup-card">
         <div class="header">
-            <div class="logo-box">
-                <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-            </div>
+            <div class="logo-box"><i data-lucide="user-plus" style="color:white; width:28px; height:28px;"></i></div>
             <h1>Create Account</h1>
-            <p class="subtitle">Join the FleetDash System</p>
+            <p class="subtitle">Enter your professional details below</p>
         </div>
 
         <form id="signupForm">
             <div class="form-grid">
-                
-                <!-- First Name -->
                 <div class="input-group">
                     <label class="label">First Name</label>
                     <input type="text" id="fname" class="input-field" placeholder="John" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <i data-lucide="user" class="icon"></i>
                 </div>
-
-                <!-- Last Name -->
                 <div class="input-group">
                     <label class="label">Last Name</label>
                     <input type="text" id="lname" class="input-field" placeholder="Doe" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <i data-lucide="user" class="icon"></i>
                 </div>
-
-                <!-- Matricule -->
                 <div class="input-group">
                     <label class="label">Matricule</label>
                     <input type="text" id="matricule" class="input-field" placeholder="EMP-001" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.78 4.78 4 4 0 0 1-6.74 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/></svg>
+                    <i data-lucide="fingerprint" class="icon"></i>
                 </div>
-
-                <!-- Phone -->
                 <div class="input-group">
                     <label class="label">Phone</label>
                     <input type="tel" id="phone" class="input-field" placeholder="+257..." required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.12 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    <i data-lucide="phone" class="icon"></i>
                 </div>
-
-                <!-- Agency (Dynamic) -->
                 <div class="input-group full-width">
                     <label class="label">Agency</label>
                     <select id="agency" class="input-field" required>
-                        <option value="" disabled selected>Loading Agencies...</option>
+                        <option value="" disabled selected>Select your location...</option>
                     </select>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></svg>
+                    <i data-lucide="building-2" class="icon"></i>
                 </div>
-
-                <!-- Service (Dynamic) -->
                 <div class="input-group full-width">
-                    <label class="label">Service / Department</label>
+                    <label class="label">Department / Service</label>
                     <select id="service" class="input-field" required>
-                        <option value="" disabled selected>Loading Services...</option>
+                        <option value="" disabled selected>Select your department...</option>
                     </select>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    <i data-lucide="briefcase" class="icon"></i>
                 </div>
-
-                <!-- Email -->
                 <div class="input-group full-width">
                     <label class="label">Email Address</label>
-                    <input type="email" id="email" class="input-field" placeholder="john.doe@example.com" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    <input type="email" id="email" class="input-field" placeholder="name@company.com" required>
+                    <i data-lucide="mail" class="icon"></i>
                 </div>
-
-                <!-- Password -->
                 <div class="input-group">
                     <label class="label">Password</label>
-                    <input type="password" id="pass" class="input-field" placeholder="••••••••" required minlength="8">
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <input type="password" id="pass" class="input-field" placeholder="Min. 8 chars" required minlength="8">
+                    <i data-lucide="lock" class="icon"></i>
                 </div>
-
-                <!-- Confirm Password -->
                 <div class="input-group">
                     <label class="label">Confirm</label>
-                    <input type="password" id="conf" class="input-field" placeholder="••••••••" required>
-                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3"/></svg>
+                    <input type="password" id="conf" class="input-field" placeholder="Repeat password" required>
+                    <i data-lucide="shield-check" class="icon"></i>
                 </div>
-                
-                <div class="full-width">
-                    <p id="pass-error" class="error-msg">Passwords do not match</p>
-                </div>
-
-            </div> <!-- End Grid -->
-
-            <button type="submit" id="submitBtn" class="btn">
-                <span>Review & Submit</span>
-            </button>
+            </div>
+            <p id="pass-error" class="pass-match-msg" style="color:var(--danger)">Passwords do not match</p>
+            
+            <button type="submit" class="btn"><span>Review & Submit</span></button>
         </form>
 
         <div class="footer">
-            <p>Already have an account? <a href="/">Sign In</a></p>
+            <p>Already registered? <a href="/">Sign In</a></p>
         </div>
     </div>
 
-    <!-- CONFIRMATION MODAL -->
-    <div id="modal" class="modal-overlay">
+    <!-- MODAL: CONFIRMATION -->
+    <div id="confirmModal" class="modal-overlay">
         <div class="modal-box">
-            <div class="modal-header">
-                <svg class="modal-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <div class="modal-title">Confirm Details</div>
-            </div>
-            
-            <div id="summary"></div>
-
-            <div class="modal-actions">
-                <button onclick="closeModal('modal')" class="btn btn-cancel" style="width: 100%; margin-top:0;">Edit</button>
-                <button onclick="sendData()" id="confirmBtn" class="btn" style="margin-top:0;">
-                    <span>Create Account</span>
+            <div class="status-icon-wrap icon-confirm"><i data-lucide="help-circle"></i></div>
+            <div class="modal-title">Confirm Details</div>
+            <p class="modal-desc">Please ensure your identity information is correct before proceeding.</p>
+            <div id="summary" class="summary-list"></div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <button onclick="closeModal('confirmModal')" class="btn" style="background:#334155; margin:0;">Edit</button>
+                <button onclick="sendData()" id="finalBtn" class="btn" style="margin:0;">
+                    <span>Confirm</span>
                     <div class="spinner"></div>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- SUCCESS MODAL (NEW) -->
+    <!-- MODAL: SUCCESS -->
     <div id="successModal" class="modal-overlay">
-        <div class="modal-box text-center">
-            <div class="success-icon-wrap">
-                <!-- Check Icon -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div class="modal-title" style="justify-content: center;">Registration Successful</div>
-            <p class="success-desc">
-                Your account has been created successfully.<br>
-                Please check your email to activate your account before logging in.
-            </p>
-            <button onclick="goToLogin()" class="btn">Go to Login</button>
+        <div class="modal-box">
+            <div class="status-icon-wrap icon-success"><i data-lucide="check-circle-2"></i></div>
+            <div class="modal-title">Success!</div>
+            <p class="modal-desc">Your account has been created. A verification email has been sent to your inbox. Please activate it to log in.</p>
+            <button onclick="window.location.href='/'" class="btn">Go to Login</button>
+        </div>
+    </div>
+
+    <!-- MODAL: ERROR (The Friendly Fix) -->
+    <div id="errorModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="status-icon-wrap icon-error"><i data-lucide="alert-circle"></i></div>
+            <div id="errorTitle" class="modal-title">Registration Failed</div>
+            <p id="errorDesc" class="modal-desc">Something went wrong.</p>
+            <button onclick="closeModal('errorModal')" class="btn" style="background:var(--danger)">Try Again</button>
         </div>
     </div>
 
     <script>
+        lucide.createIcons();
         const form = document.getElementById('signupForm');
-        const modal = document.getElementById('modal');
-        const successModal = document.getElementById('successModal');
         const agencySel = document.getElementById('agency');
         const serviceSel = document.getElementById('service');
-        
-        let formDataCache = {};
+        let cache = {};
 
-        // --- 1. DYNAMIC DATA FETCHING ---
-        async function loadDropdowns() {
+        // 1. Load Dropdowns
+        async function loadData() {
             try {
-                const [agencyRes, serviceRes] = await Promise.all([
-                    fetch('/api/v1/agencies/'),
-                    fetch('/api/v1/services/')
-                ]);
-
-                // Populate Agencies
-                if (agencyRes.ok) {
-                    const agencies = await agencyRes.json();
-                    agencySel.innerHTML = '<option value="" disabled selected>Select Agency</option>';
-                    agencies.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.textContent = item.agency_name;
-                        agencySel.appendChild(opt);
-                    });
-                } else { agencySel.innerHTML = '<option disabled>Error loading</option>'; }
-
-                // Populate Services
-                if (serviceRes.ok) {
-                    const services = await serviceRes.json();
-                    serviceSel.innerHTML = '<option value="" disabled selected>Select Service</option>';
-                    services.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.textContent = item.service_name;
-                        serviceSel.appendChild(opt);
-                    });
-                } else { serviceSel.innerHTML = '<option disabled>Error loading</option>'; }
-
-            } catch (error) {
-                agencySel.innerHTML = '<option disabled>Server Offline</option>';
-                serviceSel.innerHTML = '<option disabled>Server Offline</option>';
-            }
+                const [aR, sR] = await Promise.all([fetch('/api/v1/agencies/'), fetch('/api/v1/services/')]);
+                if (aR.ok) {
+                    const data = await aR.json();
+                    agencySel.innerHTML = '<option value="" disabled selected>Select Agency</option>' + 
+                        data.map(i => `<option value="${i.id}">${i.agency_name}</option>`).join('');
+                }
+                if (sR.ok) {
+                    const data = await sR.json();
+                    serviceSel.innerHTML = '<option value="" disabled selected>Select Service</option>' + 
+                        data.map(i => `<option value="${i.id}">${i.service_name}</option>`).join('');
+                }
+            } catch (e) { console.error("Dropdown error", e); }
         }
-        window.onload = loadDropdowns;
+        loadData();
 
-        // --- 2. PASSWORD CHECK ---
+        // 2. Pass Check
         const pass = document.getElementById('pass');
         const conf = document.getElementById('conf');
-        const err = document.getElementById('pass-error');
+        const pErr = document.getElementById('pass-error');
+        conf.oninput = () => { pErr.style.display = (pass.value !== conf.value) ? 'block' : 'none'; };
 
-        function checkPass() {
-            if(conf.value && pass.value !== conf.value) {
-                err.style.display = 'block';
-                return false;
-            } else {
-                err.style.display = 'none';
-                return true;
-            }
-        }
-        conf.addEventListener('input', checkPass);
-        pass.addEventListener('input', checkPass);
-
-        // --- 3. SHOW CONFIRMATION ---
-        form.addEventListener('submit', (e) => {
+        // 3. Form Submit
+        form.onsubmit = (e) => {
             e.preventDefault();
-            if(!checkPass()) return;
+            if(pass.value !== conf.value) return;
 
-            formDataCache = {
+            cache = {
                 matricule: document.getElementById('matricule').value,
                 full_name: document.getElementById('fname').value + " " + document.getElementById('lname').value,
                 telephone: document.getElementById('phone').value,
@@ -413,29 +328,20 @@
                 password: pass.value,
                 agency_id: parseInt(agencySel.value),
                 service_id: parseInt(serviceSel.value),
-                role_id: 2, 
-                is_active: false
+                role_id: 2, is_active: false
             };
 
-            if(!formDataCache.agency_id || !formDataCache.service_id) {
-                alert("Please select a valid Agency and Service.");
-                return;
-            }
-
-            const html = `
-                <div class="summary-row"><span class="summary-label">Name:</span> <span class="summary-val">${formDataCache.full_name}</span></div>
-                <div class="summary-row"><span class="summary-label">Email:</span> <span class="summary-val">${formDataCache.email}</span></div>
-                <div class="summary-row"><span class="summary-label">Matricule:</span> <span class="summary-val">${formDataCache.matricule}</span></div>
-                <div class="summary-row"><span class="summary-label">Agency:</span> <span class="summary-val">${agencySel.options[agencySel.selectedIndex].text}</span></div>
-                <div class="summary-row"><span class="summary-label">Department:</span> <span class="summary-val">${serviceSel.options[serviceSel.selectedIndex].text}</span></div>
+            document.getElementById('summary').innerHTML = `
+                <div class="summary-item"><span class="s-label">Name</span><span class="s-value">${cache.full_name}</span></div>
+                <div class="summary-item"><span class="s-label">Matricule</span><span class="s-value">${cache.matricule}</span></div>
+                <div class="summary-item"><span class="s-label">Email</span><span class="s-value">${cache.email}</span></div>
             `;
-            document.getElementById('summary').innerHTML = html;
-            modal.classList.add('active');
-        });
+            document.getElementById('confirmModal').classList.add('active');
+        };
 
-        // --- 4. API SUBMIT & SUCCESS MODAL ---
+        // 4. API Send Data
         async function sendData() {
-            const btn = document.getElementById('confirmBtn');
+            const btn = document.getElementById('finalBtn');
             btn.classList.add('loading');
             btn.disabled = true;
 
@@ -443,34 +349,58 @@
                 const response = await fetch('/api/v1/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formDataCache)
+                    body: JSON.stringify(cache)
                 });
 
-                const data = await response.json();
+                const result = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.detail || "Registration failed");
+                    handleFriendlyError(result);
+                    return;
                 }
 
-                // Hide Confirmation, Show Success
-                closeModal('modal');
-                successModal.classList.add('active');
+                document.getElementById('confirmModal').classList.remove('active');
+                document.getElementById('successModal').classList.add('active');
 
             } catch (error) {
-                alert("Error: " + error.message);
+                showError("Connection Error", "The server is currently unreachable. Please check your network.");
+            } finally {
                 btn.classList.remove('loading');
                 btn.disabled = false;
-                closeModal('modal'); // Close confirmation on error to allow edit
             }
         }
 
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('active');
+        // 5. Friendly Error Logic
+        function handleFriendlyError(data) {
+            document.getElementById('confirmModal').classList.remove('active');
+            let title = "Registration Error";
+            let msg = "We couldn't create your account right now.";
+
+            const detail = typeof data.detail === 'string' ? data.detail.toLowerCase() : JSON.stringify(data.detail).toLowerCase();
+
+            if (detail.includes("email already exists")) {
+                title = "Email in Use";
+                msg = "The email address you entered is already registered. Please use another email or sign in.";
+            } else if (detail.includes("matricule already exists")) {
+                title = "Matricule Taken";
+                msg = "This Matricule ID is already assigned to an existing account. Please verify your ID.";
+            } else if (detail.includes("strong password")) {
+                title = "Weak Password";
+                msg = "Your password is not secure enough. Try adding numbers and symbols.";
+            } else {
+                msg = data.detail || "Please verify your information and try again.";
+            }
+
+            showError(title, msg);
         }
 
-        function goToLogin() {
-            window.location.href = "/";
+        function showError(title, msg) {
+            document.getElementById('errorTitle').innerText = title;
+            document.getElementById('errorDesc').innerText = msg;
+            document.getElementById('errorModal').classList.add('active');
         }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
     </script>
 </body>
 </html>
