@@ -1,37 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Login - FleetDash</title>
+    <!-- Professional Icons and Fonts -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
         /* --- PROFESSIONAL VARIABLES --- */
         :root {
             --primary: #3b82f6;
             --primary-hover: #2563eb;
             --bg-dark: #0f172a;
-            --bg-gradient: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
-            --card-bg: rgba(30, 41, 59, 0.75);
-            --modal-bg: rgba(15, 23, 42, 0.95);
-            --border: rgba(148, 163, 184, 0.15);
+            --bg-gradient: radial-gradient(at top right, #1e293b 0%, #0f172a 100%);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --modal-bg: #1e293b;
+            --border: rgba(255, 255, 255, 0.08);
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
             --danger: #ef4444;
-            --danger-glow: rgba(239, 68, 68, 0.2);
             --radius: 16px;
             --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
         /* --- RESET & BASE --- */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Inter, system-ui, sans-serif;
-            -webkit-font-smoothing: antialiased;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        
         body {
             background-color: var(--bg-dark);
             background-image: var(--bg-gradient);
@@ -41,6 +37,7 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            padding: 20px;
         }
 
         /* --- GLASS CARD --- */
@@ -52,116 +49,84 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             padding: 40px;
-            margin: 20px;
-            position: relative;
-            z-index: 10;
+            animation: fadeIn 0.6s ease-out;
         }
 
-        /* --- TYPOGRAPHY --- */
-        .header {
-            text-align: center;
-            margin-bottom: 32px;
-        }
-
+        .header { text-align: center; margin-bottom: 32px; }
+        
         .logo-box {
-            width: 56px;
-            height: 56px;
+            width: 56px; height: 56px;
             background: linear-gradient(135deg, var(--primary), var(--primary-hover));
             border-radius: 14px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            display: inline-flex; align-items: center; justify-content: center;
             margin-bottom: 16px;
             box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
         }
+        .logo-icon { width: 32px; height: 32px; color: white; }
 
-        .logo-icon {
-            width: 32px;
-            height: 32px;
-            color: white;
-        }
-
-        h1 {
-            font-size: 26px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            margin-bottom: 6px;
-        }
-
-        .subtitle {
-            color: var(--text-muted);
-            font-size: 15px;
-        }
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.5px; }
+        .subtitle { color: var(--text-muted); font-size: 14px; }
 
         /* --- FORMS --- */
-        .input-group {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
+        .input-group { position: relative; margin-bottom: 20px; }
+        .label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        
         .input-field {
             width: 100%;
-            padding: 14px 16px 14px 44px;
+            padding: 12px 16px 12px 42px;
             background: rgba(15, 23, 42, 0.6);
-            border: 1px solid #334155;
-            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
             color: white;
-            font-size: 15px;
+            font-size: 14px;
             transition: all 0.2s ease;
         }
-
+        
         .input-field:focus {
             border-color: var(--primary);
             outline: none;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
             background: rgba(15, 23, 42, 0.8);
         }
 
-        .icon {
+        .icon-left {
             position: absolute;
             left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            color: var(--text-muted);
-            transition: color 0.2s;
+            bottom: 12px;
+            width: 18px;
+            height: 18px;
+            color: #64748b;
+            pointer-events: none;
         }
 
-        .input-field:focus+.icon {
-            color: var(--primary);
+        .toggle-pass {
+            position: absolute;
+            right: 12px;
+            bottom: 10px;
+            background: none; border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 2px;
         }
+        .toggle-pass:hover { color: white; }
 
         /* --- ACTIONS --- */
         .actions {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 14px;
+            font-size: 13px;
             margin-bottom: 24px;
-        }
-
-        .remember {
-            display: flex;
-            align-items: center;
-            gap: 8px;
             color: var(--text-muted);
-            cursor: pointer;
         }
 
-        .forgot {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-            transition: 0.2s;
-        }
+        .remember { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .remember input { accent-color: var(--primary); }
 
-        .forgot:hover {
-            color: #60a5fa;
-            text-decoration: underline;
-        }
+        .forgot { color: var(--primary); text-decoration: none; font-weight: 600; }
+        .forgot:hover { color: #60a5fa; }
 
         .btn {
             width: 100%;
@@ -169,257 +134,153 @@
             background: var(--primary);
             color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             font-weight: 600;
-            font-size: 16px;
+            font-size: 15px;
             cursor: pointer;
             transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-
-        .btn:hover {
-            background: var(--primary-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
-        }
-
-        .btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-        }
+        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* --- FOOTER --- */
-        .footer {
-            text-align: center;
-            margin-top: 28px;
-            font-size: 14px;
-            color: var(--text-muted);
-        }
+        .footer { text-align: center; margin-top: 24px; font-size: 14px; color: var(--text-muted); }
+        .footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
 
-        .footer a {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 600;
-            margin-left: 4px;
-        }
-
-        .footer a:hover {
-            color: #60a5fa;
-        }
-
-        /* --- PROFESSIONAL MODAL --- */
+        /* --- ERROR MODAL --- */
         .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.6);
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.8);
             backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: all 0.3s ease;
             z-index: 100;
         }
-
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
         .modal-box {
             background: var(--modal-bg);
             border: 1px solid var(--border);
-            width: 90%;
-            max-width: 360px;
-            padding: 32px 24px;
+            width: 90%; max-width: 380px;
+            padding: 32px;
             border-radius: 24px;
-            transform: scale(0.95) translateY(10px);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             text-align: center;
+            transform: scale(0.9);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+        .modal-overlay.active .modal-box { transform: scale(1); }
 
-        .modal-overlay.active .modal-box {
-            transform: scale(1) translateY(0);
-        }
-
-        .modal-icon-wrap {
-            width: 64px;
-            height: 64px;
-            background: rgba(239, 68, 68, 0.1);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .status-icon-wrap {
+            width: 60px; height: 60px;
+            border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
             margin: 0 auto 20px auto;
-            color: var(--danger);
-            box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.05);
+            background: rgba(239, 68, 68, 0.1); color: var(--danger);
         }
 
-        .modal-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: white;
-        }
+        .modal-title { font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px; }
+        .modal-desc { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
 
-        .modal-msg {
-            color: var(--text-muted);
-            font-size: 15px;
-            line-height: 1.5;
-            margin-bottom: 24px;
-        }
-
-        .modal-btn {
-            width: 100%;
-            padding: 12px;
-            background: #334155;
-            color: white;
-            border-radius: 12px;
-            border: none;
-            font-weight: 600;
-            font-size: 15px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .modal-btn:hover {
-            background: #475569;
-        }
-
-        /* --- SPINNER --- */
+        /* SPINNER */
         .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            border-top-color: white;
+            width: 20px; height: 20px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: white; border-radius: 50%;
             animation: spin 0.8s linear infinite;
             display: none;
         }
+        .btn.loading .spinner { display: block; }
+        .btn.loading span, .btn.loading i { display: none; }
 
-        .btn.loading .spinner {
-            display: block;
-        }
-
-        .btn.loading span,
-        .btn.loading svg {
-            display: none;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 
 <body>
 
-    <!-- LOGIN CARD -->
     <div class="login-card">
         <div class="header">
             <div class="logo-box">
-                <!-- SVG Logo -->
-                <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
             </div>
-            <h1>FleetDash</h1>
-            <p class="subtitle">Secure Fleet Management Access</p>
+            <h1>Welcome Back</h1>
+            <p class="subtitle">FleetDash Management System</p>
         </div>
 
         <form id="loginForm">
             <div class="input-group">
-                <input type="text" id="username" name="username" class="input-field" placeholder="Matricule or Email"
-                    required>
-                <!-- User Icon -->
-                <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                </svg>
+                <label class="label">Identity</label>
+                <input type="text" id="username" name="username" class="input-field" placeholder="Email or Matricule" required autocomplete="username">
+                <i data-lucide="user" class="icon-left"></i>
             </div>
 
             <div class="input-group">
-                <input type="password" id="password" name="password" class="input-field" placeholder="Password"
-                    required>
-                <!-- Lock Icon -->
-                <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
+                <label class="label">Password</label>
+                <input type="password" id="password" name="password" class="input-field" placeholder="••••••••" required autocomplete="current-password">
+                <i data-lucide="lock" class="icon-left"></i>
+                <button type="button" class="toggle-pass" id="togglePass">
+                    <i data-lucide="eye" id="eyeIcon" style="width: 18px; height: 18px;"></i>
+                </button>
             </div>
 
             <div class="actions">
                 <label class="remember">
-                    <input type="checkbox" style="accent-color: var(--primary);"> Remember me
+                    <input type="checkbox"> Remember me
                 </label>
-                <a href="/forgot-password.html" class="forgot">Forgot Password?</a>
+                <a href="/forgot-password.html" class="forgot">Forgot?</a>
             </div>
 
             <button type="submit" id="submitBtn" class="btn">
                 <span>Sign In</span>
-                <!-- Arrow Icon -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                </svg>
+                <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
                 <div class="spinner"></div>
             </button>
         </form>
 
         <div class="footer">
-            <p>New to the team? <a href="signup.html">Sign up</a></p>
+            <p>New to the team? <a href="signup.html">Create Account</a></p>
         </div>
     </div>
 
-    <!-- PROFESSIONAL ERROR MODAL -->
+    <!-- REFINED ERROR MODAL -->
     <div id="modal" class="modal-overlay">
         <div class="modal-box">
-            <div class="modal-icon-wrap">
-                <!-- Alert Triangle Icon -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-            </div>
-            <div class="modal-title">Access Denied</div>
-            <p id="modalMsg" class="modal-msg">The credentials provided are incorrect. Please try again.</p>
-            <button onclick="closeModal()" class="modal-btn">Try Again</button>
+            <div class="status-icon-wrap"><i data-lucide="shield-alert" style="width: 32px; height: 32px;"></i></div>
+            <div id="errorTitle" class="modal-title">Access Denied</div>
+            <p id="errorDesc" class="modal-desc">The credentials provided are incorrect. Please try again.</p>
+            <button onclick="closeModal()" class="btn" style="background: #334155;">Try Again</button>
         </div>
     </div>
 
     <script>
-        // --- LOGIC ---
+        lucide.createIcons();
+
         const form = document.getElementById('loginForm');
         const btn = document.getElementById('submitBtn');
+        const togglePass = document.getElementById('togglePass');
+        const passwordInput = document.getElementById('password');
+        const eyeIcon = document.getElementById('eyeIcon');
+        
         const modal = document.getElementById('modal');
-        const modalMsg = document.getElementById('modalMsg');
+        const errorTitle = document.getElementById('errorTitle');
+        const errorDesc = document.getElementById('errorDesc');
 
-        // Check if already logged in (Optional UX feature)
-        window.onload = () => {
-            if (localStorage.getItem('access_token')) {
-                // You could uncomment this to auto-redirect
-                // window.location.href = '/dashboard.html';
-            }
-        };
+        // Toggle Password Visibility
+        togglePass.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            eyeIcon.setAttribute('data-lucide', type === 'password' ? 'eye' : 'eye-off');
+            lucide.createIcons();
+        });
 
-        function showModal(msg) {
-            modalMsg.innerText = msg;
+        function showError(title, desc) {
+            errorTitle.innerText = title;
+            errorDesc.innerText = desc;
             modal.classList.add('active');
         }
 
@@ -427,53 +288,73 @@
             modal.classList.remove('active');
         }
 
-        // Close on click outside
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
-        });
-
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Loading State
             btn.classList.add('loading');
             btn.disabled = true;
 
-            const formData = new FormData(form);
+            // FastAPI OAuth2 Login expects URLSearchParams (form-data)
+            const formData = new URLSearchParams();
+            formData.append('username', document.getElementById('username').value);
+            formData.append('password', passwordInput.value);
 
             try {
                 const response = await fetch('/api/v1/auth/login', {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: formData
                 });
 
                 const data = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.detail || "Connection failed.");
+                    handleLoginError(response.status, data.detail);
+                    return;
                 }
 
+                // SUCCESS Logic
                 localStorage.setItem('access_token', data.access_token);
-                localStorage.setItem('user_role', data.role); // Store the role for the next page
+                localStorage.setItem('user_role', data.role);
                 localStorage.setItem('username', data.username);
 
-                // 2. ONE REDIRECT FOR EVERYONE
-                // We send everyone to the same "Shell" page.
-                // The Shell page will decide what menu items to show.
-                setTimeout(() => {
-                    window.location.href = '/user/index.html';
-                }, 500);
+                window.location.href = '/user/index.html';
 
             } catch (error) {
-                // Reset State
+                showError("Network Error", "The server is unreachable. Please check your internet connection.");
+            } finally {
                 btn.classList.remove('loading');
                 btn.disabled = false;
-
-                // Show Error
-                let msg = error.message;
-                if (msg === "Failed to fetch") msg = "Server unreachable. Check your internet.";
-                showModal(msg);
             }
+        });
+
+        function handleLoginError(status, detail) {
+            let title = "Login Failed";
+            let desc = detail || "An unexpected error occurred.";
+
+            // Specific user-friendly error mapping
+            if (status === 401) {
+                title = "Invalid Credentials";
+                desc = "The matricule/email or password you entered is incorrect.";
+            } else if (status === 403) {
+                if (detail.toLowerCase().includes("verified")) {
+                    title = "Account Not Verified";
+                    desc = "Please check your email and activate your account before signing in.";
+                } else if (detail.toLowerCase().includes("deactivated")) {
+                    title = "Account Suspended";
+                    desc = "Your access has been restricted. Please contact your manager.";
+                }
+            } else if (status === 422) {
+                title = "Format Error";
+                desc = "Please ensure all fields are filled out correctly.";
+            }
+
+            showError(title, desc);
+        }
+
+        // Close modal on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
         });
     </script>
 </body>
