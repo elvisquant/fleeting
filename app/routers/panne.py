@@ -46,14 +46,26 @@ def verify_panne_bulk(
 # =================================================================================
 @router.post("/", status_code=201)
 def create_panne(panne_data: schemas.PanneCreate, db: Session = Depends(get_db)):
+    # NEW CHECK: Prevent duplicate active pannes for the same vehicle
+    existing_active = db.query(models.Panne).filter(
+        models.Panne.vehicle_id == panne_data.vehicle_id,
+        models.Panne.status == "active"
+    ).first()
+
+    if existing_active:
+        raise HTTPException(
+            status_code=400, 
+            detail="This vehicle already has an active breakdown report. Resolve the previous one before adding a new one."
+        )
+
     # 1. Create the Panne
     new_panne = models.Panne(**panne_data.model_dump())
     db.add(new_panne)
     
-    # 2. IMMEDIATELY update Vehicle to Inactive (Broken)
+    # 2. Sync Vehicle: Mark as Inactive
     vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne_data.vehicle_id).first()
     if vehicle:
-        vehicle.is_active = False  # Vehicle is now broken
+        vehicle.is_active = False 
     
     db.commit()
     db.refresh(new_panne)
@@ -106,23 +118,31 @@ def update_panne(id: int, panne_update: schemas.PanneUpdate, db: Session = Depen
     if not panne:
         raise HTTPException(status_code=404, detail="Record not found")
 
-    # If it was already resolved, don't allow changes
+    # Lock logic: If it was already resolved, don't allow changes
     if panne.status == "resolved":
         raise HTTPException(status_code=403, detail="Completed reports are locked.")
 
     update_data = panne_update.model_dump(exclude_unset=True)
-
-    # 3. LOGIC TO SYNC VEHICLE STATUS
-    if "status" in update_data:
-        vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne.vehicle_id).first()
-        if vehicle:
-            if update_data["status"] == "resolved":
-                vehicle.is_active = True   # Fixed! Mark vehicle as active again
-            else:
-                vehicle.is_active = False  # Still broken
-    
     for key, value in update_data.items():
         setattr(panne, key, value)
+
+    # SYNC VEHICLE STATUS LOGIC
+    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == panne.vehicle_id).first()
+    if vehicle:
+        # Check if there are ANY OTHER pannes still "active" for this specific vehicle
+        # We exclude the current panne from the count if we just marked it 'resolved'
+        remaining_active_pannes = db.query(models.Panne).filter(
+            models.Panne.vehicle_id == vehicle.id,
+            models.Panne.status == "active",
+            models.Panne.id != panne.id 
+        ).count()
+
+        if panne.status == "resolved" and remaining_active_pannes == 0:
+            # If this was the last active panne, the vehicle is fixed
+            vehicle.is_active = True
+        else:
+            # If this panne is still active OR there are other active pannes
+            vehicle.is_active = False
 
     db.commit()
     db.refresh(panne)
@@ -146,3 +166,7 @@ def delete_panne(
     db.delete(panne)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+
+

@@ -8,7 +8,7 @@ let panneUserRole = 'user';
 // --- PAGINATION & FILTER STATE ---
 let panneCurrentPage = 1;
 let pannePageLimit = 10;
-let filteredPannes = []; // Stores logs after search/filters are applied
+let filteredPannes = []; 
 
 // --- ACTION STATE ---
 let panneActionType = null; // 'delete', 'verify', 'bulk-verify'
@@ -19,15 +19,12 @@ let selectedPanneIds = new Set();
 // MOBILE-COMPATIBLE ELEMENT GETTER
 // =================================================================
 function getPanneEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
@@ -35,10 +32,9 @@ function getPanneEl(id) {
 // 1. INITIALIZATION
 // =================================================================
 async function initPanne() {
-    console.log("Panne Module: Full Implementation Init");
+    console.log("Panne Module: Full Feature Initialization Started");
     panneUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
     
-    // DOM Elements using mobile-compatible getter
     const search = getPanneEl('panneSearch');
     const vFilter = getPanneEl('panneVehicleFilter');
     const sFilter = getPanneEl('panneStatusFilter');
@@ -46,53 +42,51 @@ async function initPanne() {
     const confirmBtn = getPanneEl('btnPanneConfirmAction');
     const bulkBtn = getPanneEl('btnPanneBulkVerify');
     
-    // Attach Listeners for Search and Filters (Resets to page 1 on change)
+    // Attach Listeners for Search and Filters (Resets to page 1 on every input)
     if(search) search.addEventListener('input', () => { panneCurrentPage = 1; renderPanneTable(); });
     if(vFilter) vFilter.addEventListener('change', () => { panneCurrentPage = 1; renderPanneTable(); });
     if(sFilter) sFilter.addEventListener('change', () => { panneCurrentPage = 1; renderPanneTable(); });
     
-    // Bulk Select and Execution
+    // Bulk Selection Listeners
     if(selectAll) selectAll.addEventListener('change', togglePanneSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executePanneConfirmAction);
     
-    // Bulk verify button setup
+    // Bulk Verify Logic
     if(bulkBtn) {
         bulkBtn.onclick = triggerPanneBulkVerify;
     }
     
-    // Initial data fetch
+    // Fetch dropdown data first, then the logs
     await Promise.all([fetchPanneDropdowns(), loadPanneData()]);
 }
 
 // =================================================================
-// 2. DATA LOADING
+// 2. DATA LOADING (LIFO LOGIC)
 // =================================================================
 async function loadPanneData() {
     const tbody = getPanneEl('panneLogsBody');
     if(!tbody) return;
     
-    // Loading State (Colspan 8)
-    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Refreshing dashboard...</td></tr>`;
+    // Loading State across 8 columns
+    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Refreshing logs...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
     try {
-        // Fetch large limit for client-side sorting/filtering
+        // Fetch all records to handle client-side sorting/filtering/pagination
         const data = await window.fetchWithAuth('/panne/?limit=1000');
-        
         const items = data.items || data;
         
         if (Array.isArray(items)) {
-            // LIFO SORTING: Sort by ID Descending (Newest first)
+            // LIFO SORTING: Highest ID first (Newest records at the top)
             allPannes = items.sort((a, b) => b.id - a.id);
             selectedPanneIds.clear();
             renderPanneTable();
         } else {
             handleFriendlyError(data, "load");
-            tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">Could not retrieve data.</td></tr>`;
         }
     } catch (error) {
-        console.error("Panne Load Error:", error);
-        showPanneAlert("Connection Problem", "We couldn't connect to the server. Please check your internet.", false);
+        console.error("Panne Fetch Error:", error);
+        showPanneAlert("Connection Problem", "The system could not reach the server. Please try again.", false);
         tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">Server connection failed.</td></tr>`;
     }
 }
@@ -107,27 +101,28 @@ async function fetchPanneDropdowns() {
         if(vehicles) panneOptions.vehicles = Array.isArray(vehicles) ? vehicles : (vehicles.items || []);
         if(cats) panneOptions.cats = Array.isArray(cats) ? cats : (cats.items || []);
         
+        // Populate select elements
         populateSelect('panneVehicleFilter', panneOptions.vehicles, '', 'plate_number', 'All Vehicles');
         populateSelect('panneVehicleSelect', panneOptions.vehicles, '', 'plate_number', 'Select Vehicle');
         populateSelect('panneCatSelect', panneOptions.cats, '', 'panne_name', 'Select Category');
 
-    } catch(e) {
-        console.warn("Dropdown Error:", e);
+    } catch(e) { 
+        console.warn("Dropdown Loading Failed:", e); 
     }
 }
 
 // =================================================================
-// 3. CORE TABLE RENDERING (8 COLUMNS + LOCK LOGIC)
+// 3. TABLE RENDERING (8 COLUMNS + PROGRESS LOCK)
 // =================================================================
 function renderPanneTable() {
     const tbody = getPanneEl('panneLogsBody');
     if(!tbody) return;
 
-    // A. Filter Logic
     const searchVal = getPanneEl('panneSearch')?.value.toLowerCase() || '';
     const vFilterVal = getPanneEl('panneVehicleFilter')?.value || '';
     const sFilterVal = getPanneEl('panneStatusFilter')?.value || 'all';
 
+    // A. Apply Filtering Logic
     filteredPannes = allPannes.filter(log => {
         const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
@@ -143,55 +138,51 @@ function renderPanneTable() {
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
-    // B. Pagination UI Update
+    // B. Slice Data for Pagination
     updatePannePaginationUI();
-
-    // C. Slice for current page
     const startIdx = (panneCurrentPage - 1) * pannePageLimit;
     const paginatedItems = filteredPannes.slice(startIdx, startIdx + pannePageLimit);
 
     if (paginatedItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No records found matching filters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500">No incident reports match your search criteria.</td></tr>`;
         return;
     }
 
     const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
 
-    // D. Generate HTML Rows
+    // C. Generate HTML Rows
     tbody.innerHTML = paginatedItems.map(log => {
         const vehicle = panneOptions.vehicles.find(v => v.id === log.vehicle_id);
         const cat = panneOptions.cats.find(c => c.id === log.category_panne_id);
         const plate = vehicle ? vehicle.plate_number : `ID ${log.vehicle_id}`;
         const catName = cat ? cat.panne_name : `-`;
         const date = new Date(log.panne_date).toLocaleDateString();
-        const shortDesc = log.description ? (log.description.length > 30 ? log.description.substring(0, 30) + '...' : log.description) : '-';
+        const shortDesc = log.description ? (log.description.length > 30 ? log.description.substring(0, 30) + '...' : log.description) : 'No description';
         
-        // Progress Lock Logic: Lock row ONLY if status is 'resolved'
+        // ROW LOCKING LOGIC: Lock row ONLY if progress status is 'resolved'
         const isResolved = log.status === 'resolved';
 
+        // Progress Status Badge (Active/Resolved)
         const progressBadge = isResolved 
             ? `<span class="px-2 py-1 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Resolved</span>`
             : `<span class="px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">Active</span>`;
 
+        // Verification Badge (Verification does not lock editing anymore)
         const verifyBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
 
-        let checkboxHtml = '';
-        if (canManage && !log.is_verified) {
-            const isChecked = selectedPanneIds.has(log.id) ? 'checked' : '';
-            checkboxHtml = `<input type="checkbox" onchange="togglePanneRow(${log.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`;
-        } else {
-            checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30">`;
-        }
+        let checkboxHtml = (canManage && !log.is_verified) 
+            ? `<input type="checkbox" onchange="togglePanneRow(${log.id})" ${selectedPanneIds.has(log.id) ? 'checked' : ''} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`
+            : `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30">`;
 
         let actions = `<button onclick="openViewPanneModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
         if (isResolved) {
-            // Completed reports are LOCKED
-            actions += `<span class="p-1.5 text-slate-600 cursor-not-allowed" title="Report Locked: Resolved breakdowns cannot be modified."><i data-lucide="lock" class="w-4 h-4"></i></span>`;
+            // LOCKED ROW
+            actions += `<span class="p-1.5 text-slate-600 cursor-not-allowed" title="Record Locked: Completed reports cannot be modified."><i data-lucide="lock" class="w-4 h-4"></i></span>`;
         } else if (canManage) {
-            // Still active: Allow management
+            // EDITABLE ROW
             actions += `
                 <button onclick="reqPanneVerify(${log.id})" class="p-1.5 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
                 <button onclick="openEditPanneModal(${log.id})" class="p-1.5 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
@@ -216,7 +207,7 @@ function renderPanneTable() {
 }
 
 // =================================================================
-// 4. PAGINATION UI ENGINE
+// 4. PAGINATION ENGINE
 // =================================================================
 window.changePannePage = function(direction) {
     const totalPages = Math.ceil(filteredPannes.length / pannePageLimit);
@@ -225,7 +216,7 @@ window.changePannePage = function(direction) {
     if (newPage >= 1 && newPage <= totalPages) {
         panneCurrentPage = newPage;
         renderPanneTable();
-        // Scroll back to top for UX
+        // Return to top of table
         const el = getPanneEl('panneLogsBody');
         if(el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -245,14 +236,14 @@ function updatePannePaginationUI() {
     if(nextBtn) nextBtn.disabled = (panneCurrentPage === totalPages || totalLogs === 0);
 
     if(countEl) {
-        const startIdx = (panneCurrentPage - 1) * pannePageLimit + 1;
-        const endIdx = Math.min(startIdx + pannePageLimit - 1, totalLogs);
-        countEl.innerText = totalLogs > 0 ? `Showing ${startIdx}-${endIdx} of ${totalLogs} reports` : "0 records found";
+        const start = (panneCurrentPage - 1) * pannePageLimit + 1;
+        const end = Math.min(start + pannePageLimit - 1, totalLogs);
+        countEl.innerText = totalLogs > 0 ? `Showing ${start}-${end} of ${totalLogs} reports` : "0 reports found";
     }
 }
 
 // =================================================================
-// 5. SELECTION & BULK ACTIONS
+// 5. BULK SELECTION LOGIC
 // =================================================================
 window.togglePanneRow = function(id) {
     if (selectedPanneIds.has(id)) selectedPanneIds.delete(id);
@@ -269,7 +260,7 @@ window.togglePanneSelectAll = function() {
     
     if (isChecked) {
         const canManage = ['admin', 'superadmin', 'charoi'].includes(panneUserRole);
-        // We select visible, filtered logs that are unverified
+        // Select items visible in the current filter that aren't verified
         filteredPannes.forEach(log => {
              if(canManage && !log.is_verified) selectedPanneIds.add(log.id);
         });
@@ -292,28 +283,28 @@ window.triggerPanneBulkVerify = function() {
     if (selectedPanneIds.size === 0) return;
     panneActionType = 'bulk-verify';
     panneActionId = null;
-    showPanneConfirmModal("Bulk Verify", `Verify ${selectedPanneIds.size} selected reports? This confirms they have been reviewed.`, "shield-check", "bg-emerald-600");
+    showPanneConfirmModal("Bulk Verify", `You are about to verify ${selectedPanneIds.size} reports. This confirms they have been reviewed and inspected.`, "shield-check", "bg-emerald-600");
 }
 
 // =================================================================
-// 6. SINGLE ACTIONS & EXECUTION
+// 6. SINGLE ACTIONS & DIALOGS
 // =================================================================
 window.reqPanneVerify = function(id) { 
     panneActionType = 'verify'; 
     panneActionId = id; 
-    showPanneConfirmModal("Verify Report", "Mark this report as verified? Verified records remain editable until they are resolved.", "check-circle", "bg-green-600"); 
+    showPanneConfirmModal("Verify Report", "Mark this report as verified? You can still update it until it is Resolved.", "check-circle", "bg-green-600"); 
 }
 
 window.reqPanneDelete = function(id) { 
     panneActionType = 'delete'; 
     panneActionId = id; 
-    showPanneConfirmModal("Delete Report", "Are you sure? This action will permanently remove the record from history.", "trash-2", "bg-red-600"); 
+    showPanneConfirmModal("Delete Report", "Are you sure? This action will permanently remove the record and cannot be reversed.", "trash-2", "bg-red-600"); 
 }
 
 async function executePanneConfirmAction() {
     const btn = getPanneEl('btnPanneConfirmAction');
     if(!btn) return;
-    
+
     btn.disabled = true; 
     btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-4 h-4 mr-2"></i> Processing...`;
     if(window.lucide) window.lucide.createIcons();
@@ -333,14 +324,14 @@ async function executePanneConfirmAction() {
         
         if(res !== null && !res.detail) {
             if(panneActionType === 'bulk-verify') selectedPanneIds.clear();
-            await loadPanneData(); // Full refresh to apply sorting/LIFO
-            showPanneAlert("Success", "Action completed successfully.", true);
+            await loadPanneData(); // Reload all to maintain sorting and count
+            showPanneAlert("Success", "The action was completed successfully.", true);
         } else {
             handleFriendlyError(res, "action");
         }
     } catch(e) { 
         window.closeModal('panneConfirmModal'); 
-        showPanneAlert("Error", "Server unreachable. Please check your network.", false); 
+        showPanneAlert("Error", "Server connection lost. Please check your network.", false); 
     }
     
     btn.disabled = false; 
@@ -370,8 +361,9 @@ window.openAddPanneModal = function() {
 
 window.openEditPanneModal = function(id) {
     const log = allPannes.find(l => l.id === id);
+    // Double check lock status
     if(!log || log.status === 'resolved') {
-        showPanneAlert("Locked", "Completed reports are archived and cannot be edited.", false);
+        showPanneAlert("Locked", "Completed reports are archived and cannot be modified.", false);
         return;
     }
 
@@ -394,17 +386,29 @@ window.openEditPanneModal = function(id) {
 window.savePanne = async function() {
     const id = getPanneEl('panneEditId').value;
     const btn = getPanneEl('btnSavePanne');
+    const vehicleId = parseInt(getPanneEl('panneVehicleSelect').value);
+    const status = getPanneEl('panneStatusSelect').value;
+
+    // FRONTEND DUPLICATE ACTIVE PREVENTION: 
+    // If it's a NEW report, check if vehicle is already in an 'active' panne
+    if (!id && status === "active") {
+        const alreadyBroken = allPannes.some(p => p.vehicle_id === vehicleId && p.status === "active");
+        if (alreadyBroken) {
+            showPanneAlert("Vehicle Unavailable", "This vehicle already has an active report. Resolve the current report before adding a new breakdown.", false);
+            return;
+        }
+    }
 
     const payload = {
-        vehicle_id: parseInt(getPanneEl('panneVehicleSelect').value),
+        vehicle_id: vehicleId,
         category_panne_id: parseInt(getPanneEl('panneCatSelect').value),
         description: getPanneEl('panneDesc').value.trim(),
         panne_date: new Date(getPanneEl('panneDate').value).toISOString(),
-        status: getPanneEl('panneStatusSelect').value 
+        status: status 
     };
 
     if(!payload.vehicle_id || !payload.category_panne_id || !payload.description) {
-        showPanneAlert("Missing Information", "Please select a vehicle, a category, and describe the problem.", false);
+        showPanneAlert("Validation Error", "Vehicle, Category, and Description are required fields.", false);
         return;
     }
 
@@ -418,12 +422,14 @@ window.savePanne = async function() {
         
         if(res && !res.detail) {
             window.closeModal('addPanneModal');
-            await loadPanneData();
+            await loadPanneData(); // Reload to apply LIFO sorting
             showPanneAlert("Success", "Incident report saved. The vehicle status has been updated.", true);
         } else {
             handleFriendlyError(res, "save");
         }
-    } catch(e) { showPanneAlert("Error", "A system error occurred. Please try again.", false); }
+    } catch(e) { 
+        showPanneAlert("System Error", "An error occurred while saving. Please try again.", false); 
+    }
     
     btn.disabled = false; 
     btn.innerHTML = id ? "Update Report" : "Save Report";
@@ -446,12 +452,12 @@ window.openViewPanneModal = function(id) {
                 <span class="font-bold ${log.status === 'active' ? 'text-red-400' : 'text-blue-400'} uppercase text-xs">${log.status}</span>
             </div>
             <div>
-                <span class="text-slate-500 text-[10px] uppercase block mb-1">Full Description</span>
-                <div class="text-slate-300 text-sm bg-slate-900/50 p-4 rounded border border-slate-800 italic">${log.description || 'No notes provided.'}</div>
+                <span class="text-slate-500 text-[10px] uppercase block mb-1">Detailed Description</span>
+                <div class="text-slate-300 text-sm bg-slate-900/50 p-4 rounded border border-slate-800 italic">${log.description || 'No detailed notes provided.'}</div>
             </div>
             <div class="flex justify-between items-center text-[10px] text-slate-600 pt-2 border-t border-slate-800">
-                <span>Date: ${new Date(log.panne_date).toLocaleDateString()}</span>
-                <span>Ref ID: #${log.id}</span>
+                <span>Logged on: ${new Date(log.panne_date).toLocaleDateString()}</span>
+                <span>Ref: #${log.id}</span>
             </div>
         </div>`;
     
@@ -463,10 +469,10 @@ window.openViewPanneModal = function(id) {
 }
 
 // =================================================================
-// 8. ERROR HANDLER (Friendly UI Messages)
+// 8. PROFESSIONAL ERROR HANDLER (Friendly Instructions)
 // =================================================================
 function handleFriendlyError(res, type) {
-    let msg = "An unexpected error occurred.";
+    let msg = "An unexpected error occurred. Please try again.";
     let title = "Action Blocked";
 
     if (res && res.detail) {
@@ -474,10 +480,13 @@ function handleFriendlyError(res, type) {
         
         if (detail.includes("verified and cannot be modified")) {
             title = "Verification Lock";
-            msg = "This report is verified. To change its progress, please contact an administrator to unverify it first.";
+            msg = "This report is officially verified. To update its progress, please ask an administrator to unverify it first.";
         } else if (detail.includes("completed reports are locked")) {
-            title = "Archived Lock";
-            msg = "This breakdown is marked as 'Resolved'. Completed reports are locked to protect data history.";
+            title = "Archived Record";
+            msg = "Resolved reports cannot be edited. If the vehicle is broken again, please create a new report.";
+        } else if (detail.includes("already has an active breakdown")) {
+            title = "Duplicate Active Report";
+            msg = "This vehicle already has a pending breakdown report. Resolve the previous one before adding another.";
         } else {
             msg = res.detail;
         }
@@ -486,9 +495,12 @@ function handleFriendlyError(res, type) {
 }
 
 // =================================================================
-// 9. HELPERS (Alerts, Modals, Selects)
+// 9. HELPERS (Alerts, Selects, Modals)
 // =================================================================
-window.closeModal = function(id) { const el = getPanneEl(id) || document.getElementById(id); if(el) el.classList.add('hidden'); }
+window.closeModal = function(id) { 
+    const el = getPanneEl(id) || document.getElementById(id); 
+    if(el) el.classList.add('hidden'); 
+}
 
 function showPanneConfirmModal(title, message, icon, color) {
     getPanneEl('panneConfirmTitle').innerText = title;
