@@ -11,7 +11,7 @@ let maintPageLimit = 10;
 let filteredMaintLogs = []; // Stores logs after search/filters are applied
 
 // --- ACTION STATE ---
-let maintActionType = null; 
+let maintActionType = null; // 'delete', 'verify', 'bulk-verify'
 let maintActionId = null;
 let selectedMaintIds = new Set(); 
 
@@ -32,7 +32,7 @@ function getMaintEl(id) {
 // 1. INITIALIZATION
 // =================================================================
 async function initMaintenance() {
-    console.log("Maintenance Module: Init (Search + Filters + Pagination + LIFO)");
+    console.log("Maintenance Module: Full Feature Init (LIFO + Pagination + Vehicle Sync)");
     maintUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
     // DOM Elements
@@ -42,8 +42,7 @@ async function initMaintenance() {
     const selectAll = getMaintEl('selectAllMaint');
     const confirmBtn = getMaintEl('btnMaintConfirmAction');
     
-    // Attach Listeners for Search and Filters
-    // When a filter changes, we reset to page 1 and re-render the table
+    // Attach Listeners for Search and Filters (Resets to page 1)
     if(searchInput) searchInput.addEventListener('input', () => { maintCurrentPage = 1; renderMaintTable(); });
     if(vFilter) vFilter.addEventListener('change', () => { maintCurrentPage = 1; renderMaintTable(); });
     if(sFilter) sFilter.addEventListener('change', () => { maintCurrentPage = 1; renderMaintTable(); });
@@ -51,35 +50,36 @@ async function initMaintenance() {
     if(selectAll) selectAll.addEventListener('change', toggleMaintSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executeMaintConfirmAction);
 
-    // Load static data then dynamic data
+    // Initial Load
     await Promise.all([fetchMaintDropdowns(), loadMaintData()]);
 }
 
 // =================================================================
-// 2. DATA FETCHING
+// 2. DATA LOADING
 // =================================================================
 async function loadMaintData() {
     const tbody = getMaintEl('maintLogsBody');
     if(!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Loading logs...</td></tr>`;
+    // Loading State (Colspan 8 for fixed alignment)
+    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Refreshing maintenance records...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
     try {
-        // Fetch all records (limit=1000 to ensure we get a full set for client-side filtering)
+        // Fetch all (limit=1000) for client-side pagination/filtering/sorting
         const data = await window.fetchWithAuth('/maintenances/?limit=1000');
         const items = data.items || data;
 
         if (Array.isArray(items)) {
-            // LIFO: Sort all items by ID descending immediately
+            // LIFO SORTING: Newest IDs first
             allMaintLogs = items.sort((a, b) => b.id - a.id);
             selectedMaintIds.clear();
             renderMaintTable();
         } else {
-            tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">Error: Could not parse data.</td></tr>`;
+            handleFriendlyMaintError(data, "load");
         }
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">System Error: ${e.message}</td></tr>`;
+        showMaintAlert("Connection Error", "The server is unreachable. Please check your network.", false);
     }
 }
 
@@ -103,48 +103,45 @@ async function fetchMaintDropdowns() {
 }
 
 // =================================================================
-// 3. CORE LOGIC: FILTERING -> SORTING -> PAGINATION -> RENDERING
+// 3. CORE RENDERING (8 COLUMNS + LOCK LOGIC)
 // =================================================================
 function renderMaintTable() {
     const tbody = getMaintEl('maintLogsBody');
     if(!tbody) return;
 
-    // A. Get Current Filter Values
+    // A. Apply Filtering
     const searchVal = getMaintEl('maintSearch')?.value.toLowerCase() || '';
-    const vehicleVal = getMaintEl('maintVehicleFilter')?.value || '';
-    const statusVal = getMaintEl('maintStatusFilter')?.value || 'all';
+    const vFilterVal = getMaintEl('maintVehicleFilter')?.value || '';
+    const sFilterVal = getMaintEl('maintStatusFilter')?.value || 'all';
 
-    // B. APPLY FILTERS
     filteredMaintLogs = allMaintLogs.filter(log => {
         const vehicle = maintOptions.vehicles.find(v => v.id === log.vehicle_id);
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
-        const receipt = (log.receipt || "").toLowerCase();
-        
-        const matchesSearch = plate.includes(searchVal) || receipt.includes(searchVal);
-        const matchesVehicle = vehicleVal === "" || log.vehicle_id == vehicleVal;
+        const matchesSearch = plate.includes(searchVal) || (log.receipt || "").toLowerCase().includes(searchVal);
+        const matchesVehicle = vFilterVal === "" || log.vehicle_id == vFilterVal;
         
         let matchesStatus = true;
-        if (statusVal === 'verified') matchesStatus = log.is_verified === true;
-        else if (statusVal === 'pending') matchesStatus = log.is_verified !== true;
+        if (sFilterVal === 'verified') matchesStatus = log.is_verified === true;
+        else if (sFilterVal === 'pending') matchesStatus = log.is_verified !== true;
 
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
-    // C. UPDATE UI COUNTS & PAGINATION
+    // B. Handle Pagination State
     updateMaintPaginationUI();
 
-    // D. SLICE FOR PAGINATION
+    // C. Slice Data for Current Page
     const start = (maintCurrentPage - 1) * maintPageLimit;
     const paginatedItems = filteredMaintLogs.slice(start, start + maintPageLimit);
 
     if(paginatedItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No records found matching filters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No maintenance records match your search.</td></tr>`;
         return;
     }
 
     const canManage = ['admin', 'superadmin', 'charoi'].includes(maintUserRole);
 
-    // E. GENERATE HTML
+    // D. Generate HTML Rows
     tbody.innerHTML = paginatedItems.map(log => {
         const vehicle = maintOptions.vehicles.find(v => v.id === log.vehicle_id);
         const cat = maintOptions.cats.find(c => c.id === log.cat_maintenance_id);
@@ -155,43 +152,49 @@ function renderMaintTable() {
         const garageName = garage ? garage.nom_garage : '-'; 
         const date = new Date(log.maintenance_date).toLocaleDateString();
 
+        // LOCK LOGIC: Lock row if Progress Status is 'resolved'
+        const isResolved = log.status === 'resolved';
+
+        const progressBadge = isResolved 
+            ? `<span class="px-2 py-1 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Resolved</span>`
+            : `<span class="px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">Active</span>`;
+
         const verifyBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>`;
 
-        let checkboxHtml = '';
-        if (canManage && !log.is_verified) {
-            const isChecked = selectedMaintIds.has(log.id) ? 'checked' : '';
-            checkboxHtml = `<input type="checkbox" onchange="toggleMaintRow(${log.id})" ${isChecked} class="rounded border-slate-600 bg-slate-800 text-blue-600 cursor-pointer">`;
-        } else {
-            checkboxHtml = `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30">`;
-        }
+        let checkboxHtml = (canManage && !log.is_verified) 
+            ? `<input type="checkbox" onchange="toggleMaintRow(${log.id})" ${selectedMaintIds.has(log.id) ? 'checked' : ''} class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">`
+            : `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30">`;
 
         let actions = `<button onclick="openViewMaintModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
-        if(!log.is_verified && canManage) {
+        if(isResolved) {
+            // Locked record
+            actions += `<span class="p-1.5 text-slate-600 cursor-not-allowed" title="Record Locked: Resolved maintenance cannot be modified."><i data-lucide="lock" class="w-4 h-4"></i></span>`;
+        } else if (canManage) {
+            // Editable record
             actions += `
-                <button onclick="reqMaintVerify(${log.id})" class="p-1.5 bg-slate-800 text-green-400 hover:bg-green-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
-                <button onclick="openEditMaintModal(${log.id})" class="p-1.5 bg-slate-800 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                <button onclick="reqMaintDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            `;
-        } else if (log.is_verified) {
-            actions += `<span class="p-1.5 text-slate-600" title="Locked"><i data-lucide="lock" class="w-4 h-4"></i></span>`;
+                <button onclick="reqMaintVerify(${log.id})" class="p-1.5 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                <button onclick="openEditMaintModal(${log.id})" class="p-1.5 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                <button onclick="reqMaintDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
         }
 
         return `
             <tr class="hover:bg-white/5 border-b border-slate-700/30 group animate-in">
-                <td class="p-4 text-center">${checkboxHtml}</td>
-                <td class="p-4 font-mono text-white">${plate}</td>
-                <td class="p-4 text-slate-400">${catName}</td>
-                <td class="p-4 text-slate-400">${garageName}</td>
-                <td class="p-4 text-right font-bold text-emerald-400">${log.maintenance_cost.toFixed(2)}</td>
-                <td class="p-4">${verifyBadge}</td>
-                <td class="p-4 text-slate-500 text-xs">${date}</td>
-                <td class="p-4 text-right flex justify-end gap-2">${actions}</td>
+                <td class="p-4 text-center align-middle">${checkboxHtml}</td>
+                <td class="p-4 align-middle font-mono text-white text-sm">${plate}</td>
+                <td class="p-4 align-middle text-slate-400 text-xs">${catName}</td>
+                <td class="p-4 align-middle text-slate-400 text-xs">${garageName}</td>
+                <td class="p-4 align-middle text-right font-bold text-emerald-400">${log.maintenance_cost.toFixed(2)}</td>
+                <td class="p-4 align-middle">${progressBadge}</td>
+                <td class="p-4 align-middle">${verifyBadge}</td>
+                <td class="p-4 align-middle text-slate-500 text-xs">${date}</td>
+                <td class="p-4 align-middle text-right flex justify-end gap-2">${actions}</td>
             </tr>`;
     }).join('');
     
+    updateMaintBulkUI();
     if(window.lucide) window.lucide.createIcons();
 }
 
@@ -206,22 +209,23 @@ window.changeMaintPage = function(direction) {
         maintCurrentPage = nextStep;
         renderMaintTable();
         // Scroll to top of table
-        getMaintEl('maintLogsBody').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const container = getMaintEl('maintLogsBody');
+        if(container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 }
 
 function updateMaintPaginationUI() {
-    const prevBtn = getMaintEl('prevMaintPage');
-    const nextBtn = getMaintEl('nextMaintPage');
     const indicator = getMaintEl('maintPageIndicator');
     const countEl = getMaintEl('maintLogsCount');
+    const prevBtn = getMaintEl('prevMaintPage');
+    const nextBtn = getMaintEl('nextMaintPage');
 
     const totalLogs = filteredMaintLogs.length;
     const totalPages = Math.ceil(totalLogs / maintPageLimit) || 1;
 
     if(indicator) indicator.innerText = `Page ${maintCurrentPage} / ${totalPages}`;
     if(prevBtn) prevBtn.disabled = (maintCurrentPage === 1);
-    if(nextBtn) nextBtn.disabled = (maintCurrentPage === totalPages);
+    if(nextBtn) nextBtn.disabled = (maintCurrentPage === totalPages || totalLogs === 0);
 
     if(countEl) {
         const startIdx = (maintCurrentPage - 1) * maintPageLimit + 1;
@@ -234,19 +238,17 @@ function updateMaintPaginationUI() {
 // 5. BULK & SINGLE ACTIONS
 // =================================================================
 window.toggleMaintRow = function(id) {
-    if (selectedMaintIds.has(id)) selectedMaintIds.delete(id);
-    else selectedMaintIds.add(id);
+    selectedMaintIds.has(id) ? selectedMaintIds.delete(id) : selectedMaintIds.add(id);
     updateMaintBulkUI();
 }
 
 window.toggleMaintSelectAll = function() {
     const mainCheck = getMaintEl('selectAllMaint');
     if (!mainCheck) return;
-    const isChecked = mainCheck.checked;
     selectedMaintIds.clear();
-    if (isChecked) {
+    if (mainCheck.checked) {
         const canManage = ['admin', 'superadmin', 'charoi'].includes(maintUserRole);
-        // We only select items that are visible and unverified
+        // Select visible items that aren't verified
         filteredMaintLogs.forEach(log => { if(canManage && !log.is_verified) selectedMaintIds.add(log.id); });
     }
     renderMaintTable();
@@ -256,51 +258,52 @@ window.toggleMaintSelectAll = function() {
 function updateMaintBulkUI() {
     const btn = getMaintEl('btnMaintBulkVerify');
     const countSpan = getMaintEl('maintSelectedCount');
-    if (!btn) return;
     if (countSpan) countSpan.innerText = selectedMaintIds.size;
-    if (selectedMaintIds.size > 0) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
+    if (btn) selectedMaintIds.size > 0 ? btn.classList.remove('hidden') : btn.classList.add('hidden');
 }
 
 window.executeMaintBulkVerify = async function() {
     if (selectedMaintIds.size === 0) return;
     maintActionType = 'bulk-verify';
-    showMaintConfirmModal("Verify Selected?", `Confirm validation for ${selectedMaintIds.size} records?`, "check-circle", "bg-emerald-600");
+    showMaintConfirmModal("Bulk Verify", `Verify ${selectedMaintIds.size} records? This confirms they have been reviewed.`, "shield-check", "bg-emerald-600");
 }
 
-window.reqMaintVerify = function(id) { maintActionType = 'verify'; maintActionId = id; showMaintConfirmModal("Verify Record?", "This locks the record permanently.", "check-circle", "bg-green-600"); }
-window.reqMaintDelete = function(id) { maintActionType = 'delete'; maintActionId = id; showMaintConfirmModal("Delete Record?", "Permanently remove this record?", "trash-2", "bg-red-600"); }
+window.reqMaintVerify = function(id) { 
+    maintActionType = 'verify'; 
+    maintActionId = id; 
+    showMaintConfirmModal("Verify Record?", "Lock this record's verification status?", "check-circle", "bg-green-600"); 
+}
+
+window.reqMaintDelete = function(id) { 
+    maintActionType = 'delete'; 
+    maintActionId = id; 
+    showMaintConfirmModal("Delete Record?", "Are you sure? This will permanently remove the maintenance record.", "trash-2", "bg-red-600"); 
+}
 
 async function executeMaintConfirmAction() {
     const btn = getMaintEl('btnMaintConfirmAction');
-    if (!btn) return;
+    if(!btn) return;
     btn.disabled = true; btn.innerText = "Processing...";
 
     try {
-        let result;
-        if (maintActionType === 'delete') {
-            result = await window.fetchWithAuth(`/maintenances/${maintActionId}`, 'DELETE');
-        } else if (maintActionType === 'verify') {
-            result = await window.fetchWithAuth(`/maintenances/verify-bulk`, 'PUT', { ids: [parseInt(maintActionId)] });
-        } else if (maintActionType === 'bulk-verify') {
-             const idList = Array.from(selectedMaintIds).map(id => parseInt(id));
-             result = await window.fetchWithAuth('/maintenances/verify-bulk', 'PUT', { ids: idList });
-        }
-        
+        let res;
+        if (maintActionType === 'delete') res = await window.fetchWithAuth(`/maintenances/${maintActionId}`, 'DELETE');
+        else if (maintActionType === 'verify') res = await window.fetchWithAuth(`/maintenances/verify-bulk`, 'PUT', { ids: [parseInt(maintActionId)] });
+        else if (maintActionType === 'bulk-verify') res = await window.fetchWithAuth('/maintenances/verify-bulk', 'PUT', { ids: Array.from(selectedMaintIds).map(id => parseInt(id)) });
+
         window.closeModal('maintConfirmModal');
-        if(result !== null) {
-            await loadMaintData(); // Refresh all data
-            showMaintAlert("Success", "Action completed successfully.", true);
+        if(res !== null && !res.detail) {
+            await loadMaintData();
+            showMaintAlert("Success", "Operation completed successfully.", true);
+        } else {
+            handleFriendlyMaintError(res, "action");
         }
-    } catch(e) {
-        window.closeModal('maintConfirmModal');
-        showMaintAlert("Error", e.message, false);
-    }
+    } catch(e) { window.closeModal('maintConfirmModal'); showMaintAlert("Error", "Server connection lost.", false); }
     btn.disabled = false; btn.innerText = "Confirm";
 }
 
 // =================================================================
-// 6. SAVE & MODAL LOGIC
+// 6. SAVE / EDIT / VIEW LOGIC
 // =================================================================
 window.openAddMaintModal = function() {
     getMaintEl('maintEditId').value = "";
@@ -308,49 +311,71 @@ window.openAddMaintModal = function() {
     populateSelect('maintVehicleSelect', maintOptions.vehicles, '', 'plate_number', 'Select Vehicle');
     populateSelect('maintCatSelect', maintOptions.cats, '', 'cat_maintenance', 'Select Category');
     populateSelect('maintGarageSelect', maintOptions.garages, '', 'nom_garage', 'Select Garage');
+    
     getMaintEl('maintCost').value = "";
     getMaintEl('maintDate').value = new Date().toISOString().split('T')[0];
     getMaintEl('maintReceipt').value = "";
+    if(getMaintEl('maintStatusSelect')) getMaintEl('maintStatusSelect').value = "active";
+
     getMaintEl('addMaintModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.openEditMaintModal = function(id) {
     const log = allMaintLogs.find(l => l.id === id);
-    if(!log) return;
+    if(!log || log.status === 'resolved') {
+        showMaintAlert("Locked", "Completed records are archived and cannot be modified.", false);
+        return;
+    }
+
     getMaintEl('maintEditId').value = log.id;
     getMaintEl('maintModalTitle').innerText = "Edit Record";
     populateSelect('maintVehicleSelect', maintOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('maintCatSelect', maintOptions.cats, log.cat_maintenance_id, 'cat_maintenance', 'Category');
     populateSelect('maintGarageSelect', maintOptions.garages, log.garage_id, 'nom_garage', 'Garage');
+    
     getMaintEl('maintCost').value = log.maintenance_cost;
     getMaintEl('maintDate').value = log.maintenance_date ? log.maintenance_date.split('T')[0] : '';
     getMaintEl('maintReceipt').value = log.receipt || '';
+    if(getMaintEl('maintStatusSelect')) getMaintEl('maintStatusSelect').value = log.status;
+
     getMaintEl('addMaintModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
 window.saveMaintenance = async function() {
     const id = getMaintEl('maintEditId').value;
-    const vId = getMaintEl('maintVehicleSelect').value;
-    const cost = getMaintEl('maintCost').value;
-    const date = getMaintEl('maintDate').value;
+    const btn = getMaintEl('btnSaveMaint');
+    const vehicleId = parseInt(getMaintEl('maintVehicleSelect').value);
+    const status = getMaintEl('maintStatusSelect').value;
 
-    if(!vId || isNaN(cost) || !date) { 
-        showMaintAlert("Validation", "Required fields missing.", false); return; 
+    // PREVENT DUPLICATE ACTIVE MAINTENANCE
+    if (!id && status === "active") {
+        const alreadyRepairing = allMaintLogs.some(m => m.vehicle_id === vehicleId && m.status === "active");
+        if (alreadyRepairing) {
+            showMaintAlert("Vehicle Unavailable", "This vehicle is already undergoing active maintenance. Resolve that record first.", false);
+            return;
+        }
     }
 
     const payload = {
-        vehicle_id: parseInt(vId),
+        vehicle_id: vehicleId,
         cat_maintenance_id: parseInt(getMaintEl('maintCatSelect').value) || null,
         garage_id: parseInt(getMaintEl('maintGarageSelect').value) || null,
-        maintenance_cost: parseFloat(cost),
-        maintenance_date: new Date(date).toISOString(),
-        receipt: getMaintEl('maintReceipt').value
+        maintenance_cost: parseFloat(getMaintEl('maintCost').value) || 0,
+        maintenance_date: new Date(getMaintEl('maintDate').value).toISOString(),
+        receipt: getMaintEl('maintReceipt').value.trim(),
+        status: status
     };
 
-    const btn = getMaintEl('btnSaveMaint');
-    btn.disabled = true; btn.innerHTML = "Saving...";
+    if(!payload.vehicle_id || !payload.receipt) {
+        showMaintAlert("Validation", "Vehicle and Receipt Reference are required.", false);
+        return;
+    }
+
+    btn.disabled = true; btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-4 h-4 mr-2"></i> Saving...`;
+    if(window.lucide) window.lucide.createIcons();
+
     try {
         const method = id ? 'PUT' : 'POST';
         const url = id ? `/maintenances/${id}` : '/maintenances/';
@@ -359,42 +384,74 @@ window.saveMaintenance = async function() {
         if(res && !res.detail) {
             window.closeModal('addMaintModal');
             await loadMaintData();
-            showMaintAlert("Success", "Record saved.", true);
+            showMaintAlert("Success", "Maintenance record saved. Vehicle status updated.", true);
         } else {
-            showMaintAlert("Error", res?.detail || "Save failed.", false);
+            handleFriendlyMaintError(res, "save");
         }
-    } catch(e) { showMaintAlert("System Error", e.message, false); }
-    btn.disabled = false; btn.innerHTML = id ? "Update" : "Save";
+    } catch(e) { showMaintAlert("Error", "A system error occurred. Please try again.", false); }
+    btn.disabled = false; btn.innerHTML = id ? "Update" : "Save Record";
 }
 
+// =================================================================
+// 7. PROFESSIONAL ERROR HANDLER
+// =================================================================
+function handleFriendlyMaintError(res, type) {
+    let msg = "An unexpected error occurred.";
+    let title = "Action Blocked";
+
+    if (res && res.detail) {
+        const detail = JSON.stringify(res.detail).toLowerCase();
+        if (detail.includes("is already undergoing active maintenance")) {
+            title = "Maintenance Conflict";
+            msg = "This vehicle is already being repaired. Please finish the existing maintenance task first.";
+        } else if (detail.includes("verified and cannot be modified")) {
+            title = "Verification Lock";
+            msg = "This record is verified. To change progress, please contact an administrator to unverify it first.";
+        } else if (detail.includes("completed reports are locked")) {
+            title = "Record Archived";
+            msg = "Resolved records are locked for history. Create a new log for new maintenance tasks.";
+        } else { msg = res.detail; }
+    }
+    showMaintAlert(title, msg, false);
+}
+
+// =================================================================
+// 8. HELPERS (View, Alerts, Selects)
+// =================================================================
 window.openViewMaintModal = function(id) {
     const log = allMaintLogs.find(l => l.id === id);
     if (!log) return;
     const vehicle = maintOptions.vehicles.find(v => v.id === log.vehicle_id);
-    const cat = maintOptions.cats.find(c => c.id === log.cat_maintenance_id);
     const garage = maintOptions.garages.find(g => g.id === log.garage_id);
-
+    
     const content = `
         <div class="space-y-4">
-            <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-500">Vehicle</span><span class="text-white font-mono">${vehicle ? vehicle.plate_number : '-'}</span></div>
-            <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-500">Category</span><span class="text-white">${cat ? cat.cat_maintenance : '-'}</span></div>
-            <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-500">Garage</span><span class="text-white">${garage ? garage.nom_garage : '-'}</span></div>
-            <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-500">Receipt</span><span class="text-white">${log.receipt || '-'}</span></div>
-            <div class="flex justify-between text-lg font-bold pt-2"><span class="text-slate-400">Total Cost</span><span class="text-emerald-400">BIF ${log.maintenance_cost.toFixed(2)}</span></div>
+            <div class="grid grid-cols-2 gap-4">
+                <div><span class="text-slate-500 text-[10px] uppercase block mb-1">Vehicle</span><span class="text-white font-mono text-sm">${vehicle?.plate_number || '-'}</span></div>
+                <div><span class="text-slate-500 text-[10px] uppercase block mb-1">Cost</span><span class="text-emerald-400 font-bold text-sm">BIF ${log.maintenance_cost.toFixed(2)}</span></div>
+            </div>
+            <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                <span class="text-slate-500 text-[10px] uppercase">Current Progress</span>
+                <span class="font-bold ${log.status === 'active' ? 'text-amber-400' : 'text-blue-400'} uppercase text-xs">${log.status}</span>
+            </div>
+            <div>
+                <span class="text-slate-500 text-[10px] uppercase block mb-1">Garage & Receipt</span>
+                <div class="text-slate-300 text-xs">Garage: ${garage?.nom_garage || '-'}<br>Receipt: ${log.receipt || '-'}</div>
+            </div>
+            <div class="text-[10px] text-slate-500 text-right pt-2 border-t border-slate-800">Date: ${new Date(log.maintenance_date).toLocaleDateString()}</div>
         </div>`;
     getMaintEl('viewMaintContent').innerHTML = content;
     getMaintEl('viewMaintModal').classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
 }
 
-// =================================================================
-// 7. GLOBAL HELPERS
-// =================================================================
-window.closeModal = function(id) { const el = getMaintEl(id); if(el) el.classList.add('hidden'); }
+window.closeModal = function(id) { const el = getMaintEl(id) || document.getElementById(id); if(el) el.classList.add('hidden'); }
 
 function showMaintConfirmModal(title, message, icon, color) {
     getMaintEl('maintConfirmTitle').innerText = title;
     getMaintEl('maintConfirmMessage').innerText = message;
-    getMaintEl('btnMaintConfirmAction').className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color}`;
+    const btn = getMaintEl('btnMaintConfirmAction');
+    if(btn) btn.className = `px-4 py-2 text-white rounded-lg text-sm w-full font-medium ${color} hover:opacity-90`;
     getMaintEl('maintConfirmIcon').innerHTML = `<i data-lucide="${icon}" class="w-6 h-6"></i>`;
     getMaintEl('maintConfirmModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
@@ -406,23 +463,17 @@ function showMaintAlert(title, message, isSuccess) {
         modal = document.createElement('div');
         modal.id = 'maintAlertModal';
         modal.className = 'fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4';
-        modal.innerHTML = `
-            <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl p-6 text-center animate-up">
-                <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" id="maintAlertIcon"></div>
-                <h3 class="text-lg font-bold text-white mb-2" id="maintAlertTitle"></h3>
-                <p class="text-slate-400 text-sm mb-6" id="maintAlertMessage"></p>
-                <button onclick="closeModal('maintAlertModal')" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm w-full">OK</button>
-            </div>`;
+        modal.innerHTML = `<div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl p-6 text-center animate-up"><div id="maintAlertIcon" class="mb-4"></div><h3 id="maintAlertTitle" class="text-white font-bold mb-2"></h3><p id="maintAlertMessage" class="text-slate-400 text-sm mb-6"></p><button onclick="closeModal('maintAlertModal')" class="w-full py-2 bg-blue-600 text-white rounded-lg text-sm">Dismiss</button></div>`;
         document.body.appendChild(modal);
     }
     modal.querySelector('#maintAlertTitle').innerText = title;
-    modal.querySelector('#maintAlertMessage').innerText = message;
+    modal.querySelector('#maintAlertMessage').innerHTML = message;
     const iconDiv = modal.querySelector('#maintAlertIcon');
     iconDiv.className = `w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${isSuccess ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`;
     iconDiv.innerHTML = `<i data-lucide="${isSuccess ? 'check' : 'x'}"></i>`;
     modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
-    setTimeout(() => modal.classList.add('hidden'), isSuccess ? 3000 : 6000);
+    if(isSuccess) setTimeout(() => modal.classList.add('hidden'), 4000);
 }
 
 function populateSelect(id, list, selectedValue, labelKey, defaultText) {
