@@ -1,14 +1,23 @@
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel
-from .users import UserOut, UserSimpleOut
-from .vehicles import VehicleOut
+from pydantic import BaseModel, ConfigDict
 
+# Helper for driver info
 class DriverNestedInRequest(BaseModel):
     id: int
-    full_name: Optional[str] = None 
-    class Config: from_attributes = True
+    full_name: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
 
+# Approval Output
+class RequestApprovalOut(BaseModel):
+    id: int
+    approval_step: int
+    status: str
+    comments: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+# Base Request
 class VehicleRequestBase(BaseModel):
     destination: str
     description: Optional[str] = None
@@ -28,26 +37,20 @@ class RequestApprovalUpdate(BaseModel):
     status: str 
     comments: Optional[str] = None
 
-class RequestApprovalOut(BaseModel):
-    id: int
-    approval_step: int
-    status: str
-    comments: Optional[str] = None
-    approver: Optional[UserSimpleOut] = None
-    updated_at: Optional[datetime] = None
-    class Config: from_attributes = True
-
+# Main Output Schema
 class VehicleRequestOut(VehicleRequestBase):
     id: int
     status: str
-    requester_id: int
+    requester_id: Optional[int] = None
     vehicle_id: Optional[int] = None
     driver_id: Optional[int] = None
     created_at: datetime
     rejection_reason: Optional[str] = None
-    requester: Optional[UserOut] = None
-    vehicle: Optional[VehicleOut] = None
+    
+    # Relationships (Must be Optional to prevent 500 errors)
+    requester: Optional[dict] = None # Using dict temporarily for safety
+    vehicle: Optional[dict] = None
     driver: Optional[DriverNestedInRequest] = None
     approvals: List[RequestApprovalOut] = []
     
-    class Config: from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -27,10 +27,10 @@ class VehicleRequest(Base):
     vehicle_id = Column(Integer, ForeignKey("vehicle.id", ondelete="SET NULL"), nullable=True, index=True)
     driver_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
     
-    destination = Column(String)
+    destination = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    departure_time = Column(DateTime) 
-    return_time = Column(DateTime)
+    departure_time = Column(DateTime, nullable=False) 
+    return_time = Column(DateTime, nullable=False)
     
     status = Column(Enum(RequestStatus), nullable=False, default=RequestStatus.PENDING, index=True)
     passengers = Column(JSON, default=[]) 
@@ -46,7 +46,7 @@ class VehicleRequest(Base):
 class RequestApproval(Base):
     __tablename__ = "request_approvals"
     id = Column(Integer, primary_key=True, index=True)
-    approval_step = Column(Integer, nullable=False) # 1: Chef, 2: Logistic, 3: Charoi
+    approval_step = Column(Integer, nullable=False)
     status = Column(Enum(ApprovalStatus), nullable=False, default=ApprovalStatus.PENDING, index=True)
     comments = Column(Text, nullable=True)
     updated_at = Column(DateTime, onupdate=func.now())
