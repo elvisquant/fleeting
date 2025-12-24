@@ -12,6 +12,7 @@ class KPIStats(BaseModel):
     planned_trips: int
     repairs_this_month: int
     fuel_cost_this_week: float
+    total_purchase_cost: float  # Ensure this is here
 
 # --- INSIGHTS ---
 class FuelEfficiencyData(BaseModel):
@@ -28,11 +29,17 @@ class PerformanceInsightsResponse(BaseModel):
     maintenance_compliance: MaintenanceComplianceData
 
 # --- ALERTS ---
-class AlertItem(BaseModel):
+""" class AlertItem(BaseModel):
     plate_number: Optional[str] = "N/A"
     message: Optional[str] = "N/A"
     entity_type: str 
     status: Optional[str] = "N/A"
+     """
+class AlertItem(BaseModel):
+    plate_number: str
+    message: str
+    entity_type: str  # 'panne', 'trip', 'maintenance'
+    status: str
 
 class AlertsResponse(BaseModel):
     critical_panne: Optional[AlertItem] = None

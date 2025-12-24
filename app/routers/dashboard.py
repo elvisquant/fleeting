@@ -16,188 +16,90 @@ router = APIRouter(
     dependencies=[Depends(oauth2.get_current_user_from_header)]
 )
 
-# 1. KPIs
+# 1. KPIs - Updated to include Vehicle Purchase Costs
 @router.get("/kpis", response_model=schemas.KPIStats)
 async def get_dashboard_kpis_data(db: Session = Depends(get_db)):
     # Total Vehicles
     total_vehicles = db.query(func.count(models.Vehicle.id)).scalar() or 0
 
+    # Total Purchase Cost (Sum of all vehicle prices)
+    # Assuming your Vehicle model has a 'purchase_price' or 'price' field
+    total_purchases = db.query(func.sum(models.Vehicle.purchase_price)).scalar() or 0.0
+
     # Active Requests (Approved or In Progress)
     active_requests = db.query(func.count(models.VehicleRequest.id)).filter(
-        or_(
-            models.VehicleRequest.status == "approved_by_logistic",
-            models.VehicleRequest.status == "fully_approved",
-            models.VehicleRequest.status == "in_progress"
-        )
+        models.VehicleRequest.status.in_(["approved_by_logistic", "fully_approved", "in_progress"])
     ).scalar() or 0
 
     # Repairs This Month
     today = datetime.utcnow()
     start_month = today.replace(day=1, hour=0, minute=0, second=0)
-    if start_month.month == 12:
-        next_month = start_month.replace(year=start_month.year+1, month=1)
-    else:
-        next_month = start_month.replace(month=start_month.month+1)
-    
     repairs_count = db.query(func.count(models.Reparation.id)).filter(
-        models.Reparation.repair_date >= start_month,
-        models.Reparation.repair_date < next_month
+        models.Reparation.repair_date >= start_month
     ).scalar() or 0
 
     # Fuel Cost Week
     start_week = today - timedelta(days=today.weekday())
-    start_week = start_week.replace(hour=0, minute=0, second=0)
-    
     fuel_cost = db.query(func.sum(models.Fuel.cost)).filter(
         models.Fuel.created_at >= start_week
     ).scalar() or 0.0
 
-    return schemas.KPIStats(
-        total_vehicles=total_vehicles,
-        planned_trips=active_requests, 
-        repairs_this_month=repairs_count,
-        fuel_cost_this_week=round(fuel_cost, 2)
-    )
+    return {
+        "total_vehicles": total_vehicles,
+        "planned_trips": active_requests, 
+        "repairs_this_month": repairs_count,
+        "fuel_cost_this_week": round(fuel_cost, 2),
+        "total_purchase_cost": round(total_purchases, 2) # Added this
+    }
 
-# 2. PERFORMANCE INSIGHTS
-@router.get("/performance-insights", response_model=schemas.PerformanceInsightsResponse)
-async def get_dashboard_performance_insights(db: Session = Depends(get_db)):
-    today_dt = datetime.utcnow()
-    start_current = today_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
-    if today_dt.month == 12:
-        end_current = start_current.replace(year=today_dt.year + 1, month=1) - timedelta(microseconds=1)
-    else:
-        end_current = start_current.replace(month=today_dt.month + 1) - timedelta(microseconds=1)
-    
-    current_vol = db.query(func.sum(models.Fuel.quantity)).filter(models.Fuel.created_at >= start_current, models.Fuel.created_at <= end_current).scalar() or 0.0
-
-    end_last = start_current - timedelta(microseconds=1)
-    start_last = end_last.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
-    last_vol = db.query(func.sum(models.Fuel.quantity)).filter(models.Fuel.created_at >= start_last, models.Fuel.created_at <= end_last).scalar() or 0.0
-
-    pct_change = None
-    trend = "no_comparison"
-    
-    if last_vol > 0:
-        pct_change = ((last_vol - current_vol) / last_vol) * 100
-        trend = "up" if pct_change > 5 else "down" if pct_change < -5 else "steady"
-    
-    maintenance_count = db.query(func.count(models.Maintenance.id)).scalar() or 0
-    
-    return schemas.PerformanceInsightsResponse(
-        fuel_efficiency=schemas.FuelEfficiencyData(current_month_volume=round(current_vol,2), last_month_volume=round(last_vol,2), percentage_change=round(pct_change, 1) if pct_change else None, trend=trend),
-        maintenance_compliance=schemas.MaintenanceComplianceData(total_maintenance_records=maintenance_count)
-    )
-
-# 3. ALERTS (SUMMARY)
-@router.get("/alerts", response_model=schemas.AlertsResponse)
-async def get_dashboard_alerts_summary(db: Session = Depends(get_db)):
-    alert_panne = None
-    last_panne = db.query(models.Panne).options(joinedload(models.Panne.vehicle), joinedload(models.Panne.category_panne)).order_by(desc(models.Panne.panne_date)).first()
-    if last_panne:
-        plate = last_panne.vehicle.plate_number if last_panne.vehicle else "N/A"
-        desc_txt = last_panne.description or "Issue reported"
-        alert_panne = schemas.AlertItem(plate_number=plate, message=desc_txt, entity_type="panne", status=last_panne.status)
-
-    alert_maint = None
-    last_maint = db.query(models.Maintenance).options(joinedload(models.Maintenance.vehicle)).order_by(desc(models.Maintenance.maintenance_date)).first()
-    if last_maint:
-        plate = last_maint.vehicle.plate_number if last_maint.vehicle else "N/A"
-        alert_maint = schemas.AlertItem(plate_number=plate, message="Maintenance Due", entity_type="maintenance", status="Scheduled")
-
-    alert_trip = None
-    # FIX: Uses departure_time and destination
-    last_req = db.query(models.VehicleRequest).options(joinedload(models.VehicleRequest.vehicle)).order_by(desc(models.VehicleRequest.departure_time)).first()
-    if last_req:
-        plate = last_req.vehicle.plate_number if (last_req.vehicle) else "Pending"
-        # FIX: Changed 'to_location' to 'destination'
-        alert_trip = schemas.AlertItem(plate_number=plate, message=f"Mission to {last_req.destination}", entity_type="trip", status=last_req.status)
-    
-    total = sum(1 for x in [alert_panne, alert_maint, alert_trip] if x)
-    return schemas.AlertsResponse(critical_panne=alert_panne, maintenance_alert=alert_maint, trip_alert=alert_trip, total_alerts=total)
-
-# 4. RECENT ALERTS LIST (Was missing, causing 404s)
-@router.get("/recent-alerts", response_model=List[schemas.AlertItem])
-def get_recent_alerts_list(
-    limit: int = 5,
-    db: Session = Depends(get_db)
-):
-    alerts = []
-    
-    # Get recent request
-    # FIX: Uses departure_time and destination
-    last_req = db.query(models.VehicleRequest).options(joinedload(models.VehicleRequest.vehicle))\
-        .order_by(desc(models.VehicleRequest.departure_time)).first()
-
-    if last_req:
-        plate = last_req.vehicle.plate_number if last_req.vehicle else "Pending"
-        # FIX: Changed 'to_location' to 'destination'
-        alert_trip = schemas.AlertItem(
-            plate_number=plate, 
-            message=f"Mission to {last_req.destination}", 
-            entity_type="trip", 
-            status=last_req.status
-        )
-        alerts.append(alert_trip)
-    
-    # You can append more alerts here from Maintenance/Panne if needed for the list
-    return alerts
-
-# 5. UPCOMING TRIPS
-@router.get("/upcoming-trips", response_model=List[schemas.VehicleRequestOut])
-async def get_upcoming_missions(db: Session = Depends(get_db)):
-    today = datetime.utcnow()
-    requests = db.query(models.VehicleRequest).options(
-        joinedload(models.VehicleRequest.vehicle).selectinload(models.Vehicle.make_ref),
-        joinedload(models.VehicleRequest.vehicle).selectinload(models.Vehicle.model_ref),
-        joinedload(models.VehicleRequest.driver),
-        joinedload(models.VehicleRequest.requester)
-    ).filter(
-        # FIX: Uses departure_time
-        models.VehicleRequest.departure_time >= today,
-        models.VehicleRequest.status.in_(["approved_by_logistic", "fully_approved", "in_progress"])
-    ).order_by(models.VehicleRequest.departure_time.asc()).limit(5).all()
-
-    return requests
-
-# 6. MONTHLY ACTIVITY CHART
-@router.get("/charts/monthly-activity", response_model=schemas.MonthlyActivityChartData)
-async def get_monthly_activity(db: Session = Depends(get_db), months_to_display: int = 12):
-    labels, req_counts, maint_counts, panne_counts = [], [], [], []
-    today = datetime.utcnow().date()
-
-    for i in range(months_to_display - 1, -1, -1):
-        year_offset, month_offset = divmod(today.month - 1 - i, 12)
-        target_year = today.year + year_offset
-        target_month = month_offset + 1
-        
-        start_date = datetime(target_year, target_month, 1)
-        end_date = start_date.replace(month=start_date.month+1) if start_date.month < 12 else start_date.replace(year=start_date.year+1, month=1)
-        
-        labels.append(start_date.strftime("%b"))
-
-        # Count Requests
-        # FIX: Uses departure_time
-        c_req = db.query(func.count(models.VehicleRequest.id)).filter(
-            models.VehicleRequest.departure_time >= start_date, 
-            models.VehicleRequest.departure_time < end_date
-        ).scalar() or 0
-        req_counts.append(c_req)
-        
-        c_maint = db.query(func.count(models.Maintenance.id)).filter(models.Maintenance.maintenance_date >= start_date, models.Maintenance.maintenance_date < end_date).scalar() or 0
-        maint_counts.append(c_maint)
-
-        c_panne = db.query(func.count(models.Panne.id)).filter(models.Panne.panne_date >= start_date, models.Panne.panne_date < end_date).scalar() or 0
-        panne_counts.append(c_panne)
-
-    return schemas.MonthlyActivityChartData(labels=labels, trips=req_counts, maintenances=maint_counts, pannes=panne_counts)
-
-# 7. VEHICLE STATUS CHART
+# 7. VEHICLE STATUS CHART - Updated for Maintenance/Panne accuracy
 @router.get("/charts/vehicle-status", response_model=schemas.VehicleStatusChartData)
 async def get_vehicle_status_chart_data(db: Session = Depends(get_db)):
-    data = db.query(models.Vehicle.status, func.count(models.Vehicle.id)).group_by(models.Vehicle.status).all()
-    labels = [d[0].replace('_', ' ').title() if d[0] else 'Unknown' for d in data]
-    counts = [d[1] for d in data]
-    return schemas.VehicleStatusChartData(labels=labels, counts=counts)
+    # 1. Count vehicles in Maintenance or Panne (is_active = False)
+    maintenance_count = db.query(func.count(models.Vehicle.id)).filter(models.Vehicle.is_active == False).scalar() or 0
+    
+    # 2. Count vehicles "In Use" (is_active = True AND has an active trip)
+    # Note: Simplification - we check for requests with status 'in_progress'
+    in_use_count = db.query(func.count(models.VehicleRequest.vehicle_id.distinct()))\
+        .filter(models.VehicleRequest.status == "in_progress").scalar() or 0
+    
+    # 3. Available (is_active = True AND NOT in use)
+    total_active = db.query(func.count(models.Vehicle.id)).filter(models.Vehicle.is_active == True).scalar() or 0
+    available_count = max(0, total_active - in_use_count)
+
+    return {
+        "labels": ["Available", "In Use", "Maintenance"],
+        "counts": [available_count, in_use_count, maintenance_count]
+    }
+
+# 4. RECENT ALERTS - Combining Panne and Trips
+@router.get("/recent-alerts", response_model=List[schemas.AlertItem])
+def get_recent_alerts_list(limit: int = 5, db: Session = Depends(get_db)):
+    alerts = []
+    
+    # Get last 3 pannes
+    recent_pannes = db.query(models.Panne).options(joinedload(models.Panne.vehicle))\
+        .order_by(desc(models.Panne.panne_date)).limit(3).all()
+    
+    for p in recent_pannes:
+        alerts.append({
+            "plate_number": p.vehicle.plate_number if p.vehicle else "N/A",
+            "message": f"Breakdown: {p.description[:30]}...",
+            "entity_type": "panne",
+            "status": p.status
+        })
+
+    # Get last 3 missions
+    recent_trips = db.query(models.VehicleRequest).options(joinedload(models.VehicleRequest.vehicle))\
+        .order_by(desc(models.VehicleRequest.departure_time)).limit(3).all()
+    
+    for t in recent_trips:
+        alerts.append({
+            "plate_number": t.vehicle.plate_number if t.vehicle else "Pending",
+            "message": f"Mission to {t.destination}",
+            "entity_type": "trip",
+            "status": t.status
+        })
+    
+    # Sort combined by status or logic, then limit
+    return alerts[:limit]

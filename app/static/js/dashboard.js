@@ -11,15 +11,12 @@ let currentPeriod = 'month'; // week, month, quarter, half_year, year, custom
 // MOBILE-COMPATIBLE ELEMENT GETTER
 // =================================================================
 function getDashEl(id) {
-    // First try mobile container (if we're on mobile)
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
         if (mobileEl) return mobileEl;
     }
-    // Then try desktop container
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
-    // Fallback to global search
     return document.getElementById(id);
 }
 
@@ -27,34 +24,24 @@ function getDashEl(id) {
 // 1. INITIALIZATION
 // =================================================================
 
-// This function is called by the router when #dashboard is loaded
 async function initDashboard() {
     console.log("Initializing Dashboard...");
-    
-    // Attach event listeners
     attachDashboardListeners();
-    
-    // Load dashboard data
-    await loadDashboardData();
-    
-    // Set up initial dates
     setupDateInputs();
+    await loadDashboardData();
 }
 
 function attachDashboardListeners() {
-    // Period selector
     const periodSelect = getDashEl('dashboardPeriod');
     if (periodSelect) {
         periodSelect.addEventListener('change', handlePeriodChange);
     }
     
-    // Chart type toggle
     const chartToggle = getDashEl('chartTypeToggle');
     if (chartToggle) {
         chartToggle.addEventListener('click', toggleChartType);
     }
     
-    // Make refresh button accessible globally
     window.refreshDashboard = refreshDashboard;
 }
 
@@ -76,15 +63,10 @@ function setupDateInputs() {
 
 async function loadDashboardData() {
     try {
-        // Show loading states
         setLoadingStates(true);
-        
-        // Calculate date range based on current period
         const dateRange = getDateRangeForPeriod(currentPeriod);
         
-        console.log("Loading dashboard data for period:", dateRange);
-        
-        // Fetch all dashboard data in parallel
+        // Parallel fetching for performance
         const fetchPromises = [
             window.fetchWithAuth('/dashboard-data/kpis'),
             window.fetchWithAuth('/dashboard-data/alerts'),
@@ -94,38 +76,30 @@ async function loadDashboardData() {
             window.fetchWithAuth('/dashboard-data/recent-alerts?limit=5')
         ];
 
-        // Also fetch monthly breakdown for the chart
         const monthlyDataPromise = window.fetchWithAuth(
             `/analytics-data/expense-summary?start_date=${dateRange.start}&end_date=${dateRange.end}&detailed=true`
         );
 
         const [
             kpiData, 
-            alertsData, 
+            alertsSummary, 
             pendingData, 
-            expenseData, 
+            expenseSummary, 
             vehicleStatus, 
             recentAlerts
         ] = await Promise.all(fetchPromises);
         
         const monthlyExpenseData = await monthlyDataPromise;
 
-        console.log("Dashboard data loaded:", {
-            kpiData,
-            expenseData,
-            monthlyExpenseData,
-            vehicleStatus
-        });
-
-        // Update KPI Elements
-        updateKPIDisplay(kpiData, alertsData, pendingData, expenseData);
+        // 1. Update Top KPI Row
+        updateKPIDisplay(kpiData, alertsSummary, pendingData, expenseSummary);
         
-        // Load charts with the data
+        // 2. Update Charts
         await loadMonthlyChart(monthlyExpenseData);
         await loadVehicleStatusChart(vehicleStatus);
-        await loadExpenseChart(expenseData);
+        await loadExpenseChart(expenseSummary);
         
-        // Load recent alerts
+        // 3. Update Recent Alerts List (The UI at the bottom)
         updateRecentAlerts(recentAlerts);
 
     } catch (error) {
@@ -141,645 +115,302 @@ function getDateRangeForPeriod(period) {
     const start = new Date();
     
     switch (period) {
-        case 'week':
-            start.setDate(today.getDate() - 7);
-            break;
-        case 'month':
-            start.setMonth(today.getMonth() - 1);
-            break;
-        case 'quarter':
-            start.setMonth(today.getMonth() - 3);
-            break;
-        case 'half_year':
-            start.setMonth(today.getMonth() - 6);
-            break;
-        case 'year':
-            start.setFullYear(today.getFullYear() - 1);
-            break;
+        case 'week': start.setDate(today.getDate() - 7); break;
+        case 'month': start.setMonth(today.getMonth() - 1); break;
+        case 'quarter': start.setMonth(today.getMonth() - 3); break;
+        case 'half_year': start.setMonth(today.getMonth() - 6); break;
+        case 'year': start.setFullYear(today.getFullYear() - 1); break;
         case 'custom':
-            const startDateInput = getDashEl('startDate');
-            const endDateInput = getDashEl('endDate');
+            const startIn = getDashEl('startDate');
+            const endIn = getDashEl('endDate');
             return {
-                start: startDateInput ? startDateInput.value : today.toISOString().split('T')[0],
-                end: endDateInput ? endDateInput.value : today.toISOString().split('T')[0]
+                start: startIn?.value || today.toISOString().split('T')[0],
+                end: endIn?.value || today.toISOString().split('T')[0]
             };
-        default:
-            start.setMonth(today.getMonth() - 1);
+        default: start.setMonth(today.getMonth() - 1);
     }
-    
     return {
         start: start.toISOString().split('T')[0],
         end: today.toISOString().split('T')[0]
     };
 }
 
+// =================================================================
+// 3. UI UPDATERS
+// =================================================================
+
 function updateKPIDisplay(kpiData, alertsData, pendingData, expenseData) {
-    // Basic KPIs
+    // Basic KPI Elements
     const vehiclesEl = getDashEl('kpi-vehicles');
     const alertsEl = getDashEl('kpi-alerts');
     const requestsEl = getDashEl('kpi-requests');
     const fuelEl = getDashEl('kpi-fuel');
-    
-    if (vehiclesEl) vehiclesEl.innerText = kpiData?.total_vehicles || '0';
-    if (alertsEl) alertsEl.innerText = alertsData?.total_alerts || '0';
-    if (requestsEl) requestsEl.innerText = pendingData?.count || '0';
-    
-    // Update fuel cost - use either from kpiData or expenseData
-    let fuelCost = 0;
-    if (kpiData?.fuel_cost_this_week) {
-        fuelCost = kpiData.fuel_cost_this_week;
-    } else if (expenseData?.total_fuel_cost) {
-        // If no weekly data, show total for period
-        fuelCost = expenseData.total_fuel_cost;
-    }
-    if (fuelEl) fuelEl.innerText = formatBIF(fuelCost);
-    
-    // Expense KPIs
     const totalExpensesEl = getDashEl('kpi-total-expenses');
     const maintenanceEl = getDashEl('kpi-maintenance');
     const reparationEl = getDashEl('kpi-reparation');
     const purchasesEl = getDashEl('kpi-purchases');
     const expensePeriodEl = getDashEl('expense-period');
     
+    // Update Counts
+    if (vehiclesEl) vehiclesEl.innerText = kpiData?.total_vehicles || '0';
+    if (alertsEl) alertsEl.innerText = alertsData?.total_alerts || '0';
+    if (requestsEl) requestsEl.innerText = pendingData?.count || '0';
+    
+    // Fuel Cost - Priority: KPI data (weekly) then expense summary
+    let fuelCost = kpiData?.fuel_cost_this_week || expenseData?.total_fuel_cost || 0;
+    if (fuelEl) fuelEl.innerText = formatBIF(fuelCost);
+    
+    // Total & Category Expenses
     if (expenseData) {
-        const totalExpenses = (expenseData.total_fuel_cost || 0) + 
-                             (expenseData.total_reparation_cost || 0) + 
-                             (expenseData.total_maintenance_cost || 0) + 
-                             (expenseData.total_vehicle_purchase_cost || 0);
+        const total = (expenseData.total_fuel_cost || 0) + 
+                      (expenseData.total_reparation_cost || 0) + 
+                      (expenseData.total_maintenance_cost || 0) + 
+                      (expenseData.total_vehicle_purchase_cost || 0);
         
-        if (totalExpensesEl) totalExpensesEl.innerText = formatBIF(totalExpenses);
+        if (totalExpensesEl) totalExpensesEl.innerText = formatBIF(total);
         if (maintenanceEl) maintenanceEl.innerText = formatBIF(expenseData.total_maintenance_cost || 0);
         if (reparationEl) reparationEl.innerText = formatBIF(expenseData.total_reparation_cost || 0);
-        if (purchasesEl) purchasesEl.innerText = formatBIF(expenseData.total_vehicle_purchase_cost || 0);
-    } else {
-        // If no expense data, show zeros
-        if (totalExpensesEl) totalExpensesEl.innerText = formatBIF(0);
-        if (maintenanceEl) maintenanceEl.innerText = formatBIF(0);
-        if (reparationEl) reparationEl.innerText = formatBIF(0);
-        if (purchasesEl) purchasesEl.innerText = formatBIF(0);
+    }
+
+    // NEW: Real Purchase Data from kpiData
+    if (purchasesEl) {
+        purchasesEl.innerText = formatBIF(kpiData?.total_purchase_cost || 0);
     }
     
-    // Update period label
     if (expensePeriodEl) {
-        const periodLabels = {
-            'week': 'This week',
-            'month': 'This month',
-            'quarter': 'Last 3 months',
-            'half_year': 'Last 6 months',
-            'year': 'Last 12 months',
-            'custom': 'Custom period'
-        };
-        expensePeriodEl.innerText = periodLabels[currentPeriod] || 'Selected period';
+        const labels = { week: 'This week', month: 'This month', quarter: 'Last 3 months', half_year: 'Last 6 months', year: 'Last 12 months', custom: 'Custom period' };
+        expensePeriodEl.innerText = labels[currentPeriod] || 'Selected period';
     }
 }
 
-function formatBIF(amount) {
-    return `BIF ${(amount || 0).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })}`;
+function updateRecentAlerts(alerts) {
+    const container = getDashEl('recentAlerts');
+    if (!container) return;
+
+    if (!alerts || alerts.length === 0) {
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center p-8 text-slate-500">
+                <i data-lucide="bell-off" class="w-8 h-8 mb-2 opacity-20"></i>
+                <p class="text-sm">No recent alerts found</p>
+            </div>`;
+        if(window.lucide) window.lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = alerts.map(alert => {
+        const isPanne = alert.entity_type === 'panne';
+        const icon = isPanne ? 'alert-circle' : 'map-pin';
+        const iconColor = isPanne ? 'text-red-400' : 'text-blue-400';
+        
+        // Status color logic
+        let statusClass = "bg-slate-700 text-slate-300";
+        const status = alert.status?.toLowerCase() || "";
+        if (["active", "in_progress", "pending"].includes(status)) statusClass = "bg-orange-500/10 text-orange-400";
+        if (["resolved", "completed", "fully_approved"].includes(status)) statusClass = "bg-green-500/10 text-green-400";
+
+        return `
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/30 border border-slate-700/50 hover:bg-slate-800/50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-slate-800">
+                        <i data-lucide="${icon}" class="w-4 h-4 ${iconColor}"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-white">${alert.plate_number}</p>
+                        <p class="text-xs text-slate-400">${alert.message}</p>
+                    </div>
+                </div>
+                <span class="text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md ${statusClass}">
+                    ${alert.status.replace('_', ' ')}
+                </span>
+            </div>
+        `;
+    }).join('');
+
+    if (window.lucide) window.lucide.createIcons();
 }
 
 // =================================================================
-// 3. CHARTS
+// 4. CHARTS
 // =================================================================
 
 async function loadMonthlyChart(expenseData) {
-    console.log("Loading monthly chart with data:", expenseData);
-    
     const canvas = getDashEl('mainChart');
-    if (!canvas) {
-        console.error("Main chart canvas not found");
-        return;
-    }
-    
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        console.error("Could not get 2D context");
-        return;
-    }
+    if (mainChartInstance) mainChartInstance.destroy();
+
+    let labels = [], fuelData = [], maintenanceData = [], reparationData = [], purchasesData = [];
     
-    if (mainChartInstance) {
-        mainChartInstance.destroy();
-        mainChartInstance = null;
+    if (expenseData?.monthly_breakdown?.length > 0) {
+        const sorted = expenseData.monthly_breakdown.sort((a, b) => new Date(a.month_year) - new Date(b.month_year));
+        labels = sorted.map(item => new Date(item.month_year).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+        fuelData = sorted.map(item => item.fuel_cost || 0);
+        maintenanceData = sorted.map(item => item.maintenance_cost || 0);
+        reparationData = sorted.map(item => item.reparation_cost || 0);
+        purchasesData = sorted.map(item => item.purchase_cost || 0);
     }
 
-    // Prepare data for the chart
-    let labels = [];
-    let fuelData = [];
-    let maintenanceData = [];
-    let reparationData = [];
-    let purchasesData = [];
-    
-    if (expenseData && expenseData.monthly_breakdown && expenseData.monthly_breakdown.length > 0) {
-        // Sort by date to ensure chronological order
-        const sortedBreakdown = expenseData.monthly_breakdown.sort((a, b) => {
-            const dateA = a.month_year ? new Date(a.month_year) : new Date(0);
-            const dateB = b.month_year ? new Date(b.month_year) : new Date(0);
-            return dateA - dateB;
-        });
-        
-        labels = sortedBreakdown.map(item => {
-            if (item.month_year) {
-                const date = new Date(item.month_year);
-                return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-            }
-            return 'Unknown';
-        });
-        
-        fuelData = sortedBreakdown.map(item => item.fuel_cost || 0);
-        maintenanceData = sortedBreakdown.map(item => item.maintenance_cost || 0);
-        reparationData = sortedBreakdown.map(item => item.reparation_cost || 0);
-        purchasesData = sortedBreakdown.map(item => item.purchase_cost || 0);
-    } else {
-        // Fallback data if no API data available
-        console.warn("No monthly breakdown data available, using fallback data");
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        labels = months.slice(-6); // Last 6 months
-        
-        // Generate some sample data for demonstration
-        fuelData = labels.map(() => Math.floor(Math.random() * 500000) + 100000);
-        maintenanceData = labels.map(() => Math.floor(Math.random() * 300000) + 50000);
-        reparationData = labels.map(() => Math.floor(Math.random() * 200000) + 30000);
-        purchasesData = labels.map(() => Math.floor(Math.random() * 1000000) + 200000);
-    }
-    
-    console.log("Chart data prepared:", { labels, fuelData, maintenanceData, reparationData, purchasesData });
-
-    const chartConfig = {
+    mainChartInstance = new Chart(ctx, {
         type: currentChartType,
         data: {
             labels: labels,
             datasets: [
-                { 
-                    label: 'Fuel', 
-                    data: fuelData, 
-                    borderColor: '#f97316', 
-                    backgroundColor: currentChartType === 'bar' ? 'rgba(249, 115, 22, 0.7)' : 'rgba(249, 115, 22, 0.1)',
-                    borderWidth: 2, 
-                    fill: currentChartType === 'line'
-                },
-                { 
-                    label: 'Maintenance', 
-                    data: maintenanceData, 
-                    borderColor: '#3b82f6', 
-                    backgroundColor: currentChartType === 'bar' ? 'rgba(59, 130, 246, 0.7)' : 'rgba(59, 130, 246, 0.1)',
-                    borderWidth: 2, 
-                    fill: currentChartType === 'line'
-                },
-                { 
-                    label: 'Reparations', 
-                    data: reparationData, 
-                    borderColor: '#ef4444', 
-                    backgroundColor: currentChartType === 'bar' ? 'rgba(239, 68, 68, 0.7)' : 'rgba(239, 68, 68, 0.1)',
-                    borderWidth: 2, 
-                    fill: currentChartType === 'line'
-                },
-                { 
-                    label: 'Purchases', 
-                    data: purchasesData, 
-                    borderColor: '#10b981', 
-                    backgroundColor: currentChartType === 'bar' ? 'rgba(16, 185, 129, 0.7)' : 'rgba(16, 185, 129, 0.1)',
-                    borderWidth: 2, 
-                    fill: currentChartType === 'line',
-                    hidden: true // Hide purchases by default as they can be large
-                }
+                { label: 'Fuel', data: fuelData, borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', borderWidth: 2, fill: true },
+                { label: 'Maintenance', data: maintenanceData, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true },
+                { label: 'Reparations', data: reparationData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true }
             ]
         },
-        options: { 
-            responsive: true, 
+        options: {
+            responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: { 
-                legend: { 
-                    labels: { 
-                        color: '#94a3b8',
-                        font: { size: 11 }
-                    },
-                    position: 'top'
-                },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    titleColor: '#e2e8f0',
-                    bodyColor: '#cbd5e1',
-                    callbacks: {
-                        label: (context) => `${context.dataset.label}: ${formatBIF(context.raw)}`
-                    }
-                }
-            }, 
-            scales: { 
-                y: { 
-                    beginAtZero: true,
-                    grid: { 
-                        color: 'rgba(255,255,255,0.05)',
-                        drawBorder: false
-                    }, 
-                    ticks: { 
-                        color: '#94a3b8',
-                        callback: (value) => {
-                            if (value >= 1000000) return `BIF ${(value/1000000).toFixed(1)}M`;
-                            if (value >= 1000) return `BIF ${(value/1000).toFixed(1)}k`;
-                            return `BIF ${value}`;
-                        }
-                    } 
-                }, 
-                x: { 
-                    grid: { 
-                        display: false,
-                        drawBorder: false
-                    }, 
-                    ticks: { 
-                        color: '#94a3b8',
-                        maxRotation: 45
-                    } 
-                } 
-            } 
+            plugins: { legend: { labels: { color: '#94a3b8' } } },
+            scales: {
+                y: { ticks: { color: '#94a3b8', callback: v => 'BIF ' + v.toLocaleString() }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+            }
         }
-    };
-
-    mainChartInstance = new Chart(ctx, chartConfig);
-    console.log("Monthly chart created successfully");
+    });
 }
 
 async function loadVehicleStatusChart(data) {
-    console.log("Loading vehicle status chart:", data);
-    
     const canvas = getDashEl('statusChart');
     if (!canvas) return;
-    
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    if (statusChartInstance) {
-        statusChartInstance.destroy();
-        statusChartInstance = null;
-    }
+    if (statusChartInstance) statusChartInstance.destroy();
 
-    // Safety checks for data
-    let labels = ['Available', 'In Use', 'Maintenance'];
-    let counts = [0, 0, 0];
-    
-    if (data && data.labels && data.counts) {
-        labels = data.labels;
-        counts = data.counts;
-    } else if (data && data.vehicle_status) {
-        // Handle alternative data structure
-        labels = ['Available', 'In Use', 'Maintenance'];
-        counts = [
-            data.vehicle_status.available || 0,
-            data.vehicle_status.in_use || 0,
-            data.vehicle_status.maintenance || 0
-        ];
-    }
-    
-    console.log("Vehicle status data:", { labels, counts });
-    
-    const bgColors = ['#10b981', '#3b82f6', '#ef4444'];
-    const hoverColors = ['#34d399', '#60a5fa', '#f87171'];
+    const labels = data?.labels || ['Available', 'In Use', 'Maintenance'];
+    const counts = data?.counts || [0, 0, 0];
 
-    // Update count displays
+    // Update the small counters below the chart
     const availableEl = getDashEl('available-count');
     const inUseEl = getDashEl('inuse-count');
     const maintenanceEl = getDashEl('maintenance-count');
-    
-    if (availableEl) availableEl.innerText = counts[0] || '0';
-    if (inUseEl) inUseEl.innerText = counts[1] || '0';
-    if (maintenanceEl) maintenanceEl.innerText = counts[2] || '0';
+    if (availableEl) availableEl.innerText = counts[0];
+    if (inUseEl) inUseEl.innerText = counts[1];
+    if (maintenanceEl) maintenanceEl.innerText = counts[2];
 
     statusChartInstance = new Chart(ctx, {
         type: 'doughnut',
-        data: { 
-            labels: labels, 
-            datasets: [{ 
-                data: counts, 
-                backgroundColor: bgColors,
-                hoverBackgroundColor: hoverColors,
-                borderWidth: 2,
-                borderColor: '#1e293b'
-            }] 
+        data: {
+            labels: labels,
+            datasets: [{
+                data: counts,
+                backgroundColor: ['#10b981', '#3b82f6', '#ef4444'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
         },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            cutout: '70%',
-            plugins: { 
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    titleColor: '#e2e8f0',
-                    bodyColor: '#cbd5e1',
-                    callbacks: {
-                        label: (context) => `${context.label}: ${context.raw} vehicles`
-                    }
-                }
-            }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: { legend: { display: false } }
         }
     });
-    
-    console.log("Vehicle status chart created successfully");
 }
 
 async function loadExpenseChart(expenseData) {
-    console.log("Loading expense chart:", expenseData);
-    
     const canvas = getDashEl('expenseChart');
     if (!canvas) return;
-    
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    if (expenseChartInstance) {
-        expenseChartInstance.destroy();
-        expenseChartInstance = null;
-    }
+    if (expenseChartInstance) expenseChartInstance.destroy();
 
-    let fuel = 0;
-    let maintenance = 0;
-    let reparation = 0;
-    let purchases = 0;
-    
-    if (expenseData) {
-        fuel = expenseData.total_fuel_cost || 0;
-        maintenance = expenseData.total_maintenance_cost || 0;
-        reparation = expenseData.total_reparation_cost || 0;
-        purchases = expenseData.total_vehicle_purchase_cost || 0;
-    }
-    
-    const total = fuel + maintenance + reparation + purchases;
-    
-    // Calculate percentages
-    const fuelPercent = total > 0 ? ((fuel / total) * 100).toFixed(1) : 0;
-    const maintenancePercent = total > 0 ? ((maintenance / total) * 100).toFixed(1) : 0;
-    const reparationPercent = total > 0 ? ((reparation / total) * 100).toFixed(1) : 0;
-    const purchasesPercent = total > 0 ? ((purchases / total) * 100).toFixed(1) : 0;
-    
-    console.log("Expense percentages:", { fuelPercent, maintenancePercent, reparationPercent, purchasesPercent });
-    
-    // Update percentage displays
-    const fuelPercentEl = getDashEl('fuel-percent');
-    const maintenancePercentEl = getDashEl('maintenance-percent');
-    const reparationPercentEl = getDashEl('reparation-percent');
-    const purchasesPercentEl = getDashEl('purchases-percent');
-    
-    if (fuelPercentEl) fuelPercentEl.innerText = `${fuelPercent}%`;
-    if (maintenancePercentEl) maintenancePercentEl.innerText = `${maintenancePercent}%`;
-    if (reparationPercentEl) reparationPercentEl.innerText = `${reparationPercent}%`;
-    if (purchasesPercentEl) purchasesPercentEl.innerText = `${purchasesPercent}%`;
+    const fuel = expenseData?.total_fuel_cost || 0;
+    const maint = expenseData?.total_maintenance_cost || 0;
+    const rep = expenseData?.total_reparation_cost || 0;
+    const pur = expenseData?.total_vehicle_purchase_cost || 0;
+    const total = fuel + maint + rep + pur;
+
+    const updatePct = (id, val) => {
+        const el = getDashEl(id);
+        if (el) el.innerText = total > 0 ? ((val / total) * 100).toFixed(1) + '%' : '0%';
+    };
+
+    updatePct('fuel-percent', fuel);
+    updatePct('maintenance-percent', maint);
+    updatePct('reparation-percent', rep);
+    updatePct('purchases-percent', pur);
 
     expenseChartInstance = new Chart(ctx, {
         type: 'doughnut',
-        data: { 
-            labels: ['Fuel', 'Maintenance', 'Reparations', 'Purchases'], 
-            datasets: [{ 
-                data: [fuel, maintenance, reparation, purchases], 
+        data: {
+            labels: ['Fuel', 'Maintenance', 'Reparations', 'Purchases'],
+            datasets: [{
+                data: [fuel, maint, rep, pur],
                 backgroundColor: ['#f97316', '#3b82f6', '#ef4444', '#10b981'],
-                hoverBackgroundColor: ['#fb923c', '#60a5fa', '#f87171', '#34d399'],
-                borderWidth: 2,
-                borderColor: '#1e293b'
-            }] 
+                borderWidth: 0
+            }]
         },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            cutout: '65%',
-            plugins: { 
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    titleColor: '#e2e8f0',
-                    bodyColor: '#cbd5e1',
-                    callbacks: {
-                        label: (context) => {
-                            const value = context.raw;
-                            const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return `${context.label}: ${formatBIF(value)} (${percent}%)`;
-                        }
-                    }
-                }
-            }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: { legend: { display: false } }
         }
     });
-    
-    console.log("Expense chart created successfully");
 }
 
 // =================================================================
-// 5. EVENT HANDLERS
+// 5. HANDLERS & UTILS
 // =================================================================
 
-function handlePeriodChange(event) {
-    currentPeriod = event.target.value;
-    const customDateRange = getDashEl('customDateRange');
-    
+function handlePeriodChange(e) {
+    currentPeriod = e.target.value;
+    const customRange = getDashEl('customDateRange');
     if (currentPeriod === 'custom') {
-        if (customDateRange) customDateRange.classList.remove('hidden');
+        customRange?.classList.remove('hidden');
     } else {
-        if (customDateRange) customDateRange.classList.add('hidden');
+        customRange?.classList.add('hidden');
         loadDashboardData();
     }
 }
 
 function applyCustomDateRange() {
-    const startDateInput = getDashEl('startDate');
-    const endDateInput = getDashEl('endDate');
-    
-    if (!startDateInput || !endDateInput || !startDateInput.value || !endDateInput.value) {
-        // Show error toast
-        showToast('Please select both start and end dates', 'error');
-        return;
-    }
-    
-    // Validate date range
-    const startDate = new Date(startDateInput.value);
-    const endDate = new Date(endDateInput.value);
-    
-    if (startDate > endDate) {
-        showToast('Start date cannot be after end date', 'error');
-        return;
-    }
-    
     loadDashboardData();
 }
 
 function toggleChartType() {
     currentChartType = currentChartType === 'line' ? 'bar' : 'line';
-    
-    const toggleButton = getDashEl('chartTypeToggle');
-    if (toggleButton) {
-        const icon = currentChartType === 'line' ? 'bar-chart-2' : 'trending-up';
-        const text = currentChartType === 'line' ? 'Bar' : 'Line';
-        toggleButton.innerHTML = `<i data-lucide="${icon}" class="w-3 h-3"></i> ${text}`;
-        
-        if (window.lucide) window.lucide.createIcons();
-    }
-    
-    // Reload chart with new type
-    const dateRange = getDateRangeForPeriod(currentPeriod);
-    window.fetchWithAuth(
-        `/analytics-data/expense-summary?start_date=${dateRange.start}&end_date=${dateRange.end}&detailed=true`
-    ).then(monthlyExpenseData => {
-        loadMonthlyChart(monthlyExpenseData);
-    }).catch(error => {
-        console.error("Error fetching data for chart:", error);
-        loadMonthlyChart(null); // Load with fallback data
-    });
-}
-
-function refreshDashboard() {
-    console.log("Refreshing dashboard...");
-    
-    // Show refresh animation
-    const refreshButtons = document.querySelectorAll('button:contains("Refresh")');
-    refreshButtons.forEach(btn => {
-        const icon = btn.querySelector('i');
-        if (icon) {
-            icon.classList.add('animate-spin');
-            setTimeout(() => icon.classList.remove('animate-spin'), 1000);
-        }
-    });
-    
+    const btn = getDashEl('chartTypeToggle');
+    if (btn) btn.innerHTML = `<i data-lucide="${currentChartType === 'line' ? 'bar-chart-2' : 'trending-up'}" class="w-3 h-3"></i> ${currentChartType === 'line' ? 'Bar' : 'Line'}`;
+    if (window.lucide) window.lucide.createIcons();
     loadDashboardData();
 }
 
-// =================================================================
-// 6. UTILITY FUNCTIONS
-// =================================================================
+function refreshDashboard() {
+    loadDashboardData();
+}
+
+function formatBIF(amount) {
+    return `BIF ${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
 
 function setLoadingStates(isLoading) {
-    const loadingElements = [
-        'kpi-vehicles', 'kpi-alerts', 'kpi-fuel', 'kpi-requests',
-        'kpi-total-expenses', 'kpi-maintenance', 'kpi-reparation', 'kpi-purchases'
-    ];
-    
-    loadingElements.forEach(id => {
+    const els = ['kpi-vehicles', 'kpi-alerts', 'kpi-fuel', 'kpi-requests', 'kpi-total-expenses', 'kpi-purchases'];
+    els.forEach(id => {
         const el = getDashEl(id);
-        if (el) {
-            if (isLoading) {
-                el.classList.add('opacity-50');
-                if (el.textContent === '0' || el.textContent === 'BIF 0.00') {
-                    el.textContent = '...';
-                }
-            } else {
-                el.classList.remove('opacity-50');
-            }
-        }
+        if (el) isLoading ? el.classList.add('animate-pulse', 'opacity-50') : el.classList.remove('animate-pulse', 'opacity-50');
     });
 }
 
 function showErrorState() {
-    const alertsContainer = getDashEl('recentAlerts');
-    if (alertsContainer) {
-        alertsContainer.innerHTML = `
-            <div class="flex items-center justify-center p-8">
-                <div class="text-center">
-                    <i data-lucide="alert-circle" class="w-8 h-8 text-red-500 mx-auto mb-2"></i>
-                    <p class="text-slate-400 text-sm">Failed to load dashboard data</p>
-                    <button onclick="refreshDashboard()" class="mt-2 text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 mx-auto">
-                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> Try Again
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-}
-
-function showToast(message, type = 'info') {
-    const toastContainer = getDashEl('toast-container');
-    if (!toastContainer) {
-        // Create toast container if it doesn't exist
-        const container = document.createElement('div');
-        container.id = 'toast-container';
-        container.className = 'fixed bottom-4 right-4 z-50 flex flex-col gap-2';
-        document.body.appendChild(container);
-    }
-    
-    const finalContainer = getDashEl('toast-container') || document.getElementById('toast-container');
-    if (!finalContainer) return;
-    
-    const toast = document.createElement('div');
-    toast.className = `px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium animate-up ${
-        type === 'error' ? 'bg-red-500' : 
-        type === 'success' ? 'bg-green-500' : 'bg-blue-500'
-    }`;
-    toast.textContent = message;
-    
-    finalContainer.appendChild(toast);
-    
-    // Remove toast after 3 seconds
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(10px)';
-        toast.style.transition = 'all 0.3s ease';
-        
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 300);
-    }, 3000);
+    const container = getDashEl('recentAlerts');
+    if (container) container.innerHTML = `<p class="text-red-400 text-center py-4 text-sm">Error loading data. Please refresh.</p>`;
 }
 
 // =================================================================
-// 7. RESPONSIVE HANDLING
-// =================================================================
-
-function handleDashboardResize() {
-    if (mainChartInstance) mainChartInstance.resize();
-    if (statusChartInstance) statusChartInstance.resize();
-    if (expenseChartInstance) expenseChartInstance.resize();
-}
-
-// Add resize listener
-if (typeof window !== 'undefined') {
-    window.addEventListener('resize', handleDashboardResize);
-}
-
-// =================================================================
-// 8. CLEANUP FUNCTION
+// 6. CLEANUP
 // =================================================================
 
 window.cleanupDashboard = function() {
-    console.log("Cleaning up dashboard...");
-    
-    // Destroy charts
-    if (mainChartInstance) {
-        mainChartInstance.destroy();
-        mainChartInstance = null;
-    }
-    if (statusChartInstance) {
-        statusChartInstance.destroy();
-        statusChartInstance = null;
-    }
-    if (expenseChartInstance) {
-        expenseChartInstance.destroy();
-        expenseChartInstance = null;
-    }
-    
-    // Remove event listeners
-    const periodSelect = getDashEl('dashboardPeriod');
-    if (periodSelect) {
-        periodSelect.removeEventListener('change', handlePeriodChange);
-    }
-    
-    const chartToggle = getDashEl('chartTypeToggle');
-    if (chartToggle) {
-        chartToggle.removeEventListener('click', toggleChartType);
-    }
-    
-    // Remove resize listener
-    window.removeEventListener('resize', handleDashboardResize);
-    
-    console.log("Dashboard cleanup complete");
+    if (mainChartInstance) mainChartInstance.destroy();
+    if (statusChartInstance) statusChartInstance.destroy();
+    if (expenseChartInstance) expenseChartInstance.destroy();
 };
 
-// Make functions globally available
 window.applyCustomDateRange = applyCustomDateRange;
-window.toggleChartType = toggleChartType;
 
-// Initialize if this module is loaded directly (for testing)
-if (document.readyState === 'complete' && window.location.hash === '#dashboard') {
+// Self-init if hash is present
+if (window.location.hash === '#dashboard') {
     setTimeout(initDashboard, 100);
 }
