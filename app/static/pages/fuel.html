@@ -1,172 +1,195 @@
-<!-- HEADER -->
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
-    <div class="flex items-center gap-4">
-        <div>
-            <h2 class="text-2xl font-bold text-white tracking-tight">Fuel Management</h2>
-            <p class="text-slate-400 text-sm mt-1">Track fuel consumption and costs.</p>
+<!-- fuel.html -->
+
+<!-- 1. HEADER SECTION -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
+    <div>
+        <h2 class="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+            <div class="p-2 bg-amber-500/20 rounded-xl text-amber-500">
+                <i data-lucide="fuel" class="w-8 h-8"></i>
+            </div>
+            Fuel Management
+        </h2>
+        <p class="text-slate-400 text-sm mt-1">Track fleet consumption, control costs, and verify logs.</p>
+    </div>
+
+    <div class="flex items-center gap-3">
+        <!-- BULK VERIFY (Visible when items selected) -->
+        <div id="fuelBulkActions" class="hidden animate-in fade-in slide-in-from-right-4">
+            <button id="btnFuelBulkVerify" onclick="executeFuelBulkVerify()" 
+                class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-emerald-900/20">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                Verify Selected (<span id="fuelSelectedCount">0</span>)
+            </button>
         </div>
-        
-        <!-- BULK VERIFY BUTTON -->
-        <button id="btnFuelBulkVerify" onclick="executeFuelBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
-            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-            <span>Verify Selected (<span id="fuelSelectedCount">0</span>)</span>
+
+        <!-- ADD LOG BUTTON -->
+        <button onclick="openAddFuelModal()" 
+            class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold shadow-xl shadow-blue-900/20 flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            <span>Log Fuel Entry</span>
         </button>
     </div>
-
-    <button onclick="openAddFuelModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
-        <i data-lucide="plus" class="w-4 h-4"></i>
-        <span>Add Fuel Log</span>
-    </button>
 </div>
 
-<!-- FILTERS -->
-<div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
-    <div class="relative w-full md:w-96">
-        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
-        <input type="text" id="fuelSearch" placeholder="Search vehicle plate..." 
-            class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition placeholder-slate-500">
+<!-- 2. SEARCH & FILTERS -->
+<div class="glass-panel p-2 mb-6 grid grid-cols-1 md:grid-cols-4 gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+    <div class="relative md:col-span-2">
+        <i data-lucide="search" class="absolute left-4 top-3.5 w-4 h-4 text-slate-500"></i>
+        <input type="text" id="fuelSearch" placeholder="Search by vehicle plate..." 
+            class="w-full bg-slate-900/40 border-none text-white rounded-xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-blue-500/50 transition placeholder:text-slate-600">
     </div>
     
-    <div class="flex items-center gap-3">
-        <select id="fuelStatusFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
-            <option value="all">All Status</option>
-            <option value="verified">Verified</option>
-            <option value="pending">Pending</option>
-        </select>
-        <select id="fuelVehicleFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
-            <option value="">All Vehicles</option>
-        </select>
-    </div>
+    <select id="fuelVehicleFilter" class="bg-slate-800 border-none text-slate-300 text-sm rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none">
+        <option value="">All Vehicles</option>
+    </select>
+    
+    <select id="fuelStatusFilter" class="bg-slate-800 border-none text-slate-300 text-sm rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none">
+        <option value="all">All Logs</option>
+        <option value="verified">Verified Only</option>
+        <option value="pending">Awaiting Verification</option>
+    </select>
 </div>
 
-<!-- TABLE -->
-<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/20">
+<!-- 3. DATA TABLE -->
+<div class="glass-panel overflow-hidden border border-white/5 shadow-2xl animate-in fade-in zoom-in-95 duration-700 delay-200">
     <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full text-left">
             <thead>
-                <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/40">
-                    <!-- Checkbox Header -->
-                    <th class="p-4 w-10">
-                        <input type="checkbox" id="selectAllFuel" class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">
+                <tr class="text-[10px] text-slate-500 uppercase tracking-widest bg-slate-800/40 border-b border-white/5">
+                    <th class="p-5 text-center w-12">
+                        <input type="checkbox" id="selectAllFuel" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0 cursor-pointer">
                     </th>
-                    <th class="p-4 font-semibold">Vehicle</th>
-                    <th class="p-4 font-semibold">Fuel Type</th>
-                    <th class="p-4 font-semibold text-right">Qty / Price</th>
-                    <th class="p-4 font-semibold text-right">Total Cost</th>
-                    <th class="p-4 font-semibold">Status</th>
-                    <th class="p-4 font-semibold">Date</th>
-                    <th class="p-4 font-semibold text-right">Actions</th>
+                    <th class="p-5 font-bold">Vehicle Details</th>
+                    <th class="p-5 font-bold">Fuel Type</th>
+                    <th class="p-5 font-bold text-right">Consumption</th>
+                    <th class="p-5 font-bold text-right">Total Cost</th>
+                    <th class="p-5 font-bold">Status</th>
+                    <th class="p-5 font-bold">Timestamp</th>
+                    <th class="p-5 font-bold text-right">Actions</th>
                 </tr>
             </thead>
-            <tbody id="fuelLogsBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
-                <tr><td colspan="8" class="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
-                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> Loading fuel logs...
-                </td></tr>
+            <tbody id="fuelLogsBody" class="divide-y divide-white/5 text-slate-300">
+                <!-- Data injected via fuel.js -->
+                <tr>
+                    <td colspan="8" class="p-20 text-center text-slate-500">
+                        <div class="flex flex-col items-center gap-4">
+                            <div class="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                            <span class="font-medium tracking-wide">Syncing Fuel Records...</span>
+                        </div>
+                    </td>
+                </tr>
             </tbody>
         </table>
     </div>
-    <div class="p-4 border-t border-slate-700/30 bg-slate-800/20 flex justify-between items-center">
-        <span class="text-xs text-slate-500" id="fuelLogsCount">0 logs found</span>
+    
+    <!-- 4. FOOTER / COUNT -->
+    <div class="p-5 bg-slate-900/40 border-t border-white/5 flex justify-between items-center">
+        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest" id="fuelLogsCount">0 logs found</span>
+        <div class="flex items-center gap-4">
+            <button class="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="arrow-left" class="w-4 h-4"></i></button>
+            <span class="text-xs text-white bg-blue-600 px-3 py-1 rounded-full font-bold shadow-lg">Page 1</span>
+            <button class="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+        </div>
     </div>
 </div>
 
-<!-- ADD/EDIT FUEL MODAL -->
-<div id="addFuelModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
-        
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+<!-- ================= MODALS ================= -->
+
+<!-- ADD / EDIT MODAL -->
+<div id="addFuelModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform transition-all">
+        <div class="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-slate-800 to-slate-900">
             <div>
-                <h3 class="text-lg font-bold text-white" id="fuelModalTitle">Add Fuel Log</h3>
-                <p class="text-xs text-slate-400">Record a new fueling transaction.</p>
+                <h3 id="fuelModalTitle" class="text-xl font-bold text-white tracking-tight">Fuel Log Entry</h3>
+                <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-0.5">Record transaction details</p>
             </div>
-            <button onclick="closeModal('addFuelModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
+            <button onclick="closeModal('addFuelModal')" class="text-slate-500 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         
-        <div class="p-6 space-y-5">
+        <div class="p-8 space-y-6">
             <input type="hidden" id="fuelEditId">
             
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Vehicle</label>
-                <div class="relative">
-                    <select id="fuelVehicleSelect" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm focus:border-blue-500 outline-none appearance-none"></select>
-                    <i data-lucide="chevron-down" class="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none"></i>
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Assigned Vehicle</label>
+                    <div class="relative">
+                        <select id="fuelVehicleSelect" class="w-full bg-slate-950 border-none text-white rounded-xl p-4 appearance-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer font-mono text-sm"></select>
+                        <i data-lucide="chevron-down" class="absolute right-4 top-4 text-slate-600 pointer-events-none"></i>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Fuel Grade</label>
+                    <select id="fuelTypeSelect" class="w-full bg-slate-950/50 border border-white/5 text-slate-500 rounded-xl p-4 appearance-none text-sm cursor-not-allowed">
+                        <option>Auto-detected</option>
+                    </select>
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Fuel Type</label>
-                <select id="fuelTypeSelect" disabled class="w-full bg-slate-950/50 border border-slate-700/50 text-slate-400 rounded-lg px-3 py-2 text-sm cursor-not-allowed">
-                    <option>Auto-selected based on vehicle</option>
-                </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Quantity</label>
-                    <input type="number" id="fuelQuantity" step="0.01" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="0.00">
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Quantity (Liters)</label>
+                    <input type="number" id="fuelQuantity" step="0.01" placeholder="0.00" 
+                        class="w-full bg-slate-950 border-none text-white rounded-xl p-4 font-bold text-lg focus:ring-2 focus:ring-blue-500 transition">
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Price / Unit</label>
-                    <input type="number" id="fuelPrice" step="0.01" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="0.00">
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Price / Liter (BIF)</label>
+                    <input type="number" id="fuelPrice" step="0.01" placeholder="0.00" 
+                        class="w-full bg-slate-950 border-none text-white rounded-xl p-4 font-bold text-lg focus:ring-2 focus:ring-blue-500 transition">
                 </div>
             </div>
 
-            <!-- Auto Calculation -->
-            <div class="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20 text-center hidden" id="costPreview">
-                <span class="text-xs text-blue-300 uppercase tracking-wide">Estimated Total Cost</span>
-                <div class="text-xl font-bold text-white mt-1" id="totalCostDisplay">BIF 0.00</div>
+            <!-- Total Preview -->
+            <div id="costPreview" class="hidden animate-in zoom-in duration-300 p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-center">
+                <span class="text-[10px] text-emerald-500 uppercase font-black tracking-widest block mb-1">Estimated Total Expenditure</span>
+                <span id="totalCostDisplay" class="text-3xl font-black text-emerald-400 tracking-tighter">0.00 BIF</span>
             </div>
         </div>
 
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeModal('addFuelModal')" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white rounded-lg transition">Cancel</button>
-            <button id="btnSaveFuel" onclick="saveFuelLog()" class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 transition flex items-center gap-2">
-                <i data-lucide="plus" class="w-4 h-4"></i> Save
+        <div class="p-6 bg-slate-950/50 flex justify-end gap-4">
+            <button onclick="closeModal('addFuelModal')" class="px-6 py-3 text-sm font-bold text-slate-400 hover:text-white transition">Cancel</button>
+            <button id="btnSaveFuel" onclick="saveFuelLog()" 
+                class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-900/20 transition transform active:scale-95">
+                Save Log Entry
             </button>
         </div>
     </div>
 </div>
 
-<!-- VIEW DETAILS MODAL -->
-<div id="viewFuelModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-            <h3 class="text-lg font-bold text-white">Fuel Log Details</h3>
-            <button onclick="closeModal('viewFuelModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+<!-- VIEW MODAL -->
+<div id="viewFuelModal" class="fixed inset-0 z-50 hidden bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden transform transition-all">
+        <div class="p-6 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
+            <h3 class="text-xl font-bold text-white tracking-tight">Record Audit</h3>
+            <button onclick="closeModal('viewFuelModal')" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
-        <div class="p-6 text-sm space-y-4" id="viewFuelContent">
-            <!-- Content Injected via JS -->
+        <div class="p-8" id="viewFuelContent">
+            <!-- JS Content -->
         </div>
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-            <button onclick="closeModal('viewFuelModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg">Close</button>
+        <div class="p-6 bg-slate-950/50 flex justify-end">
+            <button onclick="closeModal('viewFuelModal')" class="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-2xl transition">Acknowledge</button>
         </div>
     </div>
 </div>
 
-<!-- CONFIRM MODAL (UNIQUE ID: fuelConfirmModal) -->
-<div id="fuelConfirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
-        <div class="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4 text-blue-500" id="fuelConfirmIcon">
-            <i data-lucide="alert-circle" class="w-6 h-6"></i>
-        </div>
-        <h3 class="text-lg font-bold text-white mb-2" id="fuelConfirmTitle">Confirm Action</h3>
-        <p class="text-slate-400 text-sm mb-6" id="fuelConfirmMessage">Are you sure?</p>
-        <div class="flex gap-3 justify-center">
-            <button onclick="closeModal('fuelConfirmModal')" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 text-sm w-full">Cancel</button>
-            <!-- BUTTON ID matches JS listener -->
-            <button id="btnFuelConfirmAction" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm w-full font-medium">Confirm</button>
+<!-- PROFESSIONAL CONFIRMATION MODAL -->
+<div id="fuelConfirmModal" class="fixed inset-0 z-[100] hidden bg-slate-950/95 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 w-full max-w-sm rounded-3xl p-8 shadow-2xl text-center">
+        <div id="fuelConfirmIcon" class="mx-auto"></div>
+        <h3 id="fuelConfirmTitle" class="text-2xl font-black text-white mb-2"></h3>
+        <p id="fuelConfirmMessage" class="text-slate-400 text-sm mb-10 leading-relaxed"></p>
+        
+        <div class="flex gap-4">
+            <button onclick="closeModal('fuelConfirmModal')" class="flex-1 py-4 text-slate-400 font-bold hover:text-white transition">Cancel</button>
+            <button id="btnFuelConfirmAction" class="flex-1 py-4 rounded-2xl text-white font-bold transition transform active:scale-95 shadow-lg"></button>
         </div>
     </div>
 </div>
 
 <!-- ALERT MODAL -->
-<div id="fuelAlertModal" class="fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-up">
-        <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" id="fuelAlertIcon"></div>
-        <h3 class="text-lg font-bold text-white mb-2" id="fuelAlertTitle"></h3>
-        <p class="text-slate-400 text-sm mb-6" id="fuelAlertMessage"></p>
-        <button onclick="closeModal('fuelAlertModal')" class="btn-primary w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2">OK</button>
+<div id="fuelAlertModal" class="fixed inset-0 z-[200] hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 w-full max-w-xs rounded-3xl p-10 text-center shadow-2xl">
+        <div id="fuelAlertIcon" class="mb-6"></div>
+        <h3 id="fuelAlertTitle" class="text-xl font-bold text-white mb-2"></h3>
+        <p id="fuelAlertMessage" class="text-slate-400 text-sm leading-relaxed"></p>
     </div>
 </div>
