@@ -1,9 +1,10 @@
 /**
  * ==============================================================================
- * FLEETDASH FUEL MODULE - FULL PRODUCTION VERSION
+ * FLEETDASH FUEL MODULE - FULL 100% PRODUCTION VERSION
  * ==============================================================================
  */
 
+// --- GLOBAL STATE ---
 let allFuelLogs = [];
 let fuelOptions = { vehicles: [], fuelTypes: [] };
 let currentUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
@@ -14,6 +15,9 @@ let fuelActionId = null;
 let fuelCurrentPage = 1;
 const fuelPageLimit = 10;
 
+// =================================================================
+// 0. HELPER: DOM ELEMENT GETTER
+// =================================================================
 function getFuelEl(id) {
     return document.getElementById(id);
 }
@@ -24,24 +28,24 @@ function getFuelEl(id) {
 async function initFuel() {
     console.log("Fuel Module: Initializing Full Feature Set...");
     
-    // Setup Role-Based Filter UI
+    // 1. Setup Filters based on user permissions
     setupFuelRoleFilters();
 
-    // Attach Main Listeners
+    // 2. Attach Event Listeners for Table Controls
     getFuelEl('fuelSearch')?.addEventListener('input', () => { fuelCurrentPage = 1; renderFuelTable(); });
     getFuelEl('fuelVehicleFilter')?.addEventListener('change', () => { fuelCurrentPage = 1; renderFuelTable(); });
     getFuelEl('fuelStatusFilter')?.addEventListener('change', () => { fuelCurrentPage = 1; renderFuelTable(); });
     getFuelEl('selectAllFuel')?.addEventListener('change', toggleFuelSelectAll);
 
-    // Form Calculation Listeners
+    // 3. Form Calculation Listeners
     getFuelEl('fuelQuantity')?.addEventListener('input', updateCostPreview);
     getFuelEl('fuelPrice')?.addEventListener('input', updateCostPreview);
     getFuelEl('fuelVehicleSelect')?.addEventListener('change', autoSelectFuelType);
     
-    // Modal Action Confirmation
+    // 4. Modal Action Confirmation
     getFuelEl('btnFuelConfirmAction')?.addEventListener('click', executeFuelConfirmAction);
 
-    // Load Initial Data
+    // 5. Load Initial Data
     await loadFuelData();
     await fetchFuelDropdowns();
 }
@@ -54,6 +58,7 @@ function setupFuelRoleFilters() {
     if (!sFilter) return;
 
     if (!['admin', 'superadmin', 'charoi'].includes(currentUserRole)) {
+        // Simple users only see statuses relevant to their own tracking
         sFilter.innerHTML = `
             <option value="all">All My Logs</option>
             <option value="verified">Verified Records</option>
@@ -72,7 +77,7 @@ async function loadFuelData() {
         const data = await window.fetchWithAuth('/fuel/'); 
         const items = Array.isArray(data) ? data : (data.items || []);
         
-        // LIFO SORTING: Highest ID first
+        // LIFO SORTING: Highest ID (newest) first
         allFuelLogs = items.sort((a, b) => b.id - a.id);
         
         selectedFuelIds.clear(); 
@@ -94,10 +99,10 @@ async function fetchFuelDropdowns() {
         fuelOptions.vehicles = Array.isArray(vehicles) ? vehicles : (vehicles.items || []);
         fuelOptions.fuelTypes = Array.isArray(types) ? types : (types.items || []);
         
-        // POPULATE FILTERS (Show all vehicles)
+        // Populate Filters (Shows everything for searching)
         populateSelect('fuelVehicleFilter', fuelOptions.vehicles, '', 'plate_number', 'All Vehicles');
         
-        // POPULATE ADD FORM (Strictly Available Only as requested)
+        // Populate Add Form (Strictly filtered to AVAILABLE status)
         const availableOnly = fuelOptions.vehicles.filter(v => v.status.toLowerCase() === 'available');
         populateSelect('fuelVehicleSelect', availableOnly, '', 'plate_number', 'Select Available Vehicle');
         
@@ -136,7 +141,7 @@ function renderFuelTable() {
     if (countEl) countEl.innerText = `${filtered.length} logs found`;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500 font-medium italic">No fuel records found matching filters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500 font-medium italic text-sm">No fuel records found.</td></tr>`;
         return;
     }
 
@@ -163,14 +168,14 @@ function renderFuelTable() {
 
         let actionButtons = '';
         if (log.is_verified) {
-            actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}<i data-lucide="lock" class="w-3 h-3 text-slate-600" title="Locked"></i></div>`;
+            actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}<i data-lucide="lock" class="w-3 h-3 text-slate-600" title="Locked Record"></i></div>`;
         } else if (canManage) {
             actionButtons = `
                 <div class="flex items-center justify-end gap-2">
                     ${viewBtn}
-                    <button onclick="reqFuelVerify(${log.id})" class="p-2 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-xl transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
-                    <button onclick="openEditFuelModal(${log.id})" class="p-2 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-xl transition" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                    <button onclick="reqFuelDelete(${log.id})" class="p-2 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-xl transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="reqFuelVerify(${log.id})" class="p-2 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-xl transition" title="Verify Entry"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                    <button onclick="openEditFuelModal(${log.id})" class="p-2 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-xl transition" title="Modify Entry"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                    <button onclick="reqFuelDelete(${log.id})" class="p-2 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-xl transition" title="Remove Entry"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
         } else {
             actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
@@ -185,10 +190,7 @@ function renderFuelTable() {
                     <div class="text-slate-200 font-bold">${log.quantity?.toFixed(2)} L</div>
                     <div class="text-[10px] text-slate-500">@ ${log.price_little?.toLocaleString()} BIF</div>
                 </td>
-                <td class="p-4 text-right">
-                    <div class="text-emerald-400 font-black">${log.cost?.toLocaleString()}</div>
-                    <div class="text-[8px] text-slate-600 uppercase">Total BIF</div>
-                </td>
+                <td class="p-4 text-right font-black text-emerald-400">${log.cost?.toLocaleString()}</td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-slate-500 text-[10px]">${new Date(log.created_at).toLocaleDateString()}</td>
                 <td class="p-4 text-right">${actionButtons}</td>
@@ -235,22 +237,22 @@ function updateFuelBulkUI() {
 window.executeFuelBulkVerify = function() {
     fuelActionType = 'bulk-verify';
     fuelActionId = null;
-    showFuelConfirmModal("Verify Records?", `Authorize ${selectedFuelIds.size} selected entries? This will lock them permanently.`, "shield-check", "bg-indigo-600");
+    showFuelConfirmModal("Verify Multiple Records?", `You are about to verify ${selectedFuelIds.size} entries. These records will be locked for accounting.`, "shield-check", "bg-indigo-600");
 }
 
 // =================================================================
-// 5. ACTION EXECUTION (SINGLE & BULK)
+// 5. ACTION EXECUTION
 // =================================================================
 window.reqFuelVerify = function(id) {
     fuelActionType = 'verify';
     fuelActionId = id;
-    showFuelConfirmModal('Verify Entry?', 'Once verified, this cost is finalized and cannot be changed.', 'check-circle', 'bg-emerald-600');
+    showFuelConfirmModal('Authorize Record?', 'Verification will lock this fuel entry permanently.', 'check-circle', 'bg-emerald-600');
 }
 
 window.reqFuelDelete = function(id) {
     fuelActionType = 'delete';
     fuelActionId = id;
-    showFuelConfirmModal('Permanently Delete?', 'This will remove the entry from all history reports.', 'trash-2', 'bg-red-600');
+    showFuelConfirmModal('Permanently Delete?', 'This will erase the fuel entry from all history logs.', 'trash-2', 'bg-red-600');
 }
 
 async function executeFuelConfirmAction() {
@@ -270,11 +272,11 @@ async function executeFuelConfirmAction() {
         if (result !== null) {
             selectedFuelIds.clear();
             await loadFuelData();
-            showFuelAlert("Success", "Fuel database updated successfully.", true);
+            showFuelAlert("Operation Successful", "The selected fuel records have been processed and updated.", true);
         }
     } catch(e) {
         window.closeModal('fuelConfirmModal');
-        showFuelAlert("Error", e.message, false);
+        showFuelAlert("Process Failed", e.message || "An unexpected error occurred during processing.", false);
     }
     btn.disabled = false; btn.innerText = "Confirm Action";
 }
@@ -289,7 +291,7 @@ window.openAddFuelModal = function() {
     getFuelEl('fuelPrice').value = "";
     getFuelEl('costPreview').classList.add('hidden');
     
-    // RE-FILTER: Only available vehicles for NEW logs
+    // RE-FILTER: Strictly AVAILABLE ONLY for new entries
     const availableOnly = fuelOptions.vehicles.filter(v => v.status.toLowerCase() === 'available');
     populateSelect('fuelVehicleSelect', availableOnly, '', 'plate_number', 'Select Available Vehicle');
     
@@ -301,9 +303,9 @@ window.openEditFuelModal = function(id) {
     if(!log) return;
     
     getFuelEl('fuelEditId').value = log.id; 
-    getFuelEl('fuelModalTitle').innerText = "Modify Fuel Entry";
+    getFuelEl('fuelModalTitle').innerText = "Modify Fuel Log";
 
-    // For edits, show ALL vehicles to preserve current selection
+    // Show all vehicles for editing to maintain existing selection
     populateSelect('fuelVehicleSelect', fuelOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
     populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, log.fuel_type_id, 'fuel_type', 'Select Type');
     
@@ -323,12 +325,12 @@ window.saveFuelLog = async function() {
     };
 
     if(!payload.vehicle_id || !payload.quantity || !payload.price_little) {
-        return showFuelAlert("Incomplete Form", "All fields are required to calculate costs.", false);
+        return showFuelAlert("Missing Information", "Please ensure vehicle, quantity and price are filled.", false);
     }
 
     const id = getFuelEl('fuelEditId').value;
     const btn = getFuelEl('btnSaveFuel');
-    btn.disabled = true; btn.innerText = "Saving Data...";
+    btn.disabled = true; btn.innerText = "Saving Transaction...";
 
     try {
         const res = id 
@@ -338,13 +340,13 @@ window.saveFuelLog = async function() {
         if(res && !res.detail) {
             window.closeModal('addFuelModal');
             await loadFuelData();
-            showFuelAlert("Saved", "Transaction record updated.", true);
+            showFuelAlert("Entry Saved", "The fuel log has been successfully recorded in the system.", true);
         } else {
-            showFuelAlert("Backend Error", res.detail || "Validation failed.", false);
+            showFuelAlert("Validation Error", res.detail || "Database rejected the entry.", false);
         }
-    } catch(e) { showFuelAlert("Network Error", "Connection to API failed.", false); }
+    } catch(e) { showFuelAlert("Connection Error", "API server is unreachable.", false); }
     
-    btn.disabled = false; btn.innerText = "Save Entry";
+    btn.disabled = false; btn.innerText = "Save Log Entry";
 }
 
 window.openViewFuelModal = function(id) {
@@ -357,25 +359,25 @@ window.openViewFuelModal = function(id) {
         <div class="space-y-6">
             <div class="grid grid-cols-2 gap-4">
                 <div class="p-4 bg-slate-950/50 rounded-2xl border border-white/5">
-                    <span class="text-[9px] text-slate-500 uppercase font-black block mb-1">Vehicle Plate</span>
+                    <span class="text-[9px] text-slate-500 uppercase font-black block mb-1">Fleet Vehicle</span>
                     <span class="text-white font-mono font-bold">${vehicle ? vehicle.plate_number : 'ID: '+log.vehicle_id}</span>
                 </div>
                 <div class="p-4 bg-slate-950/50 rounded-2xl border border-white/5">
-                    <span class="text-[9px] text-slate-500 uppercase font-black block mb-1">Fuel Category</span>
-                    <span class="text-white font-bold">${type ? type.fuel_type : 'N/A'}</span>
+                    <span class="text-[9px] text-slate-500 uppercase font-black block mb-1">Fuel Type</span>
+                    <span class="text-white font-bold">${type ? type.fuel_type : 'Unknown'}</span>
                 </div>
             </div>
-            <div class="flex justify-between items-center p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+            <div class="flex justify-between items-center p-5 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
                 <div>
-                    <span class="text-[9px] text-emerald-600 uppercase font-black block">Quantity & Unit Price</span>
+                    <span class="text-[9px] text-emerald-600 uppercase font-black block">Log Metrics</span>
                     <span class="text-slate-200 text-sm font-bold">${log.quantity?.toFixed(2)} L @ ${log.price_little?.toLocaleString()} BIF</span>
                 </div>
                 <div class="text-right">
-                    <span class="text-[9px] text-emerald-600 uppercase font-black block">Total Cost</span>
-                    <span class="text-emerald-400 text-xl font-black">${log.cost?.toLocaleString()} BIF</span>
+                    <span class="text-[9px] text-emerald-600 uppercase font-black block">Total Expenditure</span>
+                    <span class="text-emerald-400 text-2xl font-black tracking-tighter">${log.cost?.toLocaleString()} BIF</span>
                 </div>
             </div>
-            <p class="text-[10px] text-slate-600 text-center uppercase tracking-widest">Recorded on ${new Date(log.created_at).toLocaleString()}</p>
+            <p class="text-[10px] text-slate-600 text-center uppercase tracking-widest font-bold italic">Transaction Registered: ${new Date(log.created_at).toLocaleString()}</p>
         </div>`;
     
     getFuelEl('viewFuelModal').classList.remove('hidden');
@@ -416,6 +418,9 @@ function showFuelConfirmModal(title, msg, icon, btnClass) {
     if(window.lucide) window.lucide.createIcons();
 }
 
+/**
+ * FIXED: Manual Acknowledge Button included as per your request.
+ */
 function showFuelAlert(title, message, isSuccess) {
     const modal = getFuelEl('fuelAlertModal');
     getFuelEl('fuelAlertTitle').innerText = title;
@@ -423,11 +428,12 @@ function showFuelAlert(title, message, isSuccess) {
     
     const iconDiv = getFuelEl('fuelAlertIcon');
     iconDiv.innerHTML = isSuccess ? '<i data-lucide="check-circle" class="w-12 h-12"></i>' : '<i data-lucide="alert-triangle" class="w-12 h-12"></i>';
-    iconDiv.className = isSuccess ? "w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6" : "w-24 h-24 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6";
+    iconDiv.className = isSuccess 
+        ? "w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/10" 
+        : "w-24 h-24 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-red-500/10";
     
     modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
-    setTimeout(() => modal.classList.add('hidden'), 3500);
 }
 
 function populateSelect(id, items, selected, key, def) {
@@ -439,5 +445,5 @@ function populateSelect(id, items, selected, key, def) {
 
 window.closeModal = (id) => getFuelEl(id).classList.add('hidden');
 
-// Entry Point
+// Initialization
 document.addEventListener('DOMContentLoaded', initFuel);
