@@ -1,6 +1,7 @@
 /**
  * ==============================================================================
  * FLEETDASH REQUESTS MODULE (FULL REGENERATION)
+ * Now with Role-Based Filter Pruning
  * ==============================================================================
  */
 
@@ -26,8 +27,11 @@ function getReqEl(id) {
 // 1. INITIALIZATION
 // =================================================================
 async function initRequests() {
-    console.log("Requests Module: Initializing Full Feature Set...");
+    console.log("Requests Module: Initializing Full Feature Set with Role Filtering...");
     
+    // Prune the filter dropdown options based on role
+    setupRoleBasedFilters();
+
     // Attach Event Listeners
     const search = getReqEl('reqSearch');
     const filter = getReqEl('reqStatusFilter');
@@ -45,6 +49,49 @@ async function initRequests() {
     await loadAssignmentResources();
 }
 
+/**
+ * NEW: Prunes the #reqStatusFilter combobox based on user role.
+ */
+function setupRoleBasedFilters() {
+    const filterSelect = getReqEl('reqStatusFilter');
+    if (!filterSelect) return;
+
+    let optionsHtml = `<option value="all">All Mission Statuses</option>`;
+
+    if (['admin', 'superadmin'].includes(reqUserRole)) {
+        // Admins see everything
+        optionsHtml += `
+            <option value="pending">Waiting: Chef Approval</option>
+            <option value="step1">Waiting: Logistics Approval</option>
+            <option value="step2">Waiting: Resource Assignment</option>
+            <option value="completed">Finalized & Approved</option>
+            <option value="denied">Rejected Missions</option>`;
+    } else if (reqUserRole === 'chef') {
+        optionsHtml += `
+            <option value="pending">To Approve (Pending)</option>
+            <option value="completed">Finalized</option>
+            <option value="denied">Rejected</option>`;
+    } else if (reqUserRole === 'logistic') {
+        optionsHtml += `
+            <option value="step1">To Approve (Logistics)</option>
+            <option value="completed">Finalized</option>
+            <option value="denied">Rejected</option>`;
+    } else if (reqUserRole === 'charoi') {
+        optionsHtml += `
+            <option value="step2">To Assign (Charoi)</option>
+            <option value="completed">Finalized</option>
+            <option value="denied">Rejected</option>`;
+    } else {
+        // Standard User or Driver
+        optionsHtml += `
+            <option value="pending">Waiting Approval</option>
+            <option value="completed">Approved/Finished</option>
+            <option value="denied">Denied</option>`;
+    }
+
+    filterSelect.innerHTML = optionsHtml;
+}
+
 // =================================================================
 // 2. DATA LOADING
 // =================================================================
@@ -55,12 +102,10 @@ async function loadRequestsData() {
     try {
         const data = await window.fetchWithAuth('/requests/?limit=1000'); 
         
-        // Safety check to prevent "data is null" errors
         if (!data) {
             console.error("No data received from /requests/");
             allRequests = [];
         } else {
-            // Handle array or paginated object
             allRequests = Array.isArray(data) ? data : (data.items || []);
         }
         
@@ -72,7 +117,6 @@ async function loadRequestsData() {
 }
 
 async function loadAssignmentResources() {
-    // Only load if user has permission to assign
     if (!['admin', 'superadmin', 'charoi'].includes(reqUserRole)) return;
 
     try {
@@ -83,7 +127,6 @@ async function loadAssignmentResources() {
 
         const rawVehicles = vData && vData.items ? vData.items : (Array.isArray(vData) ? vData : []);
         
-        // FIX: Filter only ACTIVE vehicles and clean data
         availableVehicles = rawVehicles.filter(v => 
             v.status && (v.status.toLowerCase() === 'active' || v.status.toLowerCase() === 'available')
         );
@@ -104,7 +147,6 @@ function renderReqTable() {
     const searchVal = getReqEl('reqSearch')?.value.toLowerCase() || '';
     const filterVal = getReqEl('reqStatusFilter')?.value || 'all';
 
-    // Filter Logic
     filteredRequests = allRequests.filter(r => {
         const reqName = r.requester ? r.requester.full_name.toLowerCase() : "";
         const dest = r.destination ? r.destination.toLowerCase() : "";
@@ -114,16 +156,14 @@ function renderReqTable() {
         if (filterVal === 'pending') matchFilter = r.status === 'pending';
         else if (filterVal === 'step1') matchFilter = r.status === 'approved_by_chef';
         else if (filterVal === 'step2') matchFilter = r.status === 'approved_by_logistic';
-        else if (filterVal === 'completed') matchFilter = ['fully_approved', 'completed'].includes(r.status);
+        else if (filterVal === 'completed') matchFilter = ['fully_approved', 'completed', 'in_progress'].includes(r.status);
         else if (filterVal === 'denied') matchFilter = r.status === 'denied';
 
         return matchSearch && matchFilter;
     });
 
-    // LIFO Sort (Newest first)
     filteredRequests.sort((a, b) => b.id - a.id);
 
-    // Pagination
     updatePaginationUI();
     const startIdx = (reqCurrentPage - 1) * reqPageLimit;
     const paginatedItems = filteredRequests.slice(startIdx, startIdx + reqPageLimit);
@@ -134,7 +174,6 @@ function renderReqTable() {
     }
 
     tbody.innerHTML = paginatedItems.map(r => {
-        // DYNAMIC STATUS MAPPING FOR REQUESTERS
         const statusMap = {
             'pending': { text: "Waiting: Chef Approval", color: "bg-amber-500/10 text-amber-500", bar: "w-1/4 bg-amber-500" },
             'approved_by_chef': { text: "Waiting: Logistics", color: "bg-blue-500/10 text-blue-500", bar: "w-1/2 bg-blue-500" },
@@ -201,12 +240,10 @@ window.openViewRequestModal = function(id) {
 
     const isAssigned = r.vehicle_id && r.driver_id;
     
-    // Determine if the "Approve" button should be allowed
     const canApprove = (reqUserRole === 'chef' && r.status === 'pending') ||
                        (reqUserRole === 'logistic' && r.status === 'approved_by_chef') ||
                        (['charoi', 'admin', 'superadmin'].includes(reqUserRole) && r.status === 'approved_by_logistic');
 
-    // Build Assignment Info Block
     const assignmentHtml = `
         <div class="bg-slate-950/50 p-4 rounded-2xl border border-white/5 space-y-3">
             <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Resources Assigned</h4>
@@ -235,7 +272,6 @@ window.openViewRequestModal = function(id) {
                     <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded-lg border border-slate-700 font-mono">ID #${r.id}</span>
                 </div>
             </div>
-            
             <div class="grid grid-cols-2 gap-4">
                 <div class="p-3 bg-slate-800/50 rounded-xl">
                     <span class="text-slate-500 text-[9px] uppercase font-bold block mb-1">Destination</span>
@@ -246,26 +282,20 @@ window.openViewRequestModal = function(id) {
                     <span class="text-white text-xs">${r.passengers?.length ? r.passengers.join(', ') : 'None'}</span>
                 </div>
             </div>
-
             <div class="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 italic text-slate-400 text-sm">
                 "${r.description || 'No additional mission details provided.'}"
             </div>
-
             ${assignmentHtml}
         </div>`;
 
-    // Footer Buttons
     let footerButtons = `<button onclick="closeModal('viewRequestModal')" class="px-6 py-2.5 text-slate-400 text-sm font-bold hover:text-white transition">Close</button>`;
     
-    // Assignment Trigger (Admin/Charoi)
     if (['admin', 'charoi', 'superadmin'].includes(reqUserRole) && ['approved_by_logistic', 'fully_approved'].includes(r.status)) {
         footerButtons = `<button onclick="openAssignmentModal(${r.id})" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-xl font-bold flex items-center gap-2 transition mr-auto">
             <i data-lucide="key" class="w-4 h-4"></i> Assign Resource</button>` + footerButtons;
     }
 
-    // Approval Decision Trigger
     if (canApprove) {
-        // DISABLE APPROVE FOR STEP 3 IF NOT ASSIGNED
         const isStep3 = ['charoi', 'admin', 'superadmin'].includes(reqUserRole) && r.status === 'approved_by_logistic';
         
         if (isStep3 && !isAssigned) {
@@ -294,7 +324,6 @@ window.openAssignmentModal = function(id) {
     window.closeModal('viewRequestModal');
     getReqEl('assignReqId').value = id;
     
-    // Clean combobox: Only plate number and remove N/A
     const vSel = getReqEl('assignVehicle');
     vSel.innerHTML = '<option value="">-- Select Active Vehicle --</option>' + 
         availableVehicles.map(v => {
@@ -328,7 +357,6 @@ async function submitAssignment() {
         window.closeModal('assignmentModal');
         showReqAlert("Assigned", "Vehicle and Driver successfully linked to mission.", false);
         await loadRequestsData();
-        // Re-open the details so the user can now click "Approve"
         openViewRequestModal(parseInt(id));
     } else {
         showReqAlert("Error", res.detail || "Assignment failed", true);
@@ -404,10 +432,8 @@ function showReqAlert(title, message, isError) {
     }
 }
 
-// Global scope bindings for HTML buttons
 window.openAddRequestModal = function() {
     getReqEl('addRequestModal').classList.remove('hidden');
 };
 
-// Start logic
 document.addEventListener('DOMContentLoaded', initRequests);
