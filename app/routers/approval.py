@@ -15,9 +15,11 @@ def submit_approval(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.require_role(["chef", "logistic", "charoi", "admin", "superadmin"]))
 ):
+    
+    # 1. Fetch Request with Relational Data
     db_request = db.query(models.VehicleRequest).options(
         joinedload(models.VehicleRequest.requester).joinedload(models.User.service),
-        joinedload(models.VehicleRequest.vehicle),
+        joinedload(models.VehicleRequest.vehicle), # Ensure this is here
         joinedload(models.VehicleRequest.driver)
     ).filter(models.VehicleRequest.id == request_id).first()
     
