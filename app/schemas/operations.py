@@ -1,14 +1,14 @@
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
+from .users import UserOut, UserSimpleOut
+from .vehicles import VehicleOut
 
-# Helper for driver info
 class DriverNestedInRequest(BaseModel):
     id: int
     full_name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
-# Approval Output
 class RequestApprovalOut(BaseModel):
     id: int
     approval_step: int
@@ -17,7 +17,6 @@ class RequestApprovalOut(BaseModel):
     updated_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
-# Base Request
 class VehicleRequestBase(BaseModel):
     destination: str
     description: Optional[str] = None
@@ -37,7 +36,6 @@ class RequestApprovalUpdate(BaseModel):
     status: str 
     comments: Optional[str] = None
 
-# Main Output Schema
 class VehicleRequestOut(VehicleRequestBase):
     id: int
     status: str
@@ -46,10 +44,8 @@ class VehicleRequestOut(VehicleRequestBase):
     driver_id: Optional[int] = None
     created_at: datetime
     rejection_reason: Optional[str] = None
-    
-    # Relationships (Must be Optional to prevent 500 errors)
-    requester: Optional[dict] = None # Using dict temporarily for safety
-    vehicle: Optional[dict] = None
+    requester: Optional[UserOut] = None
+    vehicle: Optional[VehicleOut] = None
     driver: Optional[DriverNestedInRequest] = None
     approvals: List[RequestApprovalOut] = []
     
