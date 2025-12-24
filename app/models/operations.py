@@ -51,7 +51,7 @@ class VehicleRequest(Base):
     approvals = relationship("RequestApproval", back_populates="request", cascade="all, delete-orphan")
 
 class RequestApproval(Base):
-    __tablename__ = 'request_approvals'
+    __tablename__ = "request_approvals"
     id = Column(Integer, primary_key=True, index=True)
     approval_step = Column(Integer, nullable=False)
     status = Column(Enum(ApprovalStatus, name='approval_status_enum'), nullable=False, default=ApprovalStatus.PENDING, index=True)

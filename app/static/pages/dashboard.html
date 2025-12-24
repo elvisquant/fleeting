@@ -1,4 +1,4 @@
-<!-- dashboard.html - Professional Dashboard -->
+<!-- dashboard.html - Professional Fleet Dashboard -->
 <div class="space-y-6">
   <!-- Header with Time Period Selector -->
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
@@ -60,25 +60,25 @@
       <p class="text-slate-400 text-sm font-medium mb-2">Total Vehicles</p>
       <h3 class="text-2xl md:text-3xl font-bold text-white mb-1" id="kpi-vehicles">0</h3>
       <div class="flex items-center gap-1 text-xs text-slate-500">
-        <i data-lucide="trending-up" class="w-3 h-3 text-green-500"></i>
-        <span>Operational fleet</span>
+        <i data-lucide="check-circle" class="w-3 h-3 text-green-500"></i>
+        <span>Registered fleet</span>
       </div>
     </div>
 
-    <!-- Active Alerts -->
+    <!-- Active Alerts (Active Pannes Only) -->
     <div class="glass-panel p-5 relative overflow-hidden group hover:transform hover:-translate-y-1 transition-all duration-300">
       <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-all duration-300 transform group-hover:scale-110">
-        <i data-lucide="alert-triangle" class="w-16 h-16 text-orange-400"></i>
+        <i data-lucide="alert-circle" class="w-16 h-16 text-red-400"></i>
       </div>
       <p class="text-slate-400 text-sm font-medium mb-2">Active Alerts</p>
       <h3 class="text-2xl md:text-3xl font-bold text-white mb-1" id="kpi-alerts">0</h3>
       <div class="flex items-center gap-1 text-xs text-slate-500">
-        <i data-lucide="eye" class="w-3 h-3 text-blue-500"></i>
-        <span>Require attention</span>
+        <i data-lucide="tool" class="w-3 h-3 text-red-500"></i>
+        <span>Unresolved breakdowns</span>
       </div>
     </div>
 
-    <!-- Total Expenses -->
+    <!-- Total Expenses (Sum of all costs) -->
     <div class="glass-panel p-5 relative overflow-hidden group hover:transform hover:-translate-y-1 transition-all duration-300">
       <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-all duration-300 transform group-hover:scale-110">
         <i data-lucide="dollar-sign" class="w-16 h-16 text-emerald-400"></i>
@@ -105,153 +105,151 @@
     </div>
   </div>
 
-  <!-- Expense Breakdown Cards -->
+  <!-- Expense Breakdown Row -->
   <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6 animate-up delay-2">
-    <!-- Fuel Expenses -->
+    <!-- Fuel -->
     <div class="glass-panel p-5 hover:transform hover:-translate-y-1 transition-all duration-300">
       <div class="flex items-start justify-between mb-4">
-        <div class="p-2 rounded-lg bg-orange-500/10">
-          <i data-lucide="fuel" class="w-5 h-5 text-orange-400"></i>
-        </div>
+        <div class="p-2 rounded-lg bg-orange-500/10"><i data-lucide="fuel" class="w-5 h-5 text-orange-400"></i></div>
         <span class="text-xs font-medium text-orange-400 bg-orange-500/10 px-2 py-1 rounded">Fuel</span>
       </div>
       <h3 class="text-xl font-bold text-white mb-1" id="kpi-fuel">BIF 0</h3>
-      <p class="text-slate-400 text-sm">Weekly fuel cost</p>
+      <p class="text-slate-400 text-sm">Fueling records</p>
     </div>
 
-    <!-- Maintenance Expenses -->
+    <!-- Maintenance -->
     <div class="glass-panel p-5 hover:transform hover:-translate-y-1 transition-all duration-300">
       <div class="flex items-start justify-between mb-4">
-        <div class="p-2 rounded-lg bg-blue-500/10">
-          <i data-lucide="wrench" class="w-5 h-5 text-blue-400"></i>
-        </div>
+        <div class="p-2 rounded-lg bg-blue-500/10"><i data-lucide="wrench" class="w-5 h-5 text-blue-400"></i></div>
         <span class="text-xs font-medium text-blue-400 bg-blue-500/10 px-2 py-1 rounded">Maintenance</span>
       </div>
       <h3 class="text-xl font-bold text-white mb-1" id="kpi-maintenance">BIF 0</h3>
-      <p class="text-slate-400 text-sm">Maintenance costs</p>
+      <p class="text-slate-400 text-sm">Service costs</p>
     </div>
 
-    <!-- Reparation Expenses -->
+    <!-- Reparation -->
     <div class="glass-panel p-5 hover:transform hover:-translate-y-1 transition-all duration-300">
       <div class="flex items-start justify-between mb-4">
-        <div class="p-2 rounded-lg bg-red-500/10">
-          <i data-lucide="hammer" class="w-5 h-5 text-red-400"></i>
-        </div>
-        <span class="text-xs font-medium text-red-400 bg-red-500/10 px-2 py-1 rounded">Reparations</span>
+        <div class="p-2 rounded-lg bg-red-500/10"><i data-lucide="hammer" class="w-5 h-5 text-red-400"></i></div>
+        <span class="text-xs font-medium text-red-400 bg-red-500/10 px-2 py-1 rounded">Reparation</span>
       </div>
       <h3 class="text-xl font-bold text-white mb-1" id="kpi-reparation">BIF 0</h3>
-      <p class="text-slate-400 text-sm">Repair & servicing</p>
+      <p class="text-slate-400 text-sm">Major repairs</p>
     </div>
 
     <!-- Vehicle Purchase -->
     <div class="glass-panel p-5 hover:transform hover:-translate-y-1 transition-all duration-300">
       <div class="flex items-start justify-between mb-4">
-        <div class="p-2 rounded-lg bg-green-500/10">
-          <i data-lucide="shopping-cart" class="w-5 h-5 text-green-400"></i>
-        </div>
+        <div class="p-2 rounded-lg bg-green-500/10"><i data-lucide="shopping-cart" class="w-5 h-5 text-green-400"></i></div>
         <span class="text-xs font-medium text-green-400 bg-green-500/10 px-2 py-1 rounded">Purchases</span>
       </div>
       <h3 class="text-xl font-bold text-white mb-1" id="kpi-purchases">BIF 0</h3>
-      <p class="text-slate-400 text-sm">Vehicle acquisitions</p>
+      <p class="text-slate-400 text-sm">Acquisition costs</p>
     </div>
   </div>
 
   <!-- Charts Section -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 animate-up delay-3">
-    <!-- Monthly Activity Chart -->
+    <!-- Expense Trends -->
     <div class="glass-panel p-6 lg:col-span-2">
       <div class="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div>
           <h3 class="font-semibold text-lg text-white">Expense Trends</h3>
           <p class="text-slate-400 text-sm">Monthly expenditure overview</p>
         </div>
-        <div class="flex items-center gap-2 mt-2 md:mt-0">
-          <button onclick="toggleChartType()" id="chartTypeToggle" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition">
-            <i data-lucide="bar-chart-2" class="w-3 h-3"></i> Bar
-          </button>
-        </div>
+        <button onclick="toggleChartType()" id="chartTypeToggle" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition">
+          <i data-lucide="bar-chart-2" class="w-3 h-3"></i> Bar
+        </button>
       </div>
       <div class="relative h-64 md:h-72 w-full">
         <canvas id="mainChart"></canvas>
       </div>
     </div>
 
-    <!-- Vehicle Status & Expense Distribution -->
+    <!-- Status & Distribution -->
     <div class="flex flex-col gap-6">
-      <!-- Vehicle Status -->
+      <!-- Vehicle Status (Updated for 4 categories) -->
       <div class="glass-panel p-6 flex-1">
         <h3 class="font-semibold text-lg text-white mb-4">Vehicle Status</h3>
         <div class="relative h-48 w-full flex justify-center">
           <canvas id="statusChart"></canvas>
         </div>
-        <div class="grid grid-cols-3 gap-2 mt-4">
-          <div class="text-center">
-            <div class="w-3 h-3 rounded-full bg-green-500 mx-auto mb-1"></div>
-            <p class="text-xs text-slate-400">Available</p>
-            <p class="text-sm font-semibold text-white" id="available-count">0</p>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 mt-4">
+          <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-800/20">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                <span class="text-xs text-slate-400">Available</span>
+            </div>
+            <p class="text-xs font-bold text-white" id="available-count">0</p>
           </div>
-          <div class="text-center">
-            <div class="w-3 h-3 rounded-full bg-blue-500 mx-auto mb-1"></div>
-            <p class="text-xs text-slate-400">In Use</p>
-            <p class="text-sm font-semibold text-white" id="inuse-count">0</p>
+          <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-800/20">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                <span class="text-xs text-slate-400">Maint.</span>
+            </div>
+            <p class="text-xs font-bold text-white" id="maintenance-count">0</p>
           </div>
-          <div class="text-center">
-            <div class="w-3 h-3 rounded-full bg-red-500 mx-auto mb-1"></div>
-            <p class="text-xs text-slate-400">Maintenance</p>
-            <p class="text-sm font-semibold text-white" id="maintenance-count">0</p>
+          <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-800/20">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                <span class="text-xs text-slate-400">Panne</span>
+            </div>
+            <p class="text-xs font-bold text-white" id="panne-count">0</p>
+          </div>
+          <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-800/20">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                <span class="text-xs text-slate-400">Repair</span>
+            </div>
+            <p class="text-xs font-bold text-white" id="reparation-count">0</p>
           </div>
         </div>
       </div>
 
       <!-- Expense Distribution -->
       <div class="glass-panel p-6 flex-1">
-        <h3 class="font-semibold text-lg text-white mb-4">Expense Distribution</h3>
+        <h3 class="font-semibold text-lg text-white mb-4">Distribution</h3>
         <div class="relative h-32 w-full flex justify-center">
           <canvas id="expenseChart"></canvas>
         </div>
-        <div class="grid grid-cols-2 gap-3 mt-4">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-orange-500"></div>
-            <span class="text-xs text-slate-400">Fuel</span>
-            <span class="text-xs font-semibold text-white ml-auto" id="fuel-percent">0%</span>
+        <div class="grid grid-cols-2 gap-2 mt-4">
+          <div class="flex items-center justify-between text-[10px]">
+            <span class="text-slate-400">Fuel</span>
+            <span class="font-bold text-white" id="fuel-percent">0%</span>
           </div>
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span class="text-xs text-slate-400">Maintenance</span>
-            <span class="text-xs font-semibold text-white ml-auto" id="maintenance-percent">0%</span>
+          <div class="flex items-center justify-between text-[10px]">
+            <span class="text-slate-400">Maint.</span>
+            <span class="font-bold text-white" id="maintenance-percent">0%</span>
           </div>
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-red-500"></div>
-            <span class="text-xs text-slate-400">Reparations</span>
-            <span class="text-xs font-semibold text-white ml-auto" id="reparation-percent">0%</span>
+          <div class="flex items-center justify-between text-[10px]">
+            <span class="text-slate-400">Repair</span>
+            <span class="font-bold text-white" id="reparation-percent">0%</span>
           </div>
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-green-500"></div>
-            <span class="text-xs text-slate-400">Purchases</span>
-            <span class="text-xs font-semibold text-white ml-auto" id="purchases-percent">0%</span>
+          <div class="flex items-center justify-between text-[10px]">
+            <span class="text-slate-400">Purchases</span>
+            <span class="font-bold text-white" id="purchases-percent">0%</span>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Recent Alerts -->
+  <!-- Recent Pannes List -->
   <div class="glass-panel p-6 animate-up delay-4">
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h3 class="font-semibold text-lg text-white">Recent Alerts</h3>
-        <p class="text-slate-400 text-sm">Latest notifications requiring attention</p>
+        <h3 class="font-semibold text-lg text-white">Active Breakdown Reports</h3>
+        <p class="text-slate-400 text-sm">Vehicles currently requiring mechanical attention</p>
       </div>
       <a href="#panne" class="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-1 transition">
         View All <i data-lucide="arrow-right" class="w-4 h-4"></i>
       </a>
     </div>
     <div id="recentAlerts" class="space-y-3">
+      <!-- Alerts populated by JS -->
       <div class="flex items-center justify-center p-8">
-        <div class="text-center">
-          <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-blue-500 mx-auto mb-2"></i>
-          <p class="text-slate-400 text-sm">Loading alerts...</p>
-        </div>
+        <i data-lucide="loader-2" class="w-6 h-6 animate-spin text-blue-500 mr-2"></i>
+        <span class="text-slate-400 text-sm">Syncing reports...</span>
       </div>
     </div>
   </div>
