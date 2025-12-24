@@ -1,136 +1,36 @@
-<!-- requests.html -->
-
-<!-- HEADER -->
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
-    <div>
-        <h2 class="text-2xl font-bold text-white tracking-tight">Vehicle Requests</h2>
-        <p class="text-slate-400 text-sm mt-1">Track missions and manage approval workflows.</p>
+<div class="p-6">
+    <div class="flex justify-between items-center mb-8">
+        <div><h2 class="text-3xl font-extrabold text-white">Missions</h2><p class="text-slate-400 text-sm">Real-time tracking & resource assignment.</p></div>
+        <button onclick="openAddModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold shadow-xl transition transform hover:scale-105">New Mission</button>
     </div>
-    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 transition">
-        <i data-lucide="plus" class="w-4 h-4"></i>
-        <span>New Mission Request</span>
-    </button>
-</div>
 
-<!-- FILTERS -->
-<div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
-    <div class="relative w-full md:w-96">
-        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
-        <input type="text" id="reqSearch" placeholder="Search requester or destination..." 
-            class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition">
-    </div>
-    
-    <div class="flex items-center gap-3">
-        <select id="reqStatusFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
-            <option value="all">All Status</option>
-            <option value="pending">Pending Approval</option>
-            <option value="step1">Step 1 (Chef)</option>
-            <option value="step2">Step 2 (Logistics)</option>
-            <option value="completed">Finalized (Approved)</option>
-            <option value="denied">Denied</option>
-        </select>
-    </div>
-</div>
-
-<!-- TABLE -->
-<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl">
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/40">
-                    <th class="p-4 font-semibold">Requester</th>
-                    <th class="p-4 font-semibold">Destination</th>
-                    <th class="p-4 font-semibold">Departure</th>
-                    <th class="p-4 font-semibold">Return</th>
-                    <th class="p-4 font-semibold">Progress</th>
-                    <th class="p-4 font-semibold">Status</th>
-                    <th class="p-4 font-semibold text-right">Actions</th>
-                </tr>
+    <div class="glass-panel overflow-hidden border border-white/5 shadow-2xl rounded-3xl">
+        <table class="w-full text-left">
+            <thead class="bg-slate-800/50 text-[10px] uppercase text-slate-500 tracking-widest">
+                <tr><th class="p-5">Requester</th><th class="p-5">Destination</th><th class="p-5">Departure</th><th class="p-5">Status</th><th class="p-5 text-right">Action</th></tr>
             </thead>
-            <tbody id="reqLogsBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
-                <tr><td colspan="7" class="p-12 text-center text-slate-500">Loading requests...</td></tr>
-            </tbody>
+            <tbody id="reqLogsBody" class="divide-y divide-white/5 text-sm"></tbody>
         </table>
     </div>
-    
-    <!-- PAGINATION -->
-    <div class="p-4 border-t border-slate-700/30 bg-slate-800/20 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <span class="text-xs text-slate-500" id="reqCount">0 requests found</span>
-        
-        <div class="flex items-center gap-2">
-            <button id="prevReqPage" onclick="changeReqPage(-1)" class="p-2 border border-slate-700 rounded-lg text-slate-400 disabled:opacity-30 transition hover:bg-slate-700">
-                <i data-lucide="chevron-left" class="w-4 h-4"></i>
-            </button>
-            <span class="text-xs font-medium text-slate-300 bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700" id="reqPageIndicator">Page 1</span>
-            <button id="nextReqPage" onclick="changeReqPage(1)" class="p-2 border border-slate-700 rounded-lg text-slate-400 disabled:opacity-30 transition hover:bg-slate-700">
-                <i data-lucide="chevron-right" class="w-4 h-4"></i>
-            </button>
-        </div>
+</div>
+
+<!-- MODALS -->
+<div id="viewModal" class="fixed inset-0 z-50 hidden bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl">
+        <div class="p-6 border-b border-white/5 flex justify-between items-center bg-slate-800/50"><h3 class="text-white font-bold">Mission Dossier</h3><button onclick="closeModal('viewModal')"><i data-lucide="x" class="text-slate-500"></i></button></div>
+        <div class="p-8" id="viewContent"></div>
+        <div class="p-6 bg-slate-950/50 flex justify-end gap-3" id="viewFooter"></div>
     </div>
 </div>
 
-<!-- ================= MODALS ================= -->
-
-<!-- 1. ADD MODAL -->
-<div id="addRequestModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-up">
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-            <h3 class="text-lg font-bold text-white">New Request</h3>
-            <button onclick="closeModal('addRequestModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
-        </div>
-        <div class="p-6 space-y-5">
-            <div><label class="block text-xs font-semibold text-slate-500 mb-1">Destination</label><input type="text" id="reqDestination" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm outline-none"></div>
-            <div class="grid grid-cols-2 gap-4">
-                <div><label class="block text-xs font-semibold text-slate-500 mb-1">Departure</label><input type="datetime-local" id="reqDeparture" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"></div>
-                <div><label class="block text-xs font-semibold text-slate-500 mb-1">Return</label><input type="datetime-local" id="reqReturn" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"></div>
-            </div>
-            <div><label class="block text-xs font-semibold text-slate-500 mb-1">Description</label><textarea id="reqDesc" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm h-20 resize-none"></textarea></div>
-            <div><label class="block text-xs font-semibold text-slate-500 mb-1">Passengers (Matricules)</label><input type="text" id="reqPassengers" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="EMP01, EMP02"></div>
-        </div>
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeModal('addRequestModal')" class="px-4 py-2 text-sm text-slate-400">Cancel</button>
-            <button id="btnSaveReq" onclick="saveRequest()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Submit Request</button>
-        </div>
-    </div>
-</div>
-
-<!-- 2. VIEW MODAL -->
-<div id="viewRequestModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl animate-up overflow-hidden">
-        <div class="p-5 border-b border-slate-700 flex justify-between bg-slate-800/50"><h3 class="text-white font-bold">Details</h3><button onclick="closeModal('viewRequestModal')"><i data-lucide="x" class="text-slate-400"></i></button></div>
-        <div class="p-6" id="viewRequestContent"></div>
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end" id="approvalActionsFooter"></div>
-    </div>
-</div>
-
-<!-- 3. DECISION MODAL -->
-<div id="approvalModal" class="fixed inset-0 z-[60] hidden bg-black/90 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-xl p-6 text-center animate-up">
-        <h3 class="text-lg font-bold text-white mb-4" id="approvalTitle">Confirm Action</h3>
-        <textarea id="approvalComment" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg p-3 text-sm h-24 mb-4" placeholder="Comments (Required for Denial)"></textarea>
-        <div class="flex gap-3"><button onclick="closeModal('approvalModal')" class="flex-1 py-2 border border-slate-600 text-slate-300 rounded-lg">Cancel</button><button id="btnExecuteApproval" class="flex-1 py-2 rounded-lg text-white font-medium">Confirm</button></div>
-    </div>
-</div>
-
-<!-- 4. ASSIGNMENT MODAL -->
-<div id="assignmentModal" class="fixed inset-0 z-[80] hidden bg-black/80 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 animate-up">
-        <input type="hidden" id="assignReqId">
-        <h3 class="text-white font-bold text-lg mb-6">Assign Resources</h3>
+<div id="assignModal" class="fixed inset-0 z-[100] hidden bg-slate-950/95 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-blue-500/20 w-full max-w-sm rounded-3xl p-8 shadow-2xl">
+        <input type="hidden" id="assignId">
+        <h3 class="text-2xl font-bold text-white mb-6 text-center">Resource Assignment</h3>
         <div class="space-y-4">
-            <div><label class="block text-xs text-slate-500 mb-1">Select Vehicle</label><select id="assignVehicle" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg p-2.5 text-sm"></select></div>
-            <div><label class="block text-xs text-slate-500 mb-1">Select Driver</label><select id="assignDriver" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg p-2.5 text-sm"></select></div>
+            <div><label class="text-[10px] text-slate-500 uppercase font-bold ml-1">Vehicle Fleet</label><select id="assignVehicle" class="w-full bg-slate-950 border-none text-white rounded-xl p-4 mt-1"></select></div>
+            <div><label class="text-[10px] text-slate-500 uppercase font-bold ml-1">Assigned Driver</label><select id="assignDriver" class="w-full bg-slate-950 border-none text-white rounded-xl p-4 mt-1"></select></div>
         </div>
-        <div class="flex gap-3 mt-8"><button onclick="closeModal('assignmentModal')" class="flex-1 py-2 border border-slate-700 text-slate-400 rounded-lg">Cancel</button><button id="btnExecuteAssign" onclick="submitAssignment()" class="flex-1 py-2 bg-blue-600 text-white rounded-lg">Save Assignment</button></div>
-    </div>
-</div>
-
-<!-- 5. ALERT MODAL -->
-<div id="reqAlertModal" class="fixed inset-0 z-[90] hidden bg-black/90 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl p-6 text-center animate-up">
-        <div id="reqAlertIcon" class="mx-auto mb-4"></div>
-        <h3 id="reqAlertTitle" class="text-white font-bold mb-2"></h3>
-        <p id="reqAlertMessage" class="text-slate-400 text-sm mb-6"></p>
-        <button onclick="closeModal('reqAlertModal')" class="w-full py-2 bg-blue-600 text-white rounded-lg">OK</button>
+        <div class="flex gap-4 mt-10"><button onclick="closeModal('assignModal')" class="flex-1 py-4 text-slate-400 font-bold">Cancel</button><button onclick="submitAssign()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-900/40">Confirm</button></div>
     </div>
 </div>

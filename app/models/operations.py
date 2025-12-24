@@ -1,5 +1,3 @@
-# app/models/operations.py
-
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import JSON 
@@ -25,23 +23,18 @@ class VehicleRequest(Base):
     __tablename__ = "vehicle_requests"
 
     id = Column(Integer, primary_key=True, index=True)
-    
     requester_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
     vehicle_id = Column(Integer, ForeignKey("vehicle.id", ondelete="SET NULL"), nullable=True, index=True)
     driver_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
     
     destination = Column(String)
     description = Column(Text, nullable=True)
+    departure_time = Column(DateTime) 
+    return_time = Column(DateTime)
     
-    # --- FIX: Rename attributes to match Schema/Dashboard, but map to DB columns ---
-    departure_time = Column("start_time", DateTime) 
-    return_time = Column("end_time", DateTime)
-    # -------------------------------------------------------------------------------
-    
-    status = Column(Enum(RequestStatus, name='request_status_enum'), nullable=False, default=RequestStatus.PENDING, index=True)
+    status = Column(Enum(RequestStatus), nullable=False, default=RequestStatus.PENDING, index=True)
     passengers = Column(JSON, default=[]) 
     rejection_reason = Column(Text, nullable=True)
-
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -53,15 +46,13 @@ class VehicleRequest(Base):
 class RequestApproval(Base):
     __tablename__ = "request_approvals"
     id = Column(Integer, primary_key=True, index=True)
-    approval_step = Column(Integer, nullable=False)
-    status = Column(Enum(ApprovalStatus, name='approval_status_enum'), nullable=False, default=ApprovalStatus.PENDING, index=True)
+    approval_step = Column(Integer, nullable=False) # 1: Chef, 2: Logistic, 3: Charoi
+    status = Column(Enum(ApprovalStatus), nullable=False, default=ApprovalStatus.PENDING, index=True)
     comments = Column(Text, nullable=True)
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
     
     request_id = Column(Integer, ForeignKey('vehicle_requests.id', ondelete="CASCADE"), nullable=False, index=True)
     approver_id = Column(Integer, ForeignKey('user.id', ondelete="SET NULL"), nullable=True, index=True)
-    service_id = Column(Integer, ForeignKey('service.id'), nullable=True, index=True)
     
-    service = relationship("Service")
     request = relationship("VehicleRequest", back_populates="approvals")
     approver = relationship("User")
