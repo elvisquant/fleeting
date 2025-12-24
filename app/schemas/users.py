@@ -93,6 +93,8 @@ class RegisterUserRequest(UserBase):
     password: str = Field(..., min_length=8)
     role_id: int
 
+
+
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
     role_id: int

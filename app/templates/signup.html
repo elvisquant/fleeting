@@ -125,8 +125,8 @@
         /* --- MODAL SYSTEM --- */
         .modal-overlay {
             position: fixed; inset: 0;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(8px);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
             display: flex; align-items: center; justify-content: center;
             opacity: 0; pointer-events: none;
             transition: all 0.3s ease;
@@ -157,7 +157,8 @@
         .bg-red { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
 
         .summary-list { text-align: left; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 16px; margin: 20px 0; font-size: 13px; }
-        .summary-item { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .summary-item { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; }
+        .summary-item:last-child { border: none; margin: 0; }
         .s-label { color: var(--text-muted); }
         .s-value { color: white; font-weight: 600; }
 
@@ -173,7 +174,6 @@
         .btn.loading span { display: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
     </style>
 </head>
 <body>
@@ -182,12 +182,12 @@
         <div class="header">
             <div class="logo-box"><i data-lucide="shield-plus" style="color:white;"></i></div>
             <h1>Create Account</h1>
-            <p class="subtitle">Join the FleetDash management system</p>
+            <p class="subtitle">Enter your details to join the FleetDash system</p>
         </div>
 
         <form id="signupForm">
             <div class="form-grid">
-                <!-- Name Row -->
+                <!-- Row 1: Names -->
                 <div class="input-group">
                     <label class="label">First Name</label>
                     <input type="text" id="fname" class="input-field" placeholder="John" required>
@@ -199,9 +199,9 @@
                     <i data-lucide="user" class="icon"></i>
                 </div>
 
-                <!-- Professional IDs -->
+                <!-- Row 2: IDs -->
                 <div class="input-group">
-                    <label class="label">Matricule (ID)</label>
+                    <label class="label">Matricule (Employee ID)</label>
                     <input type="text" id="matricule" class="input-field" placeholder="EMP-000" required>
                     <i data-lucide="id-card" class="icon"></i>
                 </div>
@@ -211,31 +211,31 @@
                     <i data-lucide="smartphone" class="icon"></i>
                 </div>
 
-                <!-- Organization Dropdowns -->
+                <!-- Row 3: Organizational Placement -->
                 <div class="input-group full-width">
-                    <label class="label">Assign to Agency</label>
+                    <label class="label">Agency / Branch</label>
                     <select id="agency" class="input-field" required>
-                        <option value="" disabled selected>Loading agencies...</option>
+                        <option value="" disabled selected>Select Agency...</option>
                     </select>
                     <i data-lucide="map-pin" class="icon"></i>
                 </div>
                 <div class="input-group full-width">
-                    <label class="label">Department / Service</label>
+                    <label class="label">Service / Department</label>
                     <select id="service" class="input-field" required>
-                        <option value="" disabled selected>Loading departments...</option>
+                        <option value="" disabled selected>Select Department...</option>
                     </select>
-                    <i data-lucide="component" class="icon"></i>
+                    <i data-lucide="briefcase" class="icon"></i>
                 </div>
 
-                <!-- Auth -->
+                <!-- Row 4: Account Details -->
                 <div class="input-group full-width">
                     <label class="label">Work Email</label>
-                    <input type="email" id="email" class="input-field" placeholder="name@domain.com" required>
+                    <input type="email" id="email" class="input-field" placeholder="name@company.com" required>
                     <i data-lucide="mail" class="icon"></i>
                 </div>
                 <div class="input-group">
                     <label class="label">Password</label>
-                    <input type="password" id="pass" class="input-field" placeholder="••••••••" required minlength="8">
+                    <input type="password" id="pass" class="input-field" placeholder="Min. 8 chars" required minlength="8">
                     <i data-lucide="lock" class="icon"></i>
                 </div>
                 <div class="input-group">
@@ -246,7 +246,7 @@
             </div>
 
             <button type="submit" class="btn" style="margin-top: 25px;">
-                <span>Create Account</span>
+                <span>Review & Sign Up</span>
             </button>
         </form>
 
@@ -255,17 +255,17 @@
         </div>
     </div>
 
-    <!-- MODAL: CONFIRMATION -->
+    <!-- MODAL: REVIEW & CONFIRMATION -->
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-box">
             <div class="status-icon-wrap bg-blue"><i data-lucide="help-circle"></i></div>
-            <div class="modal-title">Check Your Details</div>
-            <p class="modal-desc">Please verify your information. This will be used for your official identity in the fleet system.</p>
+            <div class="modal-title">Verify Your Data</div>
+            <p class="modal-desc">Please ensure these details are correct before proceeding with your registration.</p>
             <div id="summary" class="summary-list"></div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                <button onclick="closeModal('confirmModal')" class="btn btn-ghost">Edit</button>
-                <button onclick="sendRegistration()" id="finalSubmitBtn" class="btn">
-                    <span>Submit</span>
+                <button onclick="closeModal('confirmModal')" class="btn btn-ghost" style="margin:0;">Edit</button>
+                <button onclick="sendRegistration()" id="finalSubmitBtn" class="btn" style="margin:0;">
+                    <span>Confirm</span>
                     <div class="spinner"></div>
                 </button>
             </div>
@@ -276,19 +276,19 @@
     <div id="successModal" class="modal-overlay">
         <div class="modal-box">
             <div class="status-icon-wrap bg-green"><i data-lucide="check-circle-2"></i></div>
-            <div class="modal-title">Success!</div>
+            <div class="modal-title">Registration Successful!</div>
             <p class="modal-desc">Your account has been created. A verification link has been sent to your email. You must activate it before you can log in.</p>
-            <button onclick="window.location.href='/'" class="btn">Back to Login</button>
+            <button onclick="window.location.href='/'" class="btn">Proceed to Login</button>
         </div>
     </div>
 
-    <!-- MODAL: ERROR (User Friendly) -->
+    <!-- MODAL: ERROR HANDLING -->
     <div id="errorModal" class="modal-overlay">
         <div class="modal-box">
-            <div class="status-icon-wrap bg-red"><i data-lucide="alert-triangle"></i></div>
+            <div class="status-icon-wrap bg-red"><i data-lucide="alert-circle"></i></div>
             <div id="errorTitle" class="modal-title">Unable to Sign Up</div>
             <p id="errorDesc" class="modal-desc"></p>
-            <button onclick="closeModal('errorModal')" class="btn" style="background:var(--danger)">Fix Errors</button>
+            <button onclick="closeModal('errorModal')" class="btn" style="background:var(--danger)">Close</button>
         </div>
     </div>
 
@@ -299,7 +299,7 @@
         const serviceSel = document.getElementById('service');
         let registrationData = {};
 
-        // 1. Fetch Organization Data
+        // 1. Fetch Dynamic Dropdowns (Agencies & Services)
         async function loadOptions() {
             try {
                 const [aRes, sRes] = await Promise.all([fetch('/api/v1/agencies/'), fetch('/api/v1/services/')]);
@@ -314,23 +314,30 @@
                         data.map(i => `<option value="${i.id}">${i.service_name}</option>`).join('');
                 }
             } catch (e) { 
-                console.error("Connection failed");
+                console.error("API Connection failed");
                 agencySel.innerHTML = '<option disabled>Offline</option>';
+                serviceSel.innerHTML = '<option disabled>Offline</option>';
             }
         }
         loadOptions();
 
-        // 2. Initial Form Validation
+        // 2. Client-Side Form Review
         form.onsubmit = (e) => {
             e.preventDefault();
             const p1 = document.getElementById('pass').value;
             const p2 = document.getElementById('conf').value;
 
             if(p1 !== p2) {
-                showError("Password Mismatch", "The two passwords you entered do not match. Please re-type them.");
+                showError("Password Mismatch", "The passwords you entered do not match. Please re-enter them correctly.");
                 return;
             }
 
+            if(!agencySel.value || !serviceSel.value) {
+                showError("Missing Selection", "Please select your assigned Agency and Department.");
+                return;
+            }
+
+            // CRITICAL: Constructing payload to match RegisterUserRequest schema exactly
             registrationData = {
                 matricule: document.getElementById('matricule').value.trim(),
                 full_name: document.getElementById('fname').value.trim() + " " + document.getElementById('lname').value.trim(),
@@ -339,18 +346,21 @@
                 password: p1,
                 agency_id: parseInt(agencySel.value),
                 service_id: parseInt(serviceSel.value),
-                // role_id is handled by backend for security
+                // role_id is required by schema; 0 is a placeholder as backend forces 'user' role
+                role_id: 0, 
+                is_active: false
             };
 
+            // Populate summary items in confirm modal
             document.getElementById('summary').innerHTML = `
                 <div class="summary-item"><span class="s-label">Identity</span><span class="s-value">${registrationData.full_name}</span></div>
-                <div class="summary-item"><span class="s-label">Matricule</span><span class="s-value">${registrationData.matricule}</span></div>
                 <div class="summary-item"><span class="s-label">Email</span><span class="s-value">${registrationData.email}</span></div>
+                <div class="summary-item"><span class="s-label">Matricule</span><span class="s-value">${registrationData.matricule}</span></div>
             `;
             document.getElementById('confirmModal').classList.add('active');
         };
 
-        // 3. Send Registration to Backend
+        // 3. API Communication (Sending Data)
         async function sendRegistration() {
             const btn = document.getElementById('finalSubmitBtn');
             btn.classList.add('loading');
@@ -366,26 +376,27 @@
                 const result = await response.json();
 
                 if (!response.ok) {
-                    handleBackendError(result);
+                    handleRegistrationError(result, response.status);
                     return;
                 }
 
+                // Success
                 closeModal('confirmModal');
                 document.getElementById('successModal').classList.add('active');
 
             } catch (error) {
-                showError("Connection Error", "The server could not be reached. Please check your network and try again.");
+                showError("Network Error", "The server could not be reached. Please check your connection.");
             } finally {
                 btn.classList.remove('loading');
                 btn.disabled = false;
             }
         }
 
-        // 4. Smart Error Parsing
-        function handleBackendError(data) {
+        // 4. Intelligent Error Translation (Friendly Messages)
+        function handleRegistrationError(data, status) {
             closeModal('confirmModal');
-            let title = "Registration Error";
-            let msg = "We encountered a problem with your submission.";
+            let title = "Sign Up Failed";
+            let msg = "The server rejected your registration request.";
 
             const detail = typeof data.detail === 'string' ? data.detail.toLowerCase() : JSON.stringify(data.detail).toLowerCase();
 
@@ -393,11 +404,14 @@
                 title = "Email Registered";
                 msg = "This email address is already connected to an account. Try signing in instead.";
             } else if (detail.includes("matricule already exists")) {
-                title = "Matricule Taken";
-                msg = "This Matricule ID is already in use. Please ensure you typed your correct employee ID.";
+                title = "Matricule Conflict";
+                msg = "This Matricule ID is already in use. Please ensure you typed your correct ID.";
             } else if (detail.includes("strong password")) {
                 title = "Weak Password";
                 msg = "For security, your password must include a mix of letters, numbers, and symbols.";
+            } else if (status === 422) {
+                title = "Input Error";
+                msg = "One or more fields were submitted in an incorrect format. Please verify your inputs.";
             } else {
                 msg = data.detail || "Please check your information and try again.";
             }
