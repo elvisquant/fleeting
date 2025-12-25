@@ -6,7 +6,6 @@
             <p class="text-slate-400 text-sm mt-1">Breakdowns automatically sync with Vehicle Fleet status.</p>
         </div>
         
-        <!-- BULK BUTTON -->
         <button id="btnPanneBulkVerify" onclick="executePanneBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
             <i data-lucide="shield-check" class="w-4 h-4"></i>
             <span>Verify Selected (<span id="panneSelectedCount">0</span>)</span>
@@ -39,7 +38,7 @@
     </div>
 </div>
 
-<!-- TABLE (9 COLUMNS) -->
+<!-- TABLE -->
 <div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/20">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
@@ -58,8 +57,8 @@
                 </tr>
             </thead>
             <tbody id="panneLogsBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
-                <tr><td colspan="9" class="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
-                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> Loading reports...
+                <tr><td colspan="9" class="p-12 text-center text-slate-500">
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500"></i> Loading reports...
                 </td></tr>
             </tbody>
         </table>
@@ -70,11 +69,11 @@
         <span class="text-xs text-slate-500" id="panneCount">Showing 0 records</span>
         
         <div class="flex items-center gap-2">
-            <button id="prevPannePage" onclick="changePannePage(-1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition">
+            <button id="prevPannePage" onclick="changePannePage(-1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30 transition">
                 <i data-lucide="chevron-left" class="w-4 h-4"></i>
             </button>
             <span class="text-xs font-medium text-slate-300 bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700" id="pannePageIndicator">Page 1</span>
-            <button id="nextPannePage" onclick="changePannePage(1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition">
+            <button id="nextPannePage" onclick="changePannePage(1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30 transition">
                 <i data-lucide="chevron-right" class="w-4 h-4"></i>
             </button>
         </div>
@@ -84,7 +83,7 @@
 <!-- MODALS -->
 <!-- ADD/EDIT MODAL -->
 <div id="addPanneModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-up">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
             <h3 class="text-lg font-bold text-white" id="panneModalTitle">Report Breakdown</h3>
             <button onclick="closeModal('addPanneModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -115,13 +114,13 @@
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Detailed Description</label>
-                <textarea id="panneDesc" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm h-24 resize-none" placeholder="Describe the breakdown..."></textarea>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Description</label>
+                <textarea id="panneDesc" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm h-24 resize-none" placeholder="Describe the problem..."></textarea>
             </div>
         </div>
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
             <button onclick="closeModal('addPanneModal')" class="px-4 py-2 text-sm text-slate-400">Cancel</button>
-            <button id="btnSavePanne" onclick="savePanne()" class="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-lg flex items-center gap-2 transition">
+            <button id="btnSavePanne" onclick="savePanne()" class="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-lg flex items-center gap-2">
                 <i data-lucide="save" class="w-4 h-4"></i> Save Report
             </button>
         </div>
