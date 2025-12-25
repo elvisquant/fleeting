@@ -1,7 +1,7 @@
 /**
  * ==============================================================================
- * FLEETDASH FUEL MODULE - FULL 100% PRODUCTION VERSION
- * FIXED: High-Visibility Verification Popups
+ * FLEETDASH FUEL MODULE - PROFESSIONAL VERSION
+ * Optimized for Mobile + Multi-Role Approval Workflow
  * ==============================================================================
  */
 
@@ -15,11 +15,18 @@ let fuelActionType = null;
 let fuelActionId = null;
 let fuelCurrentPage = 1;
 const fuelPageLimit = 10;
+let filteredFuelLogs = [];
 
 // =================================================================
-// 0. HELPER: DOM ELEMENT GETTER
+// 0. MOBILE-COMPATIBLE ELEMENT GETTER (FIXES MOBILE DISPLAY)
 // =================================================================
 function getFuelEl(id) {
+    if (window.innerWidth < 768) {
+        const mobileEl = document.querySelector('#app-content-mobile #' + id);
+        if (mobileEl) return mobileEl;
+    }
+    const desktopEl = document.querySelector('#app-content #' + id);
+    if (desktopEl) return desktopEl;
     return document.getElementById(id);
 }
 
@@ -27,65 +34,66 @@ function getFuelEl(id) {
 // 1. INITIALIZATION
 // =================================================================
 async function initFuel() {
-    console.log("Fuel Module: Initializing Full Feature Set...");
+    console.log("Fuel Module: Initializing High-Performance Logic...");
     
-    // 1. Setup Filters based on user permissions
+    // Role-based pruning for filters
     setupFuelRoleFilters();
 
-    // 2. Attach Event Listeners for Table Controls
-    getFuelEl('fuelSearch')?.addEventListener('input', () => { fuelCurrentPage = 1; renderFuelTable(); });
-    getFuelEl('fuelVehicleFilter')?.addEventListener('change', () => { fuelCurrentPage = 1; renderFuelTable(); });
-    getFuelEl('fuelStatusFilter')?.addEventListener('change', () => { fuelCurrentPage = 1; renderFuelTable(); });
-    getFuelEl('selectAllFuel')?.addEventListener('change', toggleFuelSelectAll);
+    // Attach Table Listeners
+    const search = getFuelEl('fuelSearch');
+    const vFilter = getFuelEl('fuelVehicleFilter');
+    const sFilter = getFuelEl('fuelStatusFilter');
+    const selectAll = getFuelEl('selectAllFuel');
 
-    // 3. Form Calculation Listeners
+    if(search) search.addEventListener('input', () => { fuelCurrentPage = 1; renderFuelTable(); });
+    if(vFilter) vFilter.addEventListener('change', () => { fuelCurrentPage = 1; renderFuelTable(); });
+    if(sFilter) sFilter.addEventListener('change', () => { fuelCurrentPage = 1; renderFuelTable(); });
+    if(selectAll) selectAll.addEventListener('change', toggleFuelSelectAll);
+
+    // Form Calculation Listeners
     getFuelEl('fuelQuantity')?.addEventListener('input', updateCostPreview);
     getFuelEl('fuelPrice')?.addEventListener('input', updateCostPreview);
     getFuelEl('fuelVehicleSelect')?.addEventListener('change', autoSelectFuelType);
     
-    // 4. Modal Action Confirmation
+    // Action Confirmation
     getFuelEl('btnFuelConfirmAction')?.addEventListener('click', executeFuelConfirmAction);
 
-    // 5. Load Initial Data
-    await loadFuelData();
-    await fetchFuelDropdowns();
+    // Load Data via Promise.all
+    await Promise.all([loadFuelData(), fetchFuelDropdowns()]);
 }
 
-/**
- * Prunes the filter dropdown based on user permissions.
- */
 function setupFuelRoleFilters() {
     const sFilter = getFuelEl('fuelStatusFilter');
     if (!sFilter) return;
-
     if (!['admin', 'superadmin', 'charoi'].includes(currentUserRole)) {
         sFilter.innerHTML = `
-            <option value="all">All My Logs</option>
+            <option value="all">All Consumption Logs</option>
             <option value="verified">Verified Records</option>
-            <option value="pending">Awaiting Verification</option>`;
+            <option value="pending">Awaiting Review</option>`;
     }
 }
 
 // =================================================================
-// 2. DATA LOADING & DROPDOWNS
+// 2. DATA PIPELINE
 // =================================================================
 async function loadFuelData() {
     const tbody = getFuelEl('fuelLogsBody');
     if(!tbody) return;
     
+    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="animate-spin mx-auto mb-2 text-indigo-500"></i>Syncing fuel archives...</td></tr>`;
+    if(window.lucide) window.lucide.createIcons();
+
     try {
         const data = await window.fetchWithAuth('/fuel/'); 
         const items = Array.isArray(data) ? data : (data.items || []);
         
-        // LIFO SORTING: Highest ID (newest) first
+        // LIFO SORTING (Newest entries first)
         allFuelLogs = items.sort((a, b) => b.id - a.id);
         
         selectedFuelIds.clear(); 
-        updateFuelBulkUI();
         renderFuelTable();
     } catch (error) {
-        console.error("Load Error:", error);
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400 font-medium">Failed to communicate with server.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400 font-medium">Network timeout. Refresh required.</td></tr>`;
     }
 }
 
@@ -101,202 +109,201 @@ async function fetchFuelDropdowns() {
         
         populateSelect('fuelVehicleFilter', fuelOptions.vehicles, '', 'plate_number', 'All Vehicles');
         
-        // Populate Add Form (Strictly AVAILABLE only)
-        const availableOnly = fuelOptions.vehicles.filter(v => v.status.toLowerCase() === 'available');
-        populateSelect('fuelVehicleSelect', availableOnly, '', 'plate_number', 'Select Available Vehicle');
+        // Modal Dropdown: Only show vehicles that aren't in repair
+        const activeUnits = fuelOptions.vehicles.filter(v => v.status === 'available');
+        populateSelect('fuelVehicleSelect', activeUnits, '', 'plate_number', 'Select Active Vehicle');
+        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', 'Select Fuel Grade');
         
-        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, '', 'fuel_type', 'Select Type');
-        
-    } catch (e) { 
-        console.warn("Dropdown Load Error:", e); 
-    }
+    } catch (e) { console.warn("Resource fetch error", e); }
 }
 
 // =================================================================
-// 3. TABLE RENDERING (8 COLUMNS ALIGNED)
+// 3. CORE TABLE RENDERING (8 COLUMNS + LIFO)
 // =================================================================
 function renderFuelTable() {
     const tbody = getFuelEl('fuelLogsBody');
     if (!tbody) return;
 
-    const searchValue = getFuelEl('fuelSearch')?.value.toLowerCase() || '';
-    const vFilterValue = getFuelEl('fuelVehicleFilter')?.value || '';
-    const sFilterValue = getFuelEl('fuelStatusFilter')?.value || 'all';
+    const sVal = getFuelEl('fuelSearch')?.value.toLowerCase() || '';
+    const vVal = getFuelEl('fuelVehicleFilter')?.value || '';
+    const stVal = getFuelEl('fuelStatusFilter')?.value || 'all';
 
-    let filtered = allFuelLogs.filter(log => {
+    filteredFuelLogs = allFuelLogs.filter(log => {
         const vehicle = fuelOptions.vehicles.find(v => v.id === log.vehicle_id);
         const plate = vehicle ? vehicle.plate_number.toLowerCase() : "";
         
-        const matchesSearch = plate.includes(searchValue);
-        const matchesVehicle = vFilterValue === "" || log.vehicle_id == vFilterValue;
+        const matchesSearch = plate.includes(sVal);
+        const matchesVehicle = vVal === "" || log.vehicle_id == vVal;
         let matchesStatus = true;
-        if (sFilterValue === 'verified') matchesStatus = log.is_verified === true;
-        if (sFilterValue === 'pending') matchesStatus = log.is_verified !== true;
+        if (stVal === 'verified') matchesStatus = log.is_verified === true;
+        if (stVal === 'pending') matchesStatus = log.is_verified !== true;
 
         return matchesSearch && matchesVehicle && matchesStatus;
     });
 
-    const countEl = getFuelEl('fuelLogsCount');
-    if (countEl) countEl.innerText = `${filtered.length} logs found`;
+    updateFuelPaginationUI();
 
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500 font-medium italic text-sm">No fuel records found.</td></tr>`;
+    const startIdx = (fuelCurrentPage - 1) * fuelPageLimit;
+    const paginatedItems = filteredFuelLogs.slice(startIdx, startIdx + fuelPageLimit);
+
+    if (paginatedItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500 font-bold tracking-widest italic text-xs uppercase">No audit records match your query.</td></tr>`;
         return;
     }
 
     const canManage = ['admin', 'superadmin', 'charoi'].includes(currentUserRole);
 
-    tbody.innerHTML = filtered.map(log => {
+    tbody.innerHTML = paginatedItems.map(log => {
         const vehicle = fuelOptions.vehicles.find(v => v.id === log.vehicle_id);
         const type = fuelOptions.fuelTypes.find(t => t.id === log.fuel_type_id);
-        const plate = vehicle ? vehicle.plate_number : `ID ${log.vehicle_id}`;
         
         const statusBadge = log.is_verified 
-            ? `<span class="px-2 py-0.5 rounded text-[9px] uppercase font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Verified</span>`
-            : `<span class="px-2 py-0.5 rounded text-[9px] uppercase font-black bg-amber-500/10 text-amber-500 border border-amber-500/20">Pending</span>`;
+            ? `<span class="px-2 py-0.5 rounded text-[9px] uppercase font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.1)]">Verified</span>`
+            : `<span class="px-2 py-0.5 rounded text-[9px] uppercase font-black bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse">Pending</span>`;
 
-        let checkboxHtml = '';
-        if (canManage && !log.is_verified) {
-            const isChecked = selectedFuelIds.has(log.id) ? 'checked' : '';
-            checkboxHtml = `<input type="checkbox" onchange="toggleFuelRow(${log.id})" ${isChecked} class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0 cursor-pointer">`;
-        } else {
-            checkboxHtml = `<i data-lucide="minus" class="w-3 h-3 text-slate-700 mx-auto"></i>`;
-        }
+        let checkboxHtml = (canManage && !log.is_verified) 
+            ? `<input type="checkbox" onchange="toggleFuelRow(${log.id})" ${selectedFuelIds.has(log.id)?'checked':''} class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer">`
+            : `<i data-lucide="lock" class="w-3.5 h-3.5 text-slate-700 mx-auto"></i>`;
 
-        const viewBtn = `<button onclick="openViewFuelModal(${log.id})" class="p-2 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl transition shadow-lg"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
+        const viewBtn = `<button onclick="openViewFuelModal(${log.id})" class="p-2 bg-slate-800 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-xl transition border border-slate-700"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
-        let actionButtons = '';
-        if (log.is_verified) {
-            actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}<i data-lucide="lock" class="w-3 h-3 text-slate-600" title="Locked Record"></i></div>`;
-        } else if (canManage) {
-            actionButtons = `
+        let actions = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
+        if (!log.is_verified && canManage) {
+            actions = `
                 <div class="flex items-center justify-end gap-2">
                     ${viewBtn}
-                    <button onclick="reqFuelVerify(${log.id})" class="p-2 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-xl transition" title="Verify Entry"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
-                    <button onclick="openEditFuelModal(${log.id})" class="p-2 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-xl transition" title="Modify Entry"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                    <button onclick="reqFuelDelete(${log.id})" class="p-2 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-xl transition" title="Remove Entry"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="reqFuelVerify(${log.id})" class="p-2 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-xl transition border border-slate-700" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                    <button onclick="openEditFuelModal(${log.id})" class="p-2 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-xl transition border border-slate-700" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                    <button onclick="reqFuelDelete(${log.id})" class="p-2 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-xl transition border border-slate-700" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
-        } else {
-            actionButtons = `<div class="flex items-center justify-end gap-2">${viewBtn}</div>`;
+        } else if (log.is_verified) {
+            actions = `<div class="flex items-center justify-end gap-3">${viewBtn}<i data-lucide="shield-check" class="w-4 h-4 text-emerald-600/50"></i></div>`;
         }
 
         return `
-            <tr class="hover:bg-white/[0.02] border-b border-slate-700/30 transition text-sm">
-                <td class="p-4 text-center">${checkboxHtml}</td>
-                <td class="p-4 font-mono font-bold text-white">${plate}</td>
-                <td class="p-4 text-slate-400 uppercase text-[10px] font-bold tracking-tighter">${type?.fuel_type || '-'}</td>
+            <tr class="hover:bg-white/[0.02] border-b border-slate-700/30 transition duration-300">
+                <td class="p-4 text-center align-middle">${checkboxHtml}</td>
+                <td class="p-4 font-mono font-bold text-white text-sm">${vehicle ? vehicle.plate_number : 'ID: '+log.vehicle_id}</td>
+                <td class="p-4 text-slate-400 uppercase text-[10px] font-black tracking-widest">${type?.fuel_type || '-'}</td>
                 <td class="p-4 text-right">
                     <div class="text-slate-200 font-bold">${log.quantity?.toFixed(2)} L</div>
-                    <div class="text-[10px] text-slate-500">@ ${log.price_little?.toLocaleString()} BIF</div>
+                    <div class="text-[9px] text-slate-500 font-mono tracking-tighter">@ ${log.price_little?.toLocaleString()} BIF</div>
                 </td>
                 <td class="p-4 text-right">
-                    <div class="text-emerald-400 font-black">${log.cost?.toLocaleString()}</div>
-                    <div class="text-[8px] text-slate-600 uppercase">Total BIF</div>
+                    <div class="text-indigo-400 font-black tracking-tight">${log.cost?.toLocaleString()}</div>
+                    <div class="text-[8px] text-slate-600 uppercase font-black">Total Cost (BIF)</div>
                 </td>
-                <td class="p-4">${statusBadge}</td>
-                <td class="p-4 text-slate-500 text-[10px]">${new Date(log.created_at).toLocaleDateString()}</td>
-                <td class="p-4 text-right">${actionButtons}</td>
+                <td class="p-4 align-middle">${statusBadge}</td>
+                <td class="p-4 text-slate-500 text-[10px] font-medium italic">${new Date(log.created_at).toLocaleDateString()}</td>
+                <td class="p-4 text-right">${actions}</td>
             </tr>`;
     }).join('');
     
+    updateFuelBulkUI();
     if(window.lucide) window.lucide.createIcons();
 }
 
 // =================================================================
-// 4. BULK OPERATIONS
+// 4. PAGINATION ENGINE
+// =================================================================
+window.changeFuelPage = function(direction) {
+    const totalPages = Math.ceil(filteredFuelLogs.length / fuelPageLimit);
+    if (fuelCurrentPage + direction >= 1 && fuelCurrentPage + direction <= totalPages) {
+        fuelCurrentPage += direction;
+        renderFuelTable();
+    }
+}
+
+function updateFuelPaginationUI() {
+    const total = filteredFuelLogs.length;
+    const totalPages = Math.ceil(total / fuelPageLimit) || 1;
+    const indicator = getFuelEl('fuelPageIndicator');
+    const countEl = getFuelEl('fuelLogsCount');
+    
+    if (indicator) indicator.innerText = `PAGE ${fuelCurrentPage} OF ${totalPages}`;
+    if (getFuelEl('prevFuelPage')) getFuelEl('prevFuelPage').disabled = (fuelCurrentPage === 1);
+    if (getFuelEl('nextFuelPage')) getFuelEl('nextFuelPage').disabled = (fuelCurrentPage >= totalPages || total === 0);
+    if (countEl) countEl.innerText = `${total} transactions in record`;
+}
+
+// =================================================================
+// 5. BULK SELECTION
 // =================================================================
 window.toggleFuelRow = function(id) {
-    if (selectedFuelIds.has(id)) selectedFuelIds.delete(id);
-    else selectedFuelIds.add(id);
+    selectedFuelIds.has(id) ? selectedFuelIds.delete(id) : selectedFuelIds.add(id);
     updateFuelBulkUI();
 }
 
 window.toggleFuelSelectAll = function() {
     const mainCheck = getFuelEl('selectAllFuel');
-    if (!mainCheck) return;
-    
     selectedFuelIds.clear();
-    if (mainCheck.checked) {
+    if (mainCheck?.checked) {
         const canManage = ['admin', 'superadmin', 'charoi'].includes(currentUserRole);
-        allFuelLogs.forEach(log => {
-             if(canManage && !log.is_verified) selectedFuelIds.add(log.id);
-        });
+        allFuelLogs.forEach(log => { if(canManage && !log.is_verified) selectedFuelIds.add(log.id); });
     }
     renderFuelTable();
-    updateFuelBulkUI();
 }
 
 function updateFuelBulkUI() {
     const container = getFuelEl('fuelBulkActions');
-    const countSpan = getFuelEl('fuelSelectedCount');
-    if (!container) return;
-
-    if (countSpan) countSpan.innerText = selectedFuelIds.size;
-    if (selectedFuelIds.size > 0) container.classList.remove('hidden');
-    else container.classList.add('hidden');
+    const span = getFuelEl('fuelSelectedCount');
+    if (span) span.innerText = selectedFuelIds.size;
+    if (container) selectedFuelIds.size > 0 ? container.classList.remove('hidden') : container.classList.add('hidden');
 }
 
+// =================================================================
+// 6. ACTION CONFIRMATION ENGINE (FIXED payload)
+// =================================================================
 window.executeFuelBulkVerify = function() {
     fuelActionType = 'bulk-verify';
-    fuelActionId = null;
-    showFuelConfirmModal("Verify Multiple Records?", `You are about to verify ${selectedFuelIds.size} entries. These records will be locked for accounting.`, "shield-check", "bg-indigo-600");
+    showFuelConfirmModal("Audit Verification", `Review and authorize ${selectedFuelIds.size} logs. These records will lock for accounting.`, "shield-check", "bg-indigo-600");
 }
 
-// =================================================================
-// 5. ACTION EXECUTION (FIXED: CONSISTENT COLOR SCHEME)
-// =================================================================
-window.reqFuelVerify = function(id) {
-    fuelActionType = 'verify';
-    fuelActionId = id;
-    // SINGLE ACTION: Now matches the visibility of the bulk verify
-    showFuelConfirmModal('Authorize Record?', 'Confirming this verification will lock the entry for accounting.', 'check-circle', 'bg-emerald-600');
+window.reqFuelVerify = (id) => { 
+    fuelActionType = 'verify'; fuelActionId = id; 
+    showFuelConfirmModal("Verify Log", "Authorize this consumption record? It will be locked from future modification.", "check-circle", "bg-emerald-600"); 
 }
 
-window.reqFuelDelete = function(id) {
-    fuelActionType = 'delete';
-    fuelActionId = id;
-    showFuelConfirmModal('Permanently Delete?', 'This will erase the fuel log from the history database.', 'trash-2', 'bg-red-600');
+window.reqFuelDelete = (id) => { 
+    fuelActionType = 'delete'; fuelActionId = id; 
+    showFuelConfirmModal("Remove Log", "Permanently delete this fuel entry from history? This cannot be undone.", "trash-2", "bg-red-600"); 
 }
 
 async function executeFuelConfirmAction() {
     const btn = getFuelEl('btnFuelConfirmAction');
-    btn.disabled = true; btn.innerText = "Processing...";
+    btn.disabled = true; btn.innerText = "Processing Sync...";
 
     try {
         let result;
         if (fuelActionType === 'delete') {
             result = await window.fetchWithAuth(`/fuel/${fuelActionId}`, 'DELETE');
         } else {
-            const idList = fuelActionId ? [parseInt(fuelActionId)] : Array.from(selectedFuelIds).map(id => parseInt(id));
-            result = await window.fetchWithAuth(`/fuel/verify-bulk`, 'PUT', { ids: idList });
+            const ids = fuelActionId ? [parseInt(fuelActionId)] : Array.from(selectedFuelIds).map(id => parseInt(id));
+            result = await window.fetchWithAuth(`/fuel/verify-bulk`, 'PUT', { ids: ids });
         }
 
         window.closeModal('fuelConfirmModal');
         if (result !== null) {
-            selectedFuelIds.clear();
             await loadFuelData();
-            showFuelAlert("Operation Successful", "The selected fuel records have been processed and updated.", true);
+            showFuelAlert("Success", "Fleet logs have been successfully updated.", true);
         }
-    } catch(e) {
-        window.closeModal('fuelConfirmModal');
-        showFuelAlert("Process Failed", e.message || "An unexpected error occurred during processing.", false);
-    }
-    btn.disabled = false; btn.innerText = "Confirm Action";
+    } catch(e) { showFuelAlert("Error", "Server returned an invalid response.", false); }
+    finally { btn.disabled = false; btn.innerText = "Confirm Action"; }
 }
 
 // =================================================================
-// 6. CRUD MODALS (ADD/EDIT/VIEW)
+// 7. SAVE / MODAL LOGIC
 // =================================================================
 window.openAddFuelModal = function() {
     getFuelEl('fuelEditId').value = ""; 
-    getFuelEl('fuelModalTitle').innerText = "New Fuel Transaction";
+    getFuelEl('fuelModalTitle').innerText = "Record Fuel Transaction";
     getFuelEl('fuelQuantity').value = "";
     getFuelEl('fuelPrice').value = "";
     getFuelEl('costPreview').classList.add('hidden');
     
-    // RE-FILTER: Strictly AVAILABLE ONLY
-    const availableOnly = fuelOptions.vehicles.filter(v => v.status.toLowerCase() === 'available');
-    populateSelect('fuelVehicleSelect', availableOnly, '', 'plate_number', 'Select Available Vehicle');
+    // Refresh vehicles: Strictly available only
+    const availableUnits = fuelOptions.vehicles.filter(v => v.status === 'available');
+    populateSelect('fuelVehicleSelect', availableUnits, '', 'plate_number', 'Select Available Fleet Unit');
     
     getFuelEl('addFuelModal').classList.remove('hidden');
 }
@@ -304,21 +311,22 @@ window.openAddFuelModal = function() {
 window.openEditFuelModal = function(id) {
     const log = allFuelLogs.find(l => l.id === id);
     if(!log) return;
-    
-    getFuelEl('fuelEditId').value = log.id; 
-    getFuelEl('fuelModalTitle').innerText = "Modify Fuel Log";
+    if(log.is_verified) return showFuelAlert("Locked", "Verified entries are archived.", false);
 
+    getFuelEl('fuelEditId').value = log.id; 
+    getFuelEl('fuelModalTitle').innerText = "Modify Transaction Record";
     populateSelect('fuelVehicleSelect', fuelOptions.vehicles, log.vehicle_id, 'plate_number', 'Select Vehicle');
-    populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, log.fuel_type_id, 'fuel_type', 'Select Type');
+    populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, log.fuel_type_id, 'fuel_type', 'Select Grade');
     
     getFuelEl('fuelQuantity').value = log.quantity || '';
     getFuelEl('fuelPrice').value = log.price_little || '';
-    
     updateCostPreview();
     getFuelEl('addFuelModal').classList.remove('hidden');
 }
 
 window.saveFuelLog = async function() {
+    const id = getFuelEl('fuelEditId').value;
+    const btn = getFuelEl('btnSaveFuel');
     const payload = {
         vehicle_id: parseInt(getFuelEl('fuelVehicleSelect').value),
         fuel_type_id: parseInt(getFuelEl('fuelTypeSelect').value),
@@ -326,134 +334,92 @@ window.saveFuelLog = async function() {
         price_little: parseFloat(getFuelEl('fuelPrice').value)
     };
 
-    if(!payload.vehicle_id || !payload.quantity || !payload.price_little) {
-        return showFuelAlert("Incomplete Form", "All fields are required to calculate consumption cost.", false);
-    }
+    if(!payload.vehicle_id || isNaN(payload.quantity)) return showFuelAlert("Validation", "Required fields are missing.", false);
 
-    const id = getFuelEl('fuelEditId').value;
-    const btn = getFuelEl('btnSaveFuel');
-    btn.disabled = true; btn.innerText = "Saving Transaction...";
-
+    btn.disabled = true; btn.innerHTML = "Authenticating...";
     try {
-        const res = id 
-            ? await window.fetchWithAuth(`/fuel/${id}`, 'PUT', payload)
-            : await window.fetchWithAuth('/fuel/', 'POST', payload);
-
+        const method = id ? 'PUT' : 'POST';
+        const res = await window.fetchWithAuth(id ? `/fuel/${id}` : '/fuel/', method, payload);
         if(res && !res.detail) {
             window.closeModal('addFuelModal');
             await loadFuelData();
-            showFuelAlert("Entry Recorded", "The fuel log has been safely recorded in the system.", true);
-        } else {
-            showFuelAlert("Submission Failed", res.detail || "Database rejected the entry.", false);
-        }
-    } catch(e) { showFuelAlert("Network Error", "API server is unreachable at this moment.", false); }
-    
-    btn.disabled = false; btn.innerText = "Save Log Entry";
+            showFuelAlert("Success", "Fuel entry recorded and audit log generated.", true);
+        } else { showFuelAlert("Error", res.detail, false); }
+    } catch(e) { showFuelAlert("Connection Error", "Check server connectivity.", false); }
+    finally { btn.disabled = false; btn.innerText = "Save Log Entry"; }
+}
+
+// =================================================================
+// 8. CALCULATIONS & HELPERS
+// =================================================================
+function updateCostPreview() {
+    const qty = parseFloat(getFuelEl('fuelQuantity').value) || 0;
+    const price = parseFloat(getFuelEl('fuelPrice').value) || 0;
+    const total = qty * price;
+    const preview = getFuelEl('costPreview');
+    if(total > 0) {
+        preview.classList.remove('hidden');
+        getFuelEl('totalCostDisplay').innerText = `${total.toLocaleString()} BIF`;
+    } else { preview.classList.add('hidden'); }
+}
+
+function autoSelectFuelType() {
+    const vId = getFuelEl('fuelVehicleSelect').value;
+    const v = fuelOptions.vehicles.find(v => v.id == vId);
+    if(v && v.vehicle_fuel_type) populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, v.vehicle_fuel_type, 'fuel_type', 'Select Grade');
 }
 
 window.openViewFuelModal = function(id) {
     const log = allFuelLogs.find(l => l.id === id);
     if (!log) return;
     const vehicle = fuelOptions.vehicles.find(v => v.id === log.vehicle_id);
-    const type = fuelOptions.fuelTypes.find(t => t.id === log.fuel_type_id);
-
     getFuelEl('viewFuelContent').innerHTML = `
         <div class="space-y-6">
-            <div class="grid grid-cols-2 gap-4">
-                <div class="p-4 bg-slate-950/50 rounded-2xl border border-white/5">
-                    <span class="text-[9px] text-slate-500 uppercase font-black block mb-1">Fleet Vehicle</span>
-                    <span class="text-white font-mono font-bold">${vehicle ? vehicle.plate_number : 'ID: '+log.vehicle_id}</span>
+            <div class="grid grid-cols-2 gap-4 text-center">
+                <div class="bg-slate-950/60 p-4 rounded-3xl border border-white/5 shadow-inner">
+                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1">Fleet Unit</span>
+                    <span class="text-white font-mono font-bold text-sm tracking-tighter">${vehicle ? vehicle.plate_number : 'ID: '+log.vehicle_id}</span>
                 </div>
-                <div class="p-4 bg-slate-950/50 rounded-2xl border border-white/5">
-                    <span class="text-[9px] text-slate-500 uppercase font-black block mb-1">Fuel Type</span>
-                    <span class="text-white font-bold">${type ? type.fuel_type : 'Unknown'}</span>
-                </div>
-            </div>
-            <div class="flex justify-between items-center p-5 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-                <div>
-                    <span class="text-[9px] text-emerald-600 uppercase font-black block">Log Metrics</span>
-                    <span class="text-slate-200 text-sm font-bold">${log.quantity?.toFixed(2)} L @ ${log.price_little?.toLocaleString()} BIF</span>
-                </div>
-                <div class="text-right">
-                    <span class="text-[9px] text-emerald-600 uppercase font-black block">Total Expenditure</span>
-                    <span class="text-emerald-400 text-2xl font-black tracking-tighter">${log.cost?.toLocaleString()} BIF</span>
+                <div class="bg-slate-950/60 p-4 rounded-3xl border border-white/5 shadow-inner">
+                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1">Status</span>
+                    <span class="text-indigo-400 font-black text-xs uppercase">${log.is_verified ? 'Authorized' : 'Awaiting Audit'}</span>
                 </div>
             </div>
-            <p class="text-[10px] text-slate-600 text-center uppercase tracking-widest font-bold italic">Transaction Registered: ${new Date(log.created_at).toLocaleString()}</p>
+            <div class="bg-indigo-500/5 p-6 rounded-[2.5rem] border border-indigo-500/10 text-center">
+                <span class="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block mb-2">Total Financial Commitment</span>
+                <span class="text-3xl font-black text-white tracking-tighter">${log.cost?.toLocaleString()} <span class="text-indigo-500 text-lg">BIF</span></span>
+            </div>
         </div>`;
-    
     getFuelEl('viewFuelModal').classList.remove('hidden');
-}
-
-// =================================================================
-// 7. HELPER UTILITIES
-// =================================================================
-function updateCostPreview() {
-    const qty = parseFloat(getFuelEl('fuelQuantity').value) || 0;
-    const price = parseFloat(getFuelEl('fuelPrice').value) || 0;
-    const total = qty * price;
-    
-    const preview = getFuelEl('costPreview');
-    if(total > 0) {
-        preview.classList.remove('hidden');
-        getFuelEl('totalCostDisplay').innerText = `${total.toLocaleString()} BIF`;
-    } else {
-        preview.classList.add('hidden');
-    }
-}
-
-function autoSelectFuelType() {
-    const vId = getFuelEl('fuelVehicleSelect').value;
-    const vehicle = fuelOptions.vehicles.find(v => v.id == vId);
-    if(vehicle && vehicle.vehicle_fuel_type) {
-        populateSelect('fuelTypeSelect', fuelOptions.fuelTypes, vehicle.vehicle_fuel_type, 'fuel_type', 'Select Type');
-    }
-}
-
-function showFuelConfirmModal(title, msg, icon, btnClass) {
-    const titleEl = getFuelEl('fuelConfirmTitle');
-    const msgEl = getFuelEl('fuelConfirmMessage');
-    const iconDiv = getFuelEl('fuelConfirmIcon');
-    const btn = getFuelEl('btnFuelConfirmAction');
-
-    titleEl.innerText = title;
-    msgEl.innerText = msg;
-    
-    // ICON STYLING
-    iconDiv.innerHTML = `<i data-lucide="${icon}" class="w-8 h-8"></i>`;
-    const themeColor = btnClass.replace('bg-', 'text-').replace('600', '500');
-    iconDiv.className = `w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${themeColor} bg-opacity-20`;
-    
-    // BUTTON STYLING (Fixed for high visibility)
-    btn.className = `flex-1 py-3 text-white rounded-xl font-black shadow-lg ${btnClass} transition transform active:scale-95 border border-white/10`;
-    
-    getFuelEl('fuelConfirmModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
 
-function showFuelAlert(title, message, isSuccess) {
-    const modal = getFuelEl('fuelAlertModal');
-    getFuelEl('fuelAlertTitle').innerText = title;
-    getFuelEl('fuelAlertMessage').innerText = message;
-    
-    const iconDiv = getFuelEl('fuelAlertIcon');
-    iconDiv.innerHTML = isSuccess ? '<i data-lucide="check-circle" class="w-12 h-12"></i>' : '<i data-lucide="alert-triangle" class="w-12 h-12"></i>';
-    iconDiv.className = isSuccess 
-        ? "w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/10" 
-        : "w-24 h-24 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-red-500/10";
-    
-    modal.classList.remove('hidden');
-    if(window.lucide) window.lucide.createIcons();
-}
-
-function populateSelect(id, items, selected, key, def) {
-    const el = getFuelEl(id); 
-    if(!el) return;
-    el.innerHTML = `<option value="">${def}</option>` + 
-        items.map(i => `<option value="${i.id}" ${i.id == selected ? 'selected':''}>${i[key] || i.name}</option>`).join('');
+function populateSelect(id, list, sel, key, def) {
+    const el = getFuelEl(id); if(!el) return;
+    el.innerHTML = `<option value="">${def}</option>` + list.map(i => `<option value="${i.id}" ${i.id == sel ? 'selected' : ''}>${i[key]}</option>`).join('');
 }
 
 window.closeModal = (id) => getFuelEl(id).classList.add('hidden');
 
-// Start logic
+function showFuelConfirmModal(t, m, i, c) {
+    getFuelEl('fuelConfirmTitle').innerText = t; 
+    getFuelEl('fuelConfirmMessage').innerText = m;
+    getFuelEl('fuelConfirmIcon').innerHTML = `<i data-lucide="${i}" class="w-10 h-10 text-indigo-500"></i>`;
+    getFuelEl('btnFuelConfirmAction').className = `flex-1 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest text-white shadow-2xl transition-all active:scale-95 ${c}`;
+    getFuelEl('fuelConfirmModal').classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
+}
+
+function showFuelAlert(t, m, s) {
+    const modal = getFuelEl('fuelAlertModal');
+    getFuelEl('fuelAlertTitle').innerText = t;
+    getFuelEl('fuelAlertMessage').innerText = m;
+    const iconDiv = getFuelEl('fuelAlertIcon');
+    iconDiv.className = `w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8 border ${s ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`;
+    iconDiv.innerHTML = `<i data-lucide="${s ? 'check-circle' : 'alert-circle'}" class="w-10 h-10"></i>`;
+    modal.classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
+    if(s) setTimeout(() => modal.classList.add('hidden'), 3500);
+}
+
 document.addEventListener('DOMContentLoaded', initFuel);
