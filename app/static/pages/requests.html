@@ -1,81 +1,76 @@
 <!-- requests.html -->
 
-<!-- 1. HEADER SECTION -->
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
-    <div>
-        <h2 class="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-            <i data-lucide="map-pin" class="text-blue-500"></i>
-            Mission Management
-        </h2>
-        <p class="text-slate-400 text-sm mt-1">Deploy fleet resources and track multi-step approval workflows.</p>
+<!-- HEADER -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 animate-up">
+    <div class="flex items-center gap-4">
+        <div class="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+            <i data-lucide="map-pin" class="w-8 h-8 text-indigo-400"></i>
+        </div>
+        <div>
+            <h2 class="text-3xl font-black text-white tracking-tighter">Mission Management</h2>
+            <p class="text-slate-400 text-sm font-medium tracking-tight">Deployment & multi-step mission authorization.</p>
+        </div>
     </div>
-    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold shadow-xl shadow-blue-900/20 flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95">
-        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+    <button onclick="openAddRequestModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3.5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-indigo-900/20 flex items-center gap-3 transition-all transform hover:scale-[1.03] active:scale-95">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
         <span>Request New Mission</span>
     </button>
 </div>
 
-<!-- 2. FILTER & SEARCH BAR -->
-<div class="glass-panel p-2 mb-6 flex flex-col md:flex-row gap-2 items-center justify-between animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-    <div class="relative w-full md:w-1/2">
-        <i data-lucide="search" class="absolute left-4 top-3.5 w-4 h-4 text-slate-500"></i>
-        <input type="text" id="reqSearch" placeholder="Filter missions by requester or destination..." 
-            class="w-full bg-slate-900/40 border-none text-white rounded-xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-blue-500/50 transition placeholder:text-slate-600">
+<!-- FILTERS -->
+<div class="glass-panel p-2 mb-6 flex flex-col md:flex-row gap-2 items-center justify-between animate-up delay-1">
+    <div class="relative w-full md:w-1/2 group">
+        <i data-lucide="search" class="absolute left-4 top-4 w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors"></i>
+        <input type="text" id="reqSearch" placeholder="Filter by requester name or destination..." 
+            class="w-full bg-slate-900/40 border-none text-white rounded-xl pl-12 pr-4 py-4 text-sm focus:ring-2 focus:ring-indigo-500/50 transition placeholder:text-slate-600">
     </div>
     
     <div class="flex items-center gap-2 w-full md:w-auto">
-        <select id="reqStatusFilter" class="flex-1 md:flex-none bg-slate-800 border-none text-slate-300 text-sm rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none">
-            <option value="all">All Mission Statuses</option>
-            <option value="pending">Waiting: Chef Approval</option>
-            <option value="step1">Waiting: Logistics Approval</option>
-            <option value="step2">Waiting: Resource Assignment</option>
-            <option value="completed">Finalized & Approved</option>
-            <option value="denied">Rejected Missions</option>
-        </select>
-        <div class="bg-slate-800 p-3.5 rounded-xl border border-white/5 text-slate-500">
-            <i data-lucide="filter" class="w-4 h-4"></i>
+        <div class="relative flex-1 md:flex-none">
+            <select id="reqStatusFilter" class="w-full bg-slate-800 border-none text-slate-300 text-xs font-bold uppercase tracking-widest rounded-xl pl-4 pr-10 py-4 outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer"></select>
+            <i data-lucide="chevron-down" class="absolute right-4 top-4.5 w-3 h-3 text-slate-500 pointer-events-none"></i>
         </div>
     </div>
 </div>
 
-<!-- 3. MAIN DATA TABLE -->
-<div class="glass-panel overflow-hidden animate-in fade-in zoom-in-95 duration-700 delay-200 shadow-2xl border border-white/5">
+<!-- TABLE -->
+<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl border border-white/5">
     <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full text-left border-collapse min-w-[800px]">
             <thead>
-                <tr class="text-[11px] text-slate-500 uppercase tracking-widest bg-slate-800/40 border-b border-white/5">
-                    <th class="p-5 font-bold">Requester</th>
-                    <th class="p-5 font-bold">Destination</th>
-                    <th class="p-5 font-bold">Departure</th>
-                    <th class="p-5 font-bold">Return</th>
-                    <th class="p-5 font-bold">Mission Progress</th>
-                    <th class="p-5 font-bold text-right">Actions</th>
+                <tr class="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] bg-slate-800/60 backdrop-blur-md border-b border-white/5">
+                    <th class="p-5">Requester Info</th>
+                    <th class="p-5">Destination</th>
+                    <th class="p-5">Departure</th>
+                    <th class="p-5">Return</th>
+                    <th class="p-5">Current Progress</th>
+                    <th class="p-5 text-right">Actions</th>
                 </tr>
             </thead>
-            <tbody id="reqLogsBody" class="text-sm divide-y divide-white/5 text-slate-300">
-                <!-- Data is injected here by requests.js -->
-                <tr>
-                    <td colspan="6" class="p-20 text-center text-slate-500">
-                        <div class="flex flex-col items-center gap-4">
-                            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                            <span class="font-medium tracking-wide">Syncing Mission Data...</span>
-                        </div>
-                    </td>
-                </tr>
+            <tbody id="reqLogsBody" class="divide-y divide-white/5">
+                <tr><td colspan="6" class="p-20 text-center text-slate-500">
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span class="text-xs font-black uppercase tracking-[0.3em] text-slate-600">Syncing Intelligence...</span>
+                    </div>
+                </td></tr>
             </tbody>
         </table>
     </div>
     
-    <!-- 4. PAGINATION FOOTER -->
-    <div class="p-5 border-t border-white/5 bg-slate-900/40 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <span class="text-xs font-medium text-slate-500 uppercase tracking-tighter" id="reqCount">0 requests found</span>
-        
+    <!-- PAGINATION FOOTER -->
+    <div class="p-4 flex flex-col sm:flex-row justify-between items-center bg-slate-900/60 border-t border-white/5 gap-4">
         <div class="flex items-center gap-3">
-            <button id="prevReqPage" onclick="changeReqPage(-1)" class="p-2.5 bg-slate-800 border border-white/5 rounded-xl text-slate-400 disabled:opacity-20 transition hover:bg-slate-700 hover:text-white">
+            <div class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest" id="reqCount">0 missions logged</span>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <button id="prevReqPage" onclick="changeReqPage(-1)" class="p-2.5 bg-slate-800 border border-white/5 rounded-xl text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90">
                 <i data-lucide="chevron-left" class="w-5 h-5"></i>
             </button>
-            <span class="text-xs font-bold text-white bg-blue-600/20 border border-blue-500/30 px-4 py-2 rounded-xl min-w-[100px] text-center" id="reqPageIndicator">Page 1</span>
-            <button id="nextReqPage" onclick="changeReqPage(1)" class="p-2.5 bg-slate-800 border border-white/5 rounded-xl text-slate-400 disabled:opacity-20 transition hover:bg-slate-700 hover:text-white">
+            <div class="px-6 py-2 bg-slate-950 rounded-xl border border-slate-800 text-[10px] font-black text-indigo-400 tracking-widest min-w-[140px] text-center shadow-inner" id="reqPageIndicator">PAGE 1 OF 1</div>
+            <button id="nextReqPage" onclick="changeReqPage(1)" class="p-2.5 bg-slate-800 border border-white/5 rounded-xl text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90">
                 <i data-lucide="chevron-right" class="w-5 h-5"></i>
             </button>
         </div>
@@ -84,113 +79,99 @@
 
 <!-- ================= MODALS ================= -->
 
-<!-- 1. ADD REQUEST MODAL (Hidden by default) -->
+<!-- ADD MODAL -->
 <div id="addRequestModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-white/10 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform transition-all">
-        <div class="p-6 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
-            <h3 class="text-xl font-bold text-white">New Mission Request</h3>
-            <button onclick="closeModal('addRequestModal')" class="text-slate-500 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
+    <div class="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[2.5rem] shadow-3xl overflow-hidden animate-up">
+        <div class="p-8 border-b border-white/5 flex justify-between items-center bg-indigo-500/5">
+            <h3 class="text-2xl font-black text-white tracking-tighter">New Mission Request</h3>
+            <button onclick="closeModal('addRequestModal')" class="text-slate-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
-        <div class="p-8 space-y-6">
-            <div class="space-y-2">
-                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Destination</label>
-                <input type="text" id="reqDestination" placeholder="Where is the mission going?" class="w-full bg-slate-950 border-none text-white rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 transition">
+        <div class="p-10 space-y-8">
+            <div class="space-y-3">
+                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Target Destination</label>
+                <input type="text" id="reqDestination" placeholder="Operational target location..." class="w-full bg-slate-950 border-none text-white rounded-2xl px-5 py-4 focus:ring-2 focus:ring-indigo-500 transition shadow-inner">
             </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-2">
-                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Departure</label>
-                    <input type="datetime-local" id="reqDeparture" class="w-full bg-slate-950 border-none text-white rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 transition">
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-3">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Departure</label>
+                    <input type="datetime-local" id="reqDeparture" class="w-full bg-slate-950 border-none text-white rounded-2xl px-5 py-4 focus:ring-2 focus:ring-indigo-500 transition shadow-inner">
                 </div>
-                <div class="space-y-2">
-                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Expected Return</label>
-                    <input type="datetime-local" id="reqReturn" class="w-full bg-slate-950 border-none text-white rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 transition">
+                <div class="space-y-3">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Estimated Return</label>
+                    <input type="datetime-local" id="reqReturn" class="w-full bg-slate-950 border-none text-white rounded-2xl px-5 py-4 focus:ring-2 focus:ring-indigo-500 transition shadow-inner">
                 </div>
             </div>
-            <div class="space-y-2">
-                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Mission Details</label>
-                <textarea id="reqDesc" placeholder="Describe the purpose of this trip..." class="w-full bg-slate-950 border-none text-white rounded-xl px-4 py-3.5 h-24 resize-none focus:ring-2 focus:ring-blue-500 transition"></textarea>
+            <div class="space-y-3">
+                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Mission Context</label>
+                <textarea id="reqDesc" placeholder="Briefly explain the mission objective..." class="w-full bg-slate-950 border-none text-white rounded-2xl px-5 py-4 h-32 resize-none focus:ring-2 focus:ring-indigo-500 transition shadow-inner"></textarea>
             </div>
         </div>
-        <div class="p-6 border-t border-white/5 bg-slate-950/50 flex justify-end gap-4">
-            <button onclick="closeModal('addRequestModal')" class="px-6 py-3 text-sm font-bold text-slate-400 hover:text-white transition">Cancel</button>
-            <button id="btnSaveReq" onclick="saveRequest()" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-900/20 transition transform active:scale-95">Submit Request</button>
+        <div class="p-8 border-t border-white/5 bg-slate-950/50 flex justify-end gap-4">
+            <button onclick="closeModal('addRequestModal')" class="px-8 py-4 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-white transition">Discard</button>
+            <button id="btnSaveReq" onclick="saveRequest()" class="px-10 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[1.5rem] text-xs font-black uppercase tracking-[0.2em] shadow-2xl shadow-indigo-900/40 transition transform active:scale-95">Send Request</button>
         </div>
     </div>
 </div>
 
-<!-- 2. VIEW / DETAIL MODAL -->
-<div id="viewRequestModal" class="fixed inset-0 z-50 hidden bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-white/10 w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden transform transition-all">
-        <div class="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-slate-800 to-slate-900">
-            <h3 class="text-xl font-bold text-white tracking-tight">Mission Dossier</h3>
-            <button onclick="closeModal('viewRequestModal')" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
+<!-- VIEW MODAL -->
+<div id="viewRequestModal" class="fixed inset-0 z-50 hidden bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 w-full max-w-xl rounded-[2.5rem] shadow-3xl overflow-hidden animate-up">
+        <div class="p-8 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-slate-800/50 to-indigo-900/20">
+            <h3 class="text-xl font-black text-white uppercase tracking-[0.2em]">Mission Dossier</h3>
+            <button onclick="closeModal('viewRequestModal')" class="text-slate-400 hover:text-white transition p-2 hover:bg-white/5 rounded-full"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
-        <div class="p-8" id="viewRequestContent">
-            <!-- Dynamically populated by requests.js -->
-        </div>
-        <div class="p-6 bg-slate-950/50 flex justify-end items-center gap-4" id="approvalActionsFooter">
-            <!-- Dynamic buttons (Assign, Approve, Deny) are injected here -->
-        </div>
+        <div class="p-10" id="viewRequestContent"></div>
+        <div class="p-8 bg-slate-950/60 border-t border-white/5 flex flex-wrap justify-end items-center gap-3" id="approvalActionsFooter"></div>
     </div>
 </div>
 
-<!-- 3. DECISION (APPROVE/REJECT) MODAL -->
-<div id="approvalModal" class="fixed inset-0 z-[100] hidden bg-slate-950/95 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-white/10 w-full max-w-md rounded-3xl p-8 shadow-2xl text-center">
-        <h3 class="text-2xl font-black text-white mb-2" id="approvalTitle">Mission Authorization</h3>
-        <p class="text-slate-500 text-sm mb-6">Provide final comments or reasons for your decision.</p>
-        
-        <textarea id="approvalComment" class="w-full bg-slate-950 border-none text-white rounded-2xl p-4 text-sm h-32 mb-6 focus:ring-2 focus:ring-blue-500 transition placeholder:text-slate-700" placeholder="Enter comments (Required if denying)..."></textarea>
-        
+<!-- DECISION MODAL -->
+<div id="approvalModal" class="fixed inset-0 z-[100] hidden bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 w-full max-w-md rounded-[2.5rem] p-10 shadow-3xl text-center animate-up">
+        <h3 class="text-3xl font-black text-white tracking-tighter mb-2" id="approvalTitle">Mission Authorization</h3>
+        <p class="text-slate-500 text-sm mb-8 font-medium">Please provide a final directive or comment for this mission record.</p>
+        <textarea id="approvalComment" class="w-full bg-slate-950 border-none text-white rounded-[1.5rem] p-5 text-sm h-36 mb-8 focus:ring-2 focus:ring-indigo-500 transition shadow-inner placeholder:text-slate-800" placeholder="Type comments here..."></textarea>
         <div class="flex gap-4">
-            <button onclick="closeModal('approvalModal')" class="flex-1 py-4 text-slate-400 font-bold hover:text-white transition">Cancel</button>
-            <button id="btnExecuteApproval" class="flex-1 py-4 rounded-2xl text-white font-bold transition-all shadow-lg">Confirm Action</button>
+            <button onclick="closeModal('approvalModal')" class="flex-1 py-4 text-slate-500 font-black uppercase text-[10px] tracking-widest hover:text-white transition">Cancel</button>
+            <button id="btnExecuteApproval" class="flex-1 py-4 rounded-[1.2rem] text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl">Confirm Action</button>
         </div>
     </div>
 </div>
 
-<!-- 4. ASSIGNMENT MODAL -->
-<div id="assignmentModal" class="fixed inset-0 z-[110] hidden bg-slate-950/95 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-blue-500/20 w-full max-w-md rounded-3xl p-8 shadow-2xl">
+<!-- ASSIGNMENT MODAL -->
+<div id="assignmentModal" class="fixed inset-0 z-[110] hidden bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-indigo-500/20 w-full max-w-md rounded-[2.5rem] p-10 shadow-3xl animate-up">
         <input type="hidden" id="assignReqId">
-        <div class="text-center mb-8">
-            <div class="w-16 h-16 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
-                <i data-lucide="truck" class="w-8 h-8"></i>
+        <div class="text-center mb-10">
+            <div class="w-20 h-20 bg-indigo-500/10 text-indigo-500 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-indigo-500/20 shadow-inner">
+                <i data-lucide="truck" class="w-10 h-10"></i>
             </div>
-            <h3 class="text-2xl font-black text-white">Resource Allocation</h3>
-            <p class="text-slate-500 text-sm">Select an available vehicle and driver for this mission.</p>
+            <h3 class="text-2xl font-black text-white tracking-tighter">Resource Allocation</h3>
+            <p class="text-slate-500 text-sm font-medium mt-2">Deploy the specific fleet assets for this operation.</p>
         </div>
-        
-        <div class="space-y-6">
-            <div class="space-y-2">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Available Fleet Vehicle</label>
-                <div class="relative">
-                    <select id="assignVehicle" class="w-full bg-slate-950 border-none text-white rounded-xl p-4 appearance-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer font-mono text-sm"></select>
-                    <i data-lucide="chevron-down" class="absolute right-4 top-4 text-slate-600 pointer-events-none"></i>
-                </div>
+        <div class="space-y-8">
+            <div class="space-y-3">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Available Fleet Unit</label>
+                <select id="assignVehicle" class="w-full bg-slate-950 border-none text-white rounded-2xl p-5 focus:ring-2 focus:ring-indigo-500 transition cursor-pointer font-mono text-sm shadow-inner"></select>
             </div>
-            <div class="space-y-2">
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Assigned Driver</label>
-                <div class="relative">
-                    <select id="assignDriver" class="w-full bg-slate-950 border-none text-white rounded-xl p-4 appearance-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer text-sm"></select>
-                    <i data-lucide="chevron-down" class="absolute right-4 top-4 text-slate-600 pointer-events-none"></i>
-                </div>
+            <div class="space-y-3">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Deployment Specialist (Driver)</label>
+                <select id="assignDriver" class="w-full bg-slate-950 border-none text-white rounded-2xl p-5 focus:ring-2 focus:ring-indigo-500 transition cursor-pointer text-sm shadow-inner"></select>
             </div>
         </div>
-        
-        <div class="flex gap-4 mt-10">
-            <button onclick="closeModal('assignmentModal')" class="flex-1 py-4 text-slate-400 font-bold hover:text-white transition">Cancel</button>
-            <button id="btnExecuteAssign" onclick="submitAssignment()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-900/40 transition transform active:scale-95">Save Assignment</button>
+        <div class="flex gap-4 mt-12">
+            <button onclick="closeModal('assignmentModal')" class="flex-1 py-4 text-slate-500 font-black uppercase text-[10px] tracking-widest hover:text-white transition">Cancel</button>
+            <button id="btnExecuteAssign" onclick="submitAssignment()" class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest shadow-2xl transition transform active:scale-95">Link Resources</button>
         </div>
     </div>
 </div>
 
-<!-- 5. SYSTEM ALERT MODAL -->
+<!-- SYSTEM ALERT -->
 <div id="reqAlertModal" class="fixed inset-0 z-[200] hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-white/10 w-full max-w-sm rounded-3xl p-10 text-center shadow-2xl animate-in fade-in zoom-in-95 duration-300">
-        <div id="reqAlertIcon" class="mb-6"></div>
-        <h3 id="reqAlertTitle" class="text-2xl font-black text-white mb-2"></h3>
-        <p id="reqAlertMessage" class="text-slate-400 text-sm mb-8 leading-relaxed"></p>
-        <button onclick="closeModal('reqAlertModal')" class="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold transition shadow-xl">Acknowledge</button>
+    <div class="bg-slate-900 border border-white/10 w-full max-w-sm rounded-[3rem] p-12 text-center shadow-3xl animate-in zoom-in-95 duration-300">
+        <div id="reqAlertIcon" class="mb-8"></div>
+        <h3 id="reqAlertTitle" class="text-2xl font-black text-white tracking-tighter mb-3"></h3>
+        <p id="reqAlertMessage" class="text-slate-400 text-sm leading-relaxed font-medium mb-10"></p>
+        <button onclick="closeModal('reqAlertModal')" class="w-full py-5 bg-slate-800 hover:bg-indigo-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all shadow-xl">Acknowledge</button>
     </div>
 </div>
