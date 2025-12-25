@@ -1,165 +1,383 @@
-<!-- analytics.html -->
-<div class="space-y-6 animate-up">
-  <!-- Top Bar / Period Selector -->
-  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-6">
+<!-- analytics.html - Professional Analytics Dashboard -->
+<div class="space-y-6 animate-fade-in">
+  <!-- Enhanced Header with Breadcrumb -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
     <div>
-      <h2 class="text-3xl font-bold text-white tracking-tight">Analytics & Reports</h2>
-      <p class="text-slate-400 text-sm mt-1">Comprehensive expenditure analysis for your fleet</p>
+      <nav class="flex mb-2" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 text-sm">
+          <li class="inline-flex items-center">
+            <a href="#" class="text-slate-400 hover:text-blue-500 transition-colors">Dashboard</a>
+          </li>
+          <li>
+            <div class="flex items-center">
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600 mx-1"></i>
+              <span class="text-blue-500 font-medium">Analytics & Reports</span>
+            </div>
+          </li>
+        </ol>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-xl">
+          <i data-lucide="bar-chart-3" class="w-6 h-6 text-blue-500"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-bold text-white tracking-tight">Expense Analytics</h1>
+          <p class="text-slate-400 text-sm">Real-time insights and detailed financial reporting</p>
+        </div>
+      </div>
     </div>
     
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="relative">
-        <select id="reportPeriod" class="bg-slate-800/50 border border-slate-700 text-slate-200 text-sm rounded-xl px-4 py-2.5 pr-10 appearance-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 outline-none transition-all">
-          <option value="last30days">Derniers 30 Jours</option>
-          <option value="last90days">Derniers 90 Jours</option>
-          <option value="last12months" selected>Derniers 12 Mois</option>
-          <option value="currentYear">Cette Année</option>
-          <option value="custom">Période Personnalisée</option>
-        </select>
-        <i data-lucide="calendar" class="absolute right-3 top-3 w-4 h-4 text-slate-500 pointer-events-none"></i>
-      </div>
+    <!-- Date Range Selector -->
+    <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-3 shadow-lg">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="relative">
+          <select id="reportPeriod" class="bg-slate-900/80 border border-slate-700 text-slate-200 text-sm rounded-xl px-4 py-3 pr-10 appearance-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none transition-all cursor-pointer hover:border-slate-600 w-full md:w-auto">
+            <option value="last30days">Last 30 Days</option>
+            <option value="last90days">Last 90 Days</option>
+            <option value="last12months" selected>Last 12 Months</option>
+            <option value="currentYear">Current Year</option>
+            <option value="custom">Custom Range</option>
+          </select>
+          <i data-lucide="chevron-down" class="absolute right-3 top-3.5 w-4 h-4 text-slate-500 pointer-events-none"></i>
+        </div>
 
-      <div id="customReportDateContainer" class="hidden flex items-center gap-2 animate-up">
-        <input type="date" id="reportCustomStart" class="bg-slate-800/50 border border-slate-700 text-white text-xs rounded-lg px-2 py-2 outline-none focus:border-blue-500">
-        <span class="text-slate-600 font-bold">to</span>
-        <input type="date" id="reportCustomEnd" class="bg-slate-800/50 border border-slate-700 text-white text-xs rounded-lg px-2 py-2 outline-none focus:border-blue-500">
-        <button id="applyCustomDateBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-lg shadow-blue-500/20">Apply</button>
+        <div id="customReportDateContainer" class="hidden flex items-center gap-2 animate-slide-up">
+          <div class="relative">
+            <i data-lucide="calendar" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+            <input type="date" id="reportCustomStart" class="bg-slate-900/80 border border-slate-700 text-white text-sm rounded-xl pl-10 pr-3 py-2.5 outline-none focus:border-blue-500 min-w-[140px]">
+          </div>
+          <span class="text-slate-600 font-bold px-1">–</span>
+          <div class="relative">
+            <i data-lucide="calendar" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+            <input type="date" id="reportCustomEnd" class="bg-slate-900/80 border border-slate-700 text-white text-sm rounded-xl pl-10 pr-3 py-2.5 outline-none focus:border-blue-500 min-w-[140px]">
+          </div>
+          <button id="applyCustomDateBtn" class="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 active:scale-95 flex items-center gap-2">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            Apply
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Main KPI Cards -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="glass-panel p-5 relative overflow-hidden group border-b-2 border-red-500/50 hover:bg-slate-800/40 transition-all">
-        <div class="absolute -right-2 -top-2 opacity-5 group-hover:opacity-10 transition-all">
-            <i data-lucide="fuel" class="w-20 h-20 text-red-500"></i>
+  <!-- Quick Stats Overview -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Fuel Card -->
+    <div class="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-5 transition-all duration-300 hover:border-red-500/30 hover:transform hover:-translate-y-1 hover:shadow-xl hover:shadow-red-500/5">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform"></div>
+      <div class="relative z-10">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-2.5 bg-red-500/10 rounded-xl">
+            <i data-lucide="fuel" class="w-5 h-5 text-red-500"></i>
+          </div>
+          <span class="text-xs font-semibold text-slate-400 bg-slate-800/50 px-2 py-1 rounded-lg">This Period</span>
         </div>
-        <p class="text-slate-400 text-xs font-bold uppercase">Carburant Total</p>
-        <h3 class="text-2xl font-bold text-white mt-1" id="kpiFuelTotal">BIF 0</h3>
+        <p class="text-slate-400 text-sm mb-1">Fuel Expense</p>
+        <h3 class="text-2xl font-bold text-white mb-2" id="kpiFuelTotal">BIF 0</h3>
+        <div class="flex items-center text-xs">
+          <span class="text-red-400 font-medium" id="fuel-percent">0%</span>
+          <span class="text-slate-500 mx-2">•</span>
+          <span class="text-slate-500">of total</span>
+        </div>
+      </div>
     </div>
-    <div class="glass-panel p-5 relative overflow-hidden group border-b-2 border-amber-500/50 hover:bg-slate-800/40 transition-all">
-        <div class="absolute -right-2 -top-2 opacity-5 group-hover:opacity-10 transition-all">
-            <i data-lucide="hammer" class="w-20 h-20 text-amber-500"></i>
+
+    <!-- Repairs Card -->
+    <div class="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-5 transition-all duration-300 hover:border-amber-500/30 hover:transform hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/5">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform"></div>
+      <div class="relative z-10">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-2.5 bg-amber-500/10 rounded-xl">
+            <i data-lucide="hammer" class="w-5 h-5 text-amber-500"></i>
+          </div>
+          <span class="text-xs font-semibold text-slate-400 bg-slate-800/50 px-2 py-1 rounded-lg">This Period</span>
         </div>
-        <p class="text-slate-400 text-xs font-bold uppercase">Réparations Total</p>
-        <h3 class="text-2xl font-bold text-white mt-1" id="kpiReparationTotal">BIF 0</h3>
+        <p class="text-slate-400 text-sm mb-1">Repairs</p>
+        <h3 class="text-2xl font-bold text-white mb-2" id="kpiReparationTotal">BIF 0</h3>
+        <div class="flex items-center text-xs">
+          <span class="text-amber-400 font-medium" id="reparation-percent">0%</span>
+          <span class="text-slate-500 mx-2">•</span>
+          <span class="text-slate-500">of total</span>
+        </div>
+      </div>
     </div>
-    <div class="glass-panel p-5 relative overflow-hidden group border-b-2 border-blue-500/50 hover:bg-slate-800/40 transition-all">
-        <div class="absolute -right-2 -top-2 opacity-5 group-hover:opacity-10 transition-all">
-            <i data-lucide="wrench" class="w-20 h-20 text-blue-500"></i>
+
+    <!-- Maintenance Card -->
+    <div class="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-5 transition-all duration-300 hover:border-blue-500/30 hover:transform hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/5">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform"></div>
+      <div class="relative z-10">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-2.5 bg-blue-500/10 rounded-xl">
+            <i data-lucide="wrench" class="w-5 h-5 text-blue-500"></i>
+          </div>
+          <span class="text-xs font-semibold text-slate-400 bg-slate-800/50 px-2 py-1 rounded-lg">This Period</span>
         </div>
-        <p class="text-slate-400 text-xs font-bold uppercase">Maintenance Total</p>
-        <h3 class="text-2xl font-bold text-white mt-1" id="kpiMaintenanceTotal">BIF 0</h3>
+        <p class="text-slate-400 text-sm mb-1">Maintenance</p>
+        <h3 class="text-2xl font-bold text-white mb-2" id="kpiMaintenanceTotal">BIF 0</h3>
+        <div class="flex items-center text-xs">
+          <span class="text-blue-400 font-medium" id="maintenance-percent">0%</span>
+          <span class="text-slate-500 mx-2">•</span>
+          <span class="text-slate-500">of total</span>
+        </div>
+      </div>
     </div>
-    <div class="glass-panel p-5 relative overflow-hidden group border-b-2 border-emerald-500/50 hover:bg-slate-800/40 transition-all">
-        <div class="absolute -right-2 -top-2 opacity-5 group-hover:opacity-10 transition-all">
-            <i data-lucide="shopping-cart" class="w-20 h-20 text-emerald-500"></i>
+
+    <!-- Purchases Card -->
+    <div class="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-5 transition-all duration-300 hover:border-emerald-500/30 hover:transform hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/5">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform"></div>
+      <div class="relative z-10">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-2.5 bg-emerald-500/10 rounded-xl">
+            <i data-lucide="shopping-cart" class="w-5 h-5 text-emerald-500"></i>
+          </div>
+          <span class="text-xs font-semibold text-slate-400 bg-slate-800/50 px-2 py-1 rounded-lg">This Period</span>
         </div>
-        <p class="text-slate-400 text-xs font-bold uppercase">Achats Véhicules</p>
-        <h3 class="text-2xl font-bold text-white mt-1" id="kpiVehiclePurchaseTotal">BIF 0</h3>
+        <p class="text-slate-400 text-sm mb-1">Vehicle Purchases</p>
+        <h3 class="text-2xl font-bold text-white mb-2" id="kpiVehiclePurchaseTotal">BIF 0</h3>
+        <div class="flex items-center text-xs">
+          <span class="text-emerald-400 font-medium" id="purchases-percent">0%</span>
+          <span class="text-slate-500 mx-2">•</span>
+          <span class="text-slate-500">of total</span>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- Charts Section -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-2 glass-panel p-6">
-        <div class="flex items-center justify-between mb-6">
-            <h3 class="text-lg font-bold text-white">Consommation Mensuelle</h3>
-            <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded">BIF / Month</span>
+    <!-- Monthly Trend Chart -->
+    <div class="lg:col-span-2 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-6 shadow-lg">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="trending-up" class="text-blue-500"></i>
+            Monthly Expense Trend
+          </h3>
+          <p class="text-slate-400 text-sm mt-1">Expense distribution over selected period</p>
         </div>
-        <div class="h-72"><canvas id="monthlyExpenseChart"></canvas></div>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <span class="text-xs text-slate-400">Fuel</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+            <span class="text-xs text-slate-400">Repairs</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+            <span class="text-xs text-slate-400">Maintenance</span>
+          </div>
+        </div>
+      </div>
+      <div class="h-80">
+        <canvas id="monthlyExpenseChart"></canvas>
+      </div>
     </div>
 
-    <div class="glass-panel p-6 flex flex-col">
-        <h3 class="text-lg font-bold text-white mb-1">Distribution</h3>
-        <p class="text-slate-500 text-xs mb-6">Allocation des ressources</p>
-        <div class="flex-1 relative flex justify-center items-center">
-            <canvas id="expenseDistributionChart"></canvas>
+    <!-- Distribution Chart -->
+    <div class="rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-6 shadow-lg">
+      <div class="mb-6">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="pie-chart" class="text-purple-500"></i>
+          Expense Distribution
+        </h3>
+        <p class="text-slate-400 text-sm mt-1">Cost allocation across categories</p>
+      </div>
+      <div class="relative h-56 mb-6">
+        <canvas id="expenseDistributionChart"></canvas>
+        <div id="distributionCenterText" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+          <p class="text-2xl font-bold text-white">100%</p>
+          <p class="text-xs text-slate-400">Total</p>
         </div>
-        <div class="grid grid-cols-2 gap-x-4 gap-y-3 mt-6 border-t border-slate-700/50 pt-4">
-            <div class="flex flex-col">
-                <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-red-500"></div><span class="text-[10px] text-slate-400">Fuel</span></div>
-                <span class="text-sm font-bold text-white" id="fuel-percent">0%</span>
-            </div>
-            <div class="flex flex-col">
-                <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-500"></div><span class="text-[10px] text-slate-400">Repair</span></div>
-                <span class="text-sm font-bold text-white" id="reparation-percent">0%</span>
-            </div>
-            <div class="flex flex-col">
-                <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-blue-500"></div><span class="text-[10px] text-slate-400">Maint</span></div>
-                <span class="text-sm font-bold text-white" id="maintenance-percent">0%</span>
-            </div>
-            <div class="flex flex-col">
-                <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-emerald-500"></div><span class="text-[10px] text-slate-400">Purch</span></div>
-                <span class="text-sm font-bold text-white" id="purchases-percent">0%</span>
-            </div>
+      </div>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors">
+          <div class="flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <span class="text-sm font-medium text-slate-300">Fuel</span>
+          </div>
+          <div class="text-right">
+            <p class="text-lg font-bold text-white" id="fuel-percent">0%</p>
+            <p class="text-xs text-slate-400" id="fuel-amount">BIF 0</p>
+          </div>
         </div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors">
+          <div class="flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+            <span class="text-sm font-medium text-slate-300">Repairs</span>
+          </div>
+          <div class="text-right">
+            <p class="text-lg font-bold text-white" id="reparation-percent">0%</p>
+            <p class="text-xs text-slate-400" id="reparation-amount">BIF 0</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors">
+          <div class="flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+            <span class="text-sm font-medium text-slate-300">Maintenance</span>
+          </div>
+          <div class="text-right">
+            <p class="text-lg font-bold text-white" id="maintenance-percent">0%</p>
+            <p class="text-xs text-slate-400" id="maintenance-amount">BIF 0</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors">
+          <div class="flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+            <span class="text-sm font-medium text-slate-300">Purchases</span>
+          </div>
+          <div class="text-right">
+            <p class="text-lg font-bold text-white" id="purchases-percent">0%</p>
+            <p class="text-xs text-slate-400" id="purchases-amount">BIF 0</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Bottom Action Section -->
-  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-    <div class="lg:col-span-3 glass-panel p-8">
-        <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-            <i data-lucide="file-text" class="text-blue-500"></i> Générer un Rapport Exportable
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="space-y-4">
-                <p class="text-sm font-bold text-slate-200">Catégories d'inclusion</p>
-                <div class="grid grid-cols-1 gap-3">
-                    <label class="flex items-center gap-3 text-slate-400 cursor-pointer hover:text-white transition group">
-                        <input type="checkbox" id="reportCatFuel" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-offset-slate-900 focus:ring-blue-500">
-                        <span class="text-xs group-hover:translate-x-1 transition-transform">Consommation Carburant</span>
-                    </label>
-                    <label class="flex items-center gap-3 text-slate-400 cursor-pointer hover:text-white transition group">
-                        <input type="checkbox" id="reportCatReparation" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-offset-slate-900 focus:ring-blue-500">
-                        <span class="text-xs group-hover:translate-x-1 transition-transform">Interventions Réparations</span>
-                    </label>
-                    <label class="flex items-center gap-3 text-slate-400 cursor-pointer hover:text-white transition group">
-                        <input type="checkbox" id="reportCatMaintenance" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-offset-slate-900 focus:ring-blue-500">
-                        <span class="text-xs group-hover:translate-x-1 transition-transform">Calendrier Maintenance</span>
-                    </label>
-                    <label class="flex items-center gap-3 text-slate-400 cursor-pointer hover:text-white transition group">
-                        <input type="checkbox" id="reportCatPurchases" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-offset-slate-900 focus:ring-blue-500">
-                        <span class="text-xs group-hover:translate-x-1 transition-transform">Acquisitions d'Actifs</span>
-                    </label>
-                </div>
-            </div>
+  <!-- Report Generator & Insights -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Report Generator -->
+    <div class="lg:col-span-2 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-6 shadow-lg">
+      <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+        <i data-lucide="file-text" class="text-blue-500"></i> Generate Detailed Report
+      </h3>
+      <p class="text-slate-400 text-sm mb-6">Create comprehensive reports with customizable filters</p>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Categories -->
+        <div class="space-y-4">
+          <label class="block text-sm font-semibold text-slate-300">Categories</label>
+          <div class="space-y-3">
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/30 transition-all cursor-pointer group">
+              <input type="checkbox" id="reportCatFuel" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900">
+              <div class="flex-1">
+                <span class="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Fuel Consumption</span>
+                <p class="text-xs text-slate-500 mt-0.5">Fuel expenses and consumption data</p>
+              </div>
+              <i data-lucide="fuel" class="w-4 h-4 text-red-500"></i>
+            </label>
             
-            <div class="space-y-4">
-                <p class="text-sm font-bold text-slate-200">Format de sortie</p>
-                <select id="reportFormat" class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl p-3 outline-none focus:border-blue-500 transition-all">
-                    <option value="pdf">Document PDF Professionnel</option>
-                    <option value="excel">Tableur Excel (XLSX)</option>
-                </select>
-                <p class="text-[10px] text-slate-500">Les rapports incluent des détails complets par véhicule et par prestataire.</p>
-            </div>
-
-            <div class="flex flex-col justify-end">
-                <button id="generateReportBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-blue-500/20 active:scale-95">
-                    <i data-lucide="download-cloud" class="w-5 h-5"></i> Générer le Rapport
-                </button>
-            </div>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/50 hover:border-amber-500/50 hover:bg-slate-800/30 transition-all cursor-pointer group">
+              <input type="checkbox" id="reportCatReparation" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900">
+              <div class="flex-1">
+                <span class="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Repair Records</span>
+                <p class="text-xs text-slate-500 mt-0.5">All repair and service interventions</p>
+              </div>
+              <i data-lucide="hammer" class="w-4 h-4 text-amber-500"></i>
+            </label>
+            
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/30 transition-all cursor-pointer group">
+              <input type="checkbox" id="reportCatMaintenance" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900">
+              <div class="flex-1">
+                <span class="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Maintenance Schedule</span>
+                <p class="text-xs text-slate-500 mt-0.5">Planned and completed maintenance</p>
+              </div>
+              <i data-lucide="wrench" class="w-4 h-4 text-blue-500"></i>
+            </label>
+            
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/50 hover:border-emerald-500/50 hover:bg-slate-800/30 transition-all cursor-pointer group">
+              <input type="checkbox" id="reportCatPurchases" checked class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900">
+              <div class="flex-1">
+                <span class="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Vehicle Acquisitions</span>
+                <p class="text-xs text-slate-500 mt-0.5">Purchase records and asset data</p>
+              </div>
+              <i data-lucide="shopping-cart" class="w-4 h-4 text-emerald-500"></i>
+            </label>
+          </div>
         </div>
+
+        <!-- Report Settings -->
+        <div class="space-y-6">
+          <div class="space-y-4">
+            <label class="block text-sm font-semibold text-slate-300">Report Format</label>
+            <select id="reportFormat" class="w-full bg-slate-900/80 border border-slate-700 text-white text-sm rounded-xl p-3.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all appearance-none cursor-pointer">
+              <option value="pdf">PDF Document (Professional)</option>
+              <option value="excel">Excel Spreadsheet (XLSX)</option>
+            </select>
+          </div>
+          
+          <div class="space-y-4">
+            <label class="block text-sm font-semibold text-slate-300">Export Options</label>
+            <div class="grid grid-cols-2 gap-3">
+              <button class="p-3 rounded-xl border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/30 transition-all flex flex-col items-center justify-center group">
+                <i data-lucide="printer" class="w-5 h-5 text-slate-400 group-hover:text-blue-500 mb-2"></i>
+                <span class="text-xs text-slate-300 group-hover:text-white">Print</span>
+              </button>
+              <button class="p-3 rounded-xl border border-slate-700/50 hover:border-green-500/50 hover:bg-slate-800/30 transition-all flex flex-col items-center justify-center group">
+                <i data-lucide="share-2" class="w-5 h-5 text-slate-400 group-hover:text-green-500 mb-2"></i>
+                <span class="text-xs text-slate-300 group-hover:text-white">Share</span>
+              </button>
+            </div>
+          </div>
+
+          <button id="generateReportBtn" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-blue-500/20 hover:shadow-blue-500/30 active:scale-95 group">
+            <i data-lucide="download-cloud" class="w-5 h-5 group-hover:animate-bounce"></i>
+            Generate Report
+            <i data-lucide="chevron-right" class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- Right Sidebar Statistics -->
-    <div class="glass-panel p-6 divide-y divide-slate-700/50">
-        <div class="pb-6">
-            <p class="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">Moyenne Mensuelle</p>
-            <p class="text-xl font-bold text-white" id="avgMonthlyCost">BIF 0</p>
+    <!-- Insights & Stats -->
+    <div class="space-y-6">
+      <!-- Average Monthly Cost -->
+      <div class="rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-6 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-2.5 bg-blue-500/10 rounded-xl">
+            <i data-lucide="calendar" class="w-5 h-5 text-blue-500"></i>
+          </div>
+          <span class="text-xs font-semibold text-blue-400 bg-blue-500/10 px-2 py-1 rounded-lg">Avg. Monthly</span>
         </div>
-        <div class="py-6">
-            <p class="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">Point de Dépense</p>
-            <p class="text-xl font-bold text-amber-400" id="highestExpense">N/A</p>
+        <p class="text-slate-400 text-sm mb-1">Average Monthly Cost</p>
+        <h3 class="text-2xl font-bold text-white mb-2" id="avgMonthlyCost">BIF 0</h3>
+        <div class="flex items-center text-xs">
+          <i data-lucide="trending-up" class="w-3 h-3 text-red-400 mr-1"></i>
+          <span class="text-red-400">+2.5%</span>
+          <span class="text-slate-500 mx-2">•</span>
+          <span class="text-slate-500">vs last period</span>
         </div>
-        <div class="pt-6">
-            <div class="flex items-center justify-between mb-2">
-                <p class="text-slate-500 text-[10px] uppercase font-black tracking-widest">Santé Flotte</p>
-                <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">Stable</span>
+      </div>
+
+      <!-- Highest Expense Point -->
+      <div class="rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-6 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <div class="p-2.5 bg-amber-500/10 rounded-xl">
+            <i data-lucide="alert-circle" class="w-5 h-5 text-amber-500"></i>
+          </div>
+          <span class="text-xs font-semibold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg">Highest</span>
+        </div>
+        <p class="text-slate-400 text-sm mb-1">Primary Expense Category</p>
+        <h3 class="text-2xl font-bold text-amber-400 mb-2" id="highestExpense">N/A</h3>
+        <p class="text-xs text-slate-400">Area with highest expenditure in selected period</p>
+      </div>
+
+      <!-- Fleet Health -->
+      <div class="rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 p-6 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 bg-emerald-500/10 rounded-xl">
+              <i data-lucide="heart" class="w-5 h-5 text-emerald-500"></i>
             </div>
-            <p class="text-white text-sm font-medium">94% Compliance</p>
+            <div>
+              <p class="text-sm font-semibold text-slate-300">Fleet Health</p>
+              <p class="text-xs text-slate-500">Overall compliance status</p>
+            </div>
+          </div>
+          <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">Excellent</span>
         </div>
+        <div class="mt-4">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Compliance Rate</span>
+            <span id="fleetCompliance">94%</span>
+          </div>
+          <div class="w-full bg-slate-700/50 rounded-full h-2">
+            <div id="fleetComplianceBar" class="bg-gradient-to-r from-emerald-500 to-emerald-400 h-2 rounded-full" style="width: 94%"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
