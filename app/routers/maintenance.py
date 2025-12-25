@@ -11,56 +11,41 @@ router = APIRouter(
     tags=['Maintenances API']
 )
 
-# --- HELPER TO SYNC VEHICLE STATUS ---
-def sync_vehicle_operational_status(db: Session, vehicle_id: int):
+# =================================================================================
+# GLOBAL HELPER: SYNC VEHICLE STATUS STRING
+# =================================================================================
+def sync_vehicle_status(db: Session, vehicle_id: int):
     """
-    Checks all maintenance and panne records for a vehicle.
-    If ANY maintenance is 'active' or ANY panne is 'active', the vehicle is NOT active.
+    Updates the Vehicle.status string based on active maintenance or repairs.
     """
     vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == vehicle_id).first()
     if not vehicle:
         return
 
-    # Check for active maintenance
+    # 1. Count Active Maintenances
     active_maint = db.query(models.Maintenance).filter(
         models.Maintenance.vehicle_id == vehicle_id,
         models.Maintenance.status == "active"
-    ).first()
+    ).count()
 
-    # Check for active pannes (assuming panne model has 'status' or similar)
-    # If your panne model uses a different field, adjust this line
-    active_panne = db.query(models.Panne).filter(
-        models.Panne.vehicle_id == vehicle_id,
-        models.Panne.status == "active"
-    ).first()
+    # 2. Count Active Reparations (as seen in your Vehicle model)
+    active_repairs = 0
+    try:
+        # Assuming Reparation has a 'status' field similarly
+        active_repairs = db.query(models.Reparation).filter(
+            models.Reparation.vehicle_id == vehicle_id,
+            models.Reparation.status == "active"
+        ).count()
+    except Exception:
+        active_repairs = 0
 
-    # If nothing is active, vehicle is available (True), else unavailable (False)
-    vehicle.is_active = (active_maint is None and active_panne is None)
+    # 3. Update the Status String
+    if active_maint > 0 or active_repairs > 0:
+        vehicle.status = "maintenance"
+    else:
+        vehicle.status = "available"
+
     db.commit()
-
-# =================================================================================
-# BULK VERIFY
-# =================================================================================
-@router.put("/verify-bulk", status_code=status.HTTP_200_OK)
-def verify_maintenance_bulk(
-    payload: schemas.MaintenanceBulkVerify,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.require_charoi_role)
-):
-    records = db.query(models.Maintenance).filter(
-        models.Maintenance.id.in_(payload.ids),
-        models.Maintenance.is_verified == False
-    ).all()
-
-    if not records:
-        return {"message": "No applicable unverified records found."}
-
-    for rec in records:
-        rec.is_verified = True
-        rec.verified_at = datetime.utcnow()
-    
-    db.commit()
-    return {"message": f"Successfully verified {len(records)} records."}
 
 # =================================================================================
 # CREATE
@@ -71,35 +56,24 @@ def create_maintenance(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user_from_header)
 ):
-    # 1. Prevent duplicate active maintenance
-    existing = db.query(models.Maintenance).filter(
-        models.Maintenance.vehicle_id == maintenance_data.vehicle_id,
-        models.Maintenance.status == "active"
-    ).first()
-    
-    if existing and maintenance_data.status == "active":
-        raise HTTPException(status_code=400, detail="Vehicle already has active maintenance.")
+    # Check for existing active maintenance
+    if maintenance_data.status == "active":
+        existing = db.query(models.Maintenance).filter(
+            models.Maintenance.vehicle_id == maintenance_data.vehicle_id,
+            models.Maintenance.status == "active"
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Vehicle is already in maintenance.")
 
-    # 2. Create the record
     new_maint = models.Maintenance(**maintenance_data.model_dump())
     db.add(new_maint)
     db.commit()
     db.refresh(new_maint)
 
-    # 3. Sync Vehicle Status
-    sync_vehicle_operational_status(db, new_maint.vehicle_id)
+    # Trigger Status Sync
+    sync_vehicle_status(db, new_maint.vehicle_id)
     
     return new_maint
-
-# =================================================================================
-# READ ALL
-# =================================================================================
-@router.get("/", response_model=List[schemas.MaintenanceOut])
-def get_all_maintenances(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.get_current_user_from_header)
-):
-    return db.query(models.Maintenance).order_by(models.Maintenance.id.desc()).all()
 
 # =================================================================================
 # UPDATE
@@ -113,11 +87,11 @@ def update_maintenance(
 ):
     maint = db.query(models.Maintenance).filter(models.Maintenance.id == id).first()
     if not maint:
-        raise HTTPException(status_code=404, detail="Record not found")
+        raise HTTPException(status_code=404, detail="Not found")
 
-    # Lock logic: Strict lock if both Verified and Resolved
+    # Strict Lock (Verified + Resolved)
     if maint.is_verified and maint.status == "resolved":
-        raise HTTPException(status_code=403, detail="Verified and Resolved records are locked.")
+        raise HTTPException(status_code=403, detail="Locked record.")
 
     update_data = maint_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -126,8 +100,8 @@ def update_maintenance(
     db.commit()
     db.refresh(maint)
 
-    # Sync Vehicle Status (e.g., if status changed from active to resolved)
-    sync_vehicle_operational_status(db, maint.vehicle_id)
+    # Trigger Status Sync
+    sync_vehicle_status(db, maint.vehicle_id)
 
     return maint
 
@@ -140,18 +114,34 @@ def delete_maintenance(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.require_charoi_role)
 ):
-    db_maintenance = db.query(models.Maintenance).filter(models.Maintenance.id == id).first()
-    if not db_maintenance:
-        raise HTTPException(status_code=404, detail="Maintenance record not found")
+    maint = db.query(models.Maintenance).filter(models.Maintenance.id == id).first()
+    if not maint:
+        raise HTTPException(status_code=404, detail="Not found")
 
-    if db_maintenance.is_verified:
+    if maint.is_verified:
         raise HTTPException(status_code=403, detail="Verified records cannot be deleted.")
 
-    v_id = db_maintenance.vehicle_id
-    db.delete(db_maintenance)
+    v_id = maint.vehicle_id
+    db.delete(maint)
     db.commit()
 
-    # Sync Vehicle Status (if we deleted the only thing keeping the vehicle inactive)
-    sync_vehicle_operational_status(db, v_id)
+    # Trigger Status Sync
+    sync_vehicle_status(db, v_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+# =================================================================================
+# OTHERS
+# =================================================================================
+@router.get("/", response_model=List[schemas.MaintenanceOut])
+def get_all_maintenances(db: Session = Depends(get_db)):
+    return db.query(models.Maintenance).order_by(models.Maintenance.id.desc()).all()
+
+@router.put("/verify-bulk", status_code=status.HTTP_200_OK)
+def verify_maintenance_bulk(payload: schemas.MaintenanceBulkVerify, db: Session = Depends(get_db)):
+    records = db.query(models.Maintenance).filter(models.Maintenance.id.in_(payload.ids)).all()
+    for rec in records:
+        rec.is_verified = True
+        rec.verified_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Success"}

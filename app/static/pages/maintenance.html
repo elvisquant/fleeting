@@ -3,15 +3,17 @@
     <div class="flex items-center gap-4">
         <div>
             <h2 class="text-2xl font-bold text-white tracking-tight">Maintenance Logs</h2>
-            <p class="text-slate-400 text-sm mt-1">Repairs auto-sync with Vehicle Operational Status.</p>
+            <p class="text-slate-400 text-sm mt-1">Status auto-syncs with Vehicle fleet status.</p>
         </div>
-        <button id="btnMaintBulkVerify" onclick="executeMaintBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2">
-            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+        
+        <!-- BULK VERIFY BUTTON -->
+        <button id="btnMaintBulkVerify" onclick="executeMaintBulkVerify()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition flex items-center gap-2 animate-up">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
             <span>Verify Selected (<span id="maintSelectedCount">0</span>)</span>
         </button>
     </div>
 
-    <button onclick="openAddMaintModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 transition">
+    <button onclick="openAddMaintModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-500/20 flex items-center gap-2 transition">
         <i data-lucide="plus" class="w-4 h-4"></i>
         <span>Log Maintenance</span>
     </button>
@@ -21,13 +23,13 @@
 <div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
     <div class="relative w-full md:w-96">
         <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
-        <input type="text" id="maintSearch" placeholder="Search by plate or receipt..." 
-            class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition">
+        <input type="text" id="maintSearch" placeholder="Search plate or receipt..." 
+            class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition placeholder-slate-500">
     </div>
     
     <div class="flex items-center gap-3">
         <select id="maintStatusFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-500">
-            <option value="all">All Validation</option>
+            <option value="all">All Verification</option>
             <option value="verified">Verified Only</option>
             <option value="pending">Pending Only</option>
         </select>
@@ -37,13 +39,15 @@
     </div>
 </div>
 
-<!-- TABLE (9 COLUMNS) -->
-<div class="glass-panel overflow-hidden animate-up delay-2">
+<!-- TABLE (9 HEADERS) -->
+<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/20">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/40">
-                    <th class="p-4 w-10"><input type="checkbox" id="selectAllMaint" class="rounded border-slate-600 bg-slate-800 text-blue-600 cursor-pointer"></th>
+                    <th class="p-4 w-10">
+                        <input type="checkbox" id="selectAllMaint" class="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-0 cursor-pointer">
+                    </th>
                     <th class="p-4 font-semibold">Vehicle</th>
                     <th class="p-4 font-semibold">Category</th>
                     <th class="p-4 font-semibold">Garage</th>
@@ -56,28 +60,37 @@
             </thead>
             <tbody id="maintLogsBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
                 <tr><td colspan="9" class="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
-                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> Loading...
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i> Loading records...
                 </td></tr>
             </tbody>
         </table>
     </div>
     
+    <!-- PAGINATION FOOTER -->
     <div class="p-4 border-t border-slate-700/30 bg-slate-800/20 flex flex-col sm:flex-row justify-between items-center gap-4">
         <span class="text-xs text-slate-500" id="maintLogsCount">Showing 0 logs</span>
+        
         <div class="flex items-center gap-2">
-            <button id="prevMaintPage" onclick="changeMaintPage(-1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+            <button id="prevMaintPage" onclick="changeMaintPage(-1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
             <span class="text-xs font-medium text-slate-300 bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700" id="maintPageIndicator">Page 1</span>
-            <button id="nextMaintPage" onclick="changeMaintPage(1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+            <button id="nextMaintPage" onclick="changeMaintPage(1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
         </div>
     </div>
 </div>
 
+<!-- MODALS -->
 <!-- ADD/EDIT MODAL -->
 <div id="addMaintModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-up">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
             <h3 class="text-lg font-bold text-white" id="maintModalTitle">Log Maintenance</h3>
-            <button onclick="closeModal('addMaintModal')" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <button onclick="closeModal('addMaintModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
         </div>
         <div class="p-6 space-y-5">
             <input type="hidden" id="maintEditId">
@@ -87,7 +100,7 @@
                     <select id="maintVehicleSelect" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm outline-none"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Progress</label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Status</label>
                     <select id="maintStatusSelect" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm outline-none">
                         <option value="active">Active (Under Repair)</option>
                         <option value="resolved">Resolved (Available)</option>
@@ -121,7 +134,7 @@
         </div>
         <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
             <button onclick="closeModal('addMaintModal')" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition">Cancel</button>
-            <button id="btnSaveMaint" onclick="saveMaintenance()" class="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg shadow-lg">Save Record</button>
+            <button id="btnSaveMaint" onclick="saveMaintenance()" class="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg transition">Save Record</button>
         </div>
     </div>
 </div>
@@ -129,13 +142,13 @@
 <!-- VIEW MODAL -->
 <div id="viewMaintModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl flex flex-col animate-up">
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-            <h3 class="text-lg font-bold text-white">Maintenance Details</h3>
-            <button onclick="closeModal('viewMaintModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50 text-white font-bold">
+            <h3>Record Details</h3>
+            <button onclick="closeModal('viewMaintModal')"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
-        <div class="p-6 text-sm space-y-4" id="viewMaintContent"></div>
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-            <button onclick="closeModal('viewMaintModal')" class="px-4 py-2 bg-slate-700 text-white text-sm font-medium rounded-lg">Close</button>
+        <div class="p-6" id="viewMaintContent"></div>
+        <div class="p-4 border-t border-slate-700 flex justify-end">
+            <button onclick="closeModal('viewMaintModal')" class="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm">Close</button>
         </div>
     </div>
 </div>

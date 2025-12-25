@@ -11,7 +11,7 @@ let maintPageLimit = 10;
 let filteredMaintLogs = []; 
 
 // --- ACTION STATE ---
-let maintActionType = null; 
+let maintActionType = null; // 'delete', 'verify', 'bulk-verify'
 let maintActionId = null;
 let selectedMaintIds = new Set(); 
 
@@ -32,7 +32,7 @@ function getMaintEl(id) {
 // 1. INITIALIZATION
 // =================================================================
 async function initMaintenance() {
-    console.log("Maintenance Module: Column Sync + Vehicle Status Integration");
+    console.log("Maintenance Module: Column Fix + Strict Lock (Verified & Resolved)");
     maintUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
 
     const searchInput = getMaintEl('maintSearch');
@@ -58,8 +58,7 @@ async function loadMaintData() {
     const tbody = getMaintEl('maintLogsBody');
     if(!tbody) return;
     
-    // Exact 9 columns for loading state
-    tbody.innerHTML = `<tr><td colspan="9" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Syncing maintenance & vehicle records...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>Refreshing maintenance records...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
     try {
@@ -67,15 +66,15 @@ async function loadMaintData() {
         const items = data.items || data;
 
         if (Array.isArray(items)) {
-            // Sort by Date (Newest first)
-            allMaintLogs = items.sort((a, b) => new Date(b.maintenance_date) - new Date(a.maintenance_date));
+            // LIFO SORTING
+            allMaintLogs = items.sort((a, b) => b.id - a.id);
             selectedMaintIds.clear();
             renderMaintTable();
         } else {
             handleFriendlyMaintError(data, "load");
         }
     } catch (e) {
-        showMaintAlert("Connection Error", "Could not reach the server.", false);
+        showMaintAlert("Connection Error", "The server is unreachable.", false);
     }
 }
 
@@ -128,7 +127,7 @@ function renderMaintTable() {
     const paginatedItems = filteredMaintLogs.slice(start, start + maintPageLimit);
 
     if(paginatedItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">No matching records.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">No matching maintenance records.</td></tr>`;
         return;
     }
 
@@ -144,7 +143,8 @@ function renderMaintTable() {
         const garageName = garage ? garage.nom_garage : '-'; 
         const date = new Date(log.maintenance_date).toLocaleDateString();
 
-        // LOCK LOGIC: Locked only if both Verified AND Resolved
+        // --- STRICT LOCK LOGIC ---
+        // Only lock if status is "resolved" AND is_verified is true
         const isLocked = log.status === 'resolved' && log.is_verified === true;
 
         const progressBadge = log.status === 'resolved' 
@@ -152,7 +152,7 @@ function renderMaintTable() {
             : `<span class="px-2 py-1 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Active</span>`;
 
         const verifyBadge = log.is_verified 
-            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Verified</span>`
+            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">Pending</span>`;
 
         let checkboxHtml = (canManage && !log.is_verified) 
@@ -162,7 +162,7 @@ function renderMaintTable() {
         let actions = `<button onclick="openViewMaintModal(${log.id})" class="p-1.5 bg-slate-800 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
         if(isLocked) {
-            actions += `<span class="p-1.5 text-slate-600 cursor-not-allowed" title="Record Locked"><i data-lucide="lock" class="w-4 h-4"></i></span>`;
+            actions += `<span class="p-1.5 text-slate-600 cursor-not-allowed" title="Record Locked: Resolved & Verified logs are archived."><i data-lucide="lock" class="w-4 h-4"></i></span>`;
         } else if (canManage) {
             if(!log.is_verified) {
                 actions += `<button onclick="reqMaintVerify(${log.id})" class="p-1.5 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="check-circle" class="w-4 h-4"></i></button>`;
@@ -172,7 +172,7 @@ function renderMaintTable() {
                 <button onclick="reqMaintDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
         }
 
-        // Output exactly 9 <td> tags
+        // Exact 9 columns matching the HTML headers
         return `
             <tr class="hover:bg-white/5 border-b border-slate-700/30 group animate-in">
                 <td class="p-4 text-center align-middle">${checkboxHtml}</td>
@@ -192,7 +192,7 @@ function renderMaintTable() {
 }
 
 // =================================================================
-// 4. PAGINATION CONTROLS
+// 4. PAGINATION
 // =================================================================
 window.changeMaintPage = function(direction) {
     const totalPages = Math.ceil(filteredMaintLogs.length / maintPageLimit);
@@ -227,7 +227,7 @@ function updateMaintPaginationUI() {
 }
 
 // =================================================================
-// 5. ACTIONS & SYNC
+// 5. BULK ACTIONS
 // =================================================================
 window.toggleMaintRow = function(id) {
     selectedMaintIds.has(id) ? selectedMaintIds.delete(id) : selectedMaintIds.add(id);
@@ -255,19 +255,19 @@ function updateMaintBulkUI() {
 
 window.executeMaintBulkVerify = async function() {
     maintActionType = 'bulk-verify';
-    showMaintConfirmModal("Bulk Verify", `Verify ${selectedMaintIds.size} records? This may lock records marked as Resolved.`, "shield-check", "bg-emerald-600");
+    showMaintConfirmModal("Bulk Verify", `Verify ${selectedMaintIds.size} records? This confirms repairs and syncs vehicle status.`, "shield-check", "bg-emerald-600");
 }
 
 window.reqMaintVerify = function(id) { 
     maintActionType = 'verify'; 
     maintActionId = id; 
-    showMaintConfirmModal("Verify Record?", "Review this record. If status is Resolved, it will be locked.", "check-circle", "bg-green-600"); 
+    showMaintConfirmModal("Verify Record?", "Lock this record's verification? If status is Resolved, it will archive.", "check-circle", "bg-green-600"); 
 }
 
 window.reqMaintDelete = function(id) { 
     maintActionType = 'delete'; 
     maintActionId = id; 
-    showMaintConfirmModal("Delete Record?", "Permanently delete this log? Vehicle status will be recalculated.", "trash-2", "bg-red-600"); 
+    showMaintConfirmModal("Delete Record?", "Are you sure? This removes the log and recalculates vehicle status.", "trash-2", "bg-red-600"); 
 }
 
 async function executeMaintConfirmAction() {
@@ -284,7 +284,7 @@ async function executeMaintConfirmAction() {
         window.closeModal('maintConfirmModal');
         if(res !== null && !res.detail) {
             await loadMaintData();
-            showMaintAlert("Success", "Record updated and vehicle status synchronized.", true);
+            showMaintAlert("Success", "Operation complete. Vehicle status updated.", true);
         } else {
             handleFriendlyMaintError(res, "action");
         }
@@ -293,7 +293,7 @@ async function executeMaintConfirmAction() {
 }
 
 // =================================================================
-// 6. SAVE LOGIC
+// 6. SAVE / EDIT / VIEW
 // =================================================================
 window.openAddMaintModal = function() {
     getMaintEl('maintEditId').value = "";
@@ -308,13 +308,16 @@ window.openAddMaintModal = function() {
     if(getMaintEl('maintStatusSelect')) getMaintEl('maintStatusSelect').value = "active";
 
     getMaintEl('addMaintModal').classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
 }
 
 window.openEditMaintModal = function(id) {
     const log = allMaintLogs.find(l => l.id === id);
     if(!log) return;
-    if(log.status === 'resolved' && log.is_verified) {
-        showMaintAlert("Locked", "Verified and Resolved records cannot be modified.", false);
+    
+    // Strict Lock Check for editing
+    if(log.status === 'resolved' && log.is_verified === true) {
+        showMaintAlert("Locked", "Verified and Resolved records are archived and cannot be modified.", false);
         return;
     }
 
@@ -330,19 +333,23 @@ window.openEditMaintModal = function(id) {
     if(getMaintEl('maintStatusSelect')) getMaintEl('maintStatusSelect').value = log.status;
 
     getMaintEl('addMaintModal').classList.remove('hidden');
+    if(window.lucide) window.lucide.createIcons();
 }
 
 window.saveMaintenance = async function() {
     const id = getMaintEl('maintEditId').value;
     const btn = getMaintEl('btnSaveMaint');
+    const vehicleId = parseInt(getMaintEl('maintVehicleSelect').value);
+    const status = getMaintEl('maintStatusSelect').value;
+
     const payload = {
-        vehicle_id: parseInt(getMaintEl('maintVehicleSelect').value),
+        vehicle_id: vehicleId,
         cat_maintenance_id: parseInt(getMaintEl('maintCatSelect').value) || null,
         garage_id: parseInt(getMaintEl('maintGarageSelect').value) || null,
         maintenance_cost: parseFloat(getMaintEl('maintCost').value) || 0,
         maintenance_date: new Date(getMaintEl('maintDate').value).toISOString(),
         receipt: getMaintEl('maintReceipt').value.trim(),
-        status: getMaintEl('maintStatusSelect').value
+        status: status
     };
 
     if(!payload.vehicle_id || !payload.receipt) {
@@ -361,7 +368,7 @@ window.saveMaintenance = async function() {
         if(res && !res.detail) {
             window.closeModal('addMaintModal');
             await loadMaintData();
-            showMaintAlert("Success", "Maintenance saved. Vehicle status updated.", true);
+            showMaintAlert("Success", "Record saved. Vehicle fleet status updated.", true);
         } else {
             handleFriendlyMaintError(res, "save");
         }
@@ -373,15 +380,15 @@ window.saveMaintenance = async function() {
 // 7. HELPERS
 // =================================================================
 function handleFriendlyMaintError(res, type) {
-    let msg = "Check your connection and try again.";
-    let title = "Process Blocked";
+    let msg = "Check your inputs and try again.";
+    let title = "Action Blocked";
 
     if (res && res.detail) {
         const detail = JSON.stringify(res.detail).toLowerCase();
         if (detail.includes("already undergoing active maintenance")) {
-            msg = "This vehicle is already in maintenance. Complete the previous log first.";
-        } else if (detail.includes("locked")) {
-            msg = "This record is verified and resolved, meaning it is archived.";
+            msg = "This vehicle is already in maintenance. Resolve the current task first.";
+        } else if (detail.includes("verified") && detail.includes("resolved")) {
+            msg = "This record is archived and cannot be changed.";
         } else { msg = res.detail; }
     }
     showMaintAlert(title, msg, false);
@@ -400,14 +407,14 @@ window.openViewMaintModal = function(id) {
                 <div><span class="text-slate-500 text-[10px] uppercase block mb-1">Vehicle</span><span class="text-white font-mono text-sm">${vehicle?.plate_number || '-'}</span></div>
                 <div><span class="text-slate-500 text-[10px] uppercase block mb-1">Cost</span><span class="text-emerald-400 font-bold text-sm">BIF ${log.maintenance_cost.toLocaleString()}</span></div>
             </div>
-            <div class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 flex justify-between">
+            <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
                 <span class="text-slate-500 text-[10px] uppercase">Status</span>
                 <span class="font-bold text-blue-400 uppercase text-xs">${log.status}</span>
             </div>
             <div class="text-xs text-slate-300">
-                <p>Category: ${cat?.cat_maintenance || '-'}</p>
                 <p>Garage: ${garage?.nom_garage || '-'}</p>
-                <p class="mt-2 font-mono text-slate-400">Ref: ${log.receipt || '-'}</p>
+                <p>Category: ${cat?.cat_maintenance || '-'}</p>
+                <p class="mt-2 font-mono text-slate-500">Ref: ${log.receipt || '-'}</p>
             </div>
             <div class="text-[10px] text-slate-500 text-right pt-2 border-t border-slate-800">Date: ${new Date(log.maintenance_date).toLocaleDateString()}</div>
         </div>`;
