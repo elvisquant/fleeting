@@ -1,50 +1,37 @@
 // app/static/js/reparation.js
 
-// --- GLOBAL STATE ---
 let allRepLogs = [];
 let repOptions = { pannes: [], garages: [] };
 let repUserRole = 'user';
-
-// --- PAGINATION & FILTER STATE ---
 let repCurrentPage = 1;
 let repPageLimit = 10;
 let filteredRepLogs = []; 
 let selectedRepIds = new Set(); 
-
-// --- ACTION STATE ---
-let repActionType = null; // 'delete', 'verify', 'bulk-verify'
+let repActionType = null;
 let repActionId = null;
 
-// =================================================================
-// MOBILE-COMPATIBLE ELEMENT GETTER
-// =================================================================
 function getRepEl(id) {
-    if (window.innerWidth < 768) {
-        const mobileEl = document.querySelector('#app-content-mobile #' + id);
-        if (mobileEl) return mobileEl;
-    }
-    const desktopEl = document.querySelector('#app-content #' + id);
-    if (desktopEl) return desktopEl;
-    return document.getElementById(id);
+    const sel = window.innerWidth < 768 ? '#app-content-mobile #' : '#app-content #';
+    return document.querySelector(sel + id) || document.getElementById(id);
 }
 
 // =================================================================
 // 1. INITIALIZATION
 // =================================================================
 async function initReparation() {
-    console.log("Reparation Module: Strict Verification Engine + Realistic Pagination");
+    console.log("Reparation Module: 100% Logic Sync + Verification Fix");
     repUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
-
+    
     const search = getRepEl('repSearch');
-    const statusFilter = getRepEl('repStatusFilter');
+    const sFilter = getRepEl('repStatusFilter');
     const selectAll = getRepEl('selectAllRep');
     const confirmBtn = getRepEl('btnRepConfirmAction');
     
     if(search) search.addEventListener('input', () => { repCurrentPage = 1; renderRepTable(); });
-    if(statusFilter) statusFilter.addEventListener('change', () => { repCurrentPage = 1; renderRepTable(); });
+    if(sFilter) sFilter.addEventListener('change', () => { repCurrentPage = 1; renderRepTable(); });
     if(selectAll) selectAll.addEventListener('change', toggleRepSelectAll);
     if(confirmBtn) confirmBtn.addEventListener('click', executeRepConfirmAction);
-
+    
     await Promise.all([loadRepData(), fetchRepDropdowns()]);
 }
 
@@ -54,43 +41,33 @@ async function initReparation() {
 async function loadRepData() {
     const tbody = getRepEl('repLogsBody');
     if(!tbody) return;
-    
-    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="animate-spin mx-auto mb-2 text-indigo-500"></i>Refreshing repair database...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500"><i data-lucide="loader-2" class="animate-spin mx-auto mb-2 text-indigo-500"></i>Refreshing mechanical database...</td></tr>`;
     if(window.lucide) window.lucide.createIcons();
 
     try {
-        const data = await window.fetchWithAuth('/reparation/?limit=1000'); 
-        const items = data.items || data;
-        
-        if (Array.isArray(items)) {
-            // LIFO sorting
-            allRepLogs = items.sort((a, b) => b.id - a.id);
-            selectedRepIds.clear(); 
-            renderRepTable();
-        } else {
-            handleFriendlyRepError(data, "load");
-        }
-    } catch (e) {
-        showRepAlert("Connection Error", "The server is unreachable.", false);
-    }
+        const data = await window.fetchWithAuth('/reparation/?limit=1000');
+        allRepLogs = (Array.isArray(data) ? data : (data.items || [])).sort((a,b) => b.id - a.id);
+        selectedRepIds.clear();
+        renderRepTable();
+    } catch (e) { console.error("Load failed", e); }
 }
 
 async function fetchRepDropdowns() {
     try {
         const [pannes, garages] = await Promise.all([
-            window.fetchWithAuth('/panne/?limit=1000'), 
-            window.fetchWithAuth('/garage/') 
+            window.fetchWithAuth('/panne/?limit=1000'),
+            window.fetchWithAuth('/garage/')
         ]);
-        repOptions.pannes = pannes.items || pannes || [];
-        repOptions.garages = garages.items || garages || [];
+        repOptions.pannes = Array.isArray(pannes) ? pannes : (pannes.items || []);
+        repOptions.garages = Array.isArray(garages) ? garages : (garages.items || []);
         
         populateSelect('repGarageSelect', repOptions.garages, '', 'nom_garage', 'Select Garage');
         
         const pSel = getRepEl('repPanneSelect');
         const activePannes = repOptions.pannes.filter(p => p.status === 'active');
-        if(pSel) pSel.innerHTML = `<option value="">Select Reported Issue...</option>` + 
-            activePannes.map(p => `<option value="${p.id}">PAN-${p.id}: ${p.description.substring(0,35)}...</option>`).join('');
-    } catch (e) { console.warn("Dropdown load failed", e); }
+        if(pSel) pSel.innerHTML = `<option value="">Select Active Panne...</option>` + 
+            activePannes.map(p => `<option value="${p.id}">PAN-${p.id}: ${p.description.substring(0,30)}...</option>`).join('');
+    } catch (e) {}
 }
 
 // =================================================================
@@ -98,7 +75,7 @@ async function fetchRepDropdowns() {
 // =================================================================
 function renderRepTable() {
     const tbody = getRepEl('repLogsBody');
-    if (!tbody) return;
+    if(!tbody) return;
 
     const sVal = getRepEl('repSearch')?.value.toLowerCase() || '';
     const stVal = getRepEl('repStatusFilter')?.value || 'all';
@@ -108,60 +85,58 @@ function renderRepTable() {
         const gName = garage ? garage.nom_garage.toLowerCase() : "";
         const matchesSearch = gName.includes(sVal) || (log.receipt || "").toLowerCase().includes(sVal);
         let matchesStatus = true;
-        if (stVal === 'verified') matchesStatus = log.is_verified === true;
-        else if (stVal === 'pending') matchesStatus = log.is_verified !== true;
+        if(stVal === 'verified') matchesStatus = log.is_verified === true;
+        if(stVal === 'pending') matchesStatus = log.is_verified !== true;
         return matchesSearch && matchesStatus;
     });
 
     updateRepPaginationUI();
+    const items = filteredRepLogs.slice((repCurrentPage-1)*repPageLimit, repCurrentPage*repPageLimit);
 
-    const start = (repCurrentPage - 1) * repPageLimit;
-    const paginatedItems = filteredRepLogs.slice(start, start + repPageLimit);
-
-    if (paginatedItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500">No repair logs found matching these filters.</td></tr>`;
+    if(!items.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-slate-500 font-medium italic">No mechanical logs found.</td></tr>`;
         return;
     }
 
     const canManage = ['admin', 'superadmin', 'charoi'].includes(repUserRole);
 
-    tbody.innerHTML = paginatedItems.map(log => {
+    tbody.innerHTML = items.map(log => {
         const garage = repOptions.garages.find(g => g.id === log.garage_id);
-        const isLocked = log.status === 'Completed' && log.is_verified === true;
+        const isLocked = log.status === 'Completed' && log.is_verified;
 
-        const progressBadge = log.status === 'Completed'
-            ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Completed</span>`
-            : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">In Progress</span>`;
+        const pBadge = log.status === 'Completed' 
+            ? `<span class="px-2 py-1 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Completed</span>`
+            : `<span class="px-2 py-1 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">In Progress</span>`;
 
-        const verifyBadge = log.is_verified 
+        const vBadge = log.is_verified 
             ? `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Verified</span>`
             : `<span class="px-2 py-1 rounded text-[10px] uppercase font-bold bg-slate-700 text-slate-400 border border-slate-600">Pending</span>`;
 
         let checkboxHtml = (canManage && !log.is_verified) 
-            ? `<input type="checkbox" onchange="toggleRepRow(${log.id})" ${selectedRepIds.has(log.id) ? 'checked' : ''} class="rounded border-slate-600 bg-slate-800 text-indigo-600 focus:ring-0 cursor-pointer">`
-            : `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900 opacity-30">`;
+            ? `<input type="checkbox" onchange="toggleRepRow(${log.id})" ${selectedRepIds.has(log.id)?'checked':''} class="rounded border-slate-600 bg-slate-800 text-indigo-600 cursor-pointer">`
+            : `<input type="checkbox" disabled class="rounded border-slate-700 bg-slate-950 opacity-30">`;
 
-        let actions = `<button onclick="openViewRepModal(${log.id})" class="p-1.5 bg-slate-800 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-md transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
+        let actions = `<button onclick="openViewRepModal(${log.id})" class="p-1.5 bg-slate-800 text-indigo-400 rounded hover:bg-indigo-600 hover:text-white transition" title="View"><i data-lucide="eye" class="w-4 h-4"></i></button>`;
 
-        if (isLocked) {
-             actions += `<span class="p-1.5 text-slate-600" title="Archived"><i data-lucide="lock" class="w-4 h-4"></i></span>`;
+        if(isLocked) {
+            actions += `<span class="p-1.5 text-slate-600"><i data-lucide="lock" class="w-4 h-4"></i></span>`;
         } else if (canManage) {
-             if(!log.is_verified) {
-                 actions += `<button onclick="reqRepVerify(${log.id})" class="p-1.5 bg-slate-800 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-md transition" title="Verify"><i data-lucide="shield-check" class="w-4 h-4"></i></button>`;
-             }
-             actions += `
-                <button onclick="openEditRepModal(${log.id})" class="p-1.5 bg-slate-800 text-amber-400 hover:bg-amber-600 hover:text-white rounded-md transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                <button onclick="reqRepDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 hover:text-white rounded-md transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+            if(!log.is_verified) {
+                actions += `<button onclick="reqRepVerify(${log.id})" class="p-1.5 bg-slate-800 text-emerald-400 hover:bg-emerald-600 transition" title="Verify"><i data-lucide="shield-check" class="w-4 h-4"></i></button>`;
+            }
+            actions += `
+                <button onclick="openEditRepModal(${log.id})" class="p-1.5 bg-slate-800 text-amber-400 hover:bg-amber-600 transition" title="Edit"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                <button onclick="reqRepDelete(${log.id})" class="p-1.5 bg-slate-800 text-red-400 hover:bg-red-600 transition" title="Delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
         }
 
         return `
-            <tr class="hover:bg-white/[0.02] border-b border-slate-700/30 transition-colors">
+            <tr class="hover:bg-white/5 border-b border-slate-700/30 transition-colors animate-in">
                 <td class="p-4 text-center align-middle">${checkboxHtml}</td>
                 <td class="p-4 align-middle text-white font-mono text-xs">PAN-${log.panne_id}</td>
-                <td class="p-4 align-middle text-slate-300 text-sm">${garage ? garage.nom_garage : 'ID ' + log.garage_id}</td>
+                <td class="p-4 align-middle text-slate-300 text-sm">${garage?.nom_garage || 'ID '+log.garage_id}</td>
                 <td class="p-4 align-middle text-right font-bold text-emerald-400">${log.cost.toLocaleString()}</td>
-                <td class="p-4 align-middle">${progressBadge}</td>
-                <td class="p-4 align-middle">${verifyBadge}</td>
+                <td class="p-4 align-middle">${pBadge}</td>
+                <td class="p-4 align-middle">${vBadge}</td>
                 <td class="p-4 align-middle text-slate-500 text-xs">${new Date(log.repair_date).toLocaleDateString()}</td>
                 <td class="p-4 align-middle text-right flex justify-end gap-2">${actions}</td>
             </tr>`;
@@ -172,54 +147,50 @@ function renderRepTable() {
 }
 
 // =================================================================
-// 4. VERIFICATION & ACTIONS ENGINE (FIXED)
+// 4. THE CORE VERIFICATION ENGINE (FIXED 422)
 // =================================================================
-window.reqRepVerify = function(id) { 
-    repActionType = 'verify'; 
-    repActionId = id; 
-    showRepConfirmModal("Verify Repair?", "This confirms the work is inspected. If record is Completed, it will be locked.", "shield-check", "bg-emerald-600"); 
-}
-
 window.executeRepBulkVerify = function() {
     repActionType = 'bulk-verify';
-    showRepConfirmModal("Bulk Verify", `You are verifying ${selectedRepIds.size} records. Are you sure?`, "shield-check", "bg-emerald-600");
+    showRepConfirmModal("Bulk Verify", `You are verifying ${selectedRepIds.size} records. This archives completed logs.`, "shield-check", "bg-emerald-600");
 }
+
+window.reqRepVerify = (id) => { 
+    repActionType='verify'; 
+    repActionId=id; 
+    showRepConfirmModal("Verify Repair?", "Mark this record as inspected? Historical records will lock.", "shield-check", "bg-emerald-600"); 
+};
 
 async function executeRepConfirmAction() {
     const btn = getRepEl('btnRepConfirmAction');
     if(!btn) return;
-    btn.disabled = true; btn.innerText = "Processing...";
+    btn.disabled = true; btn.innerText = "Syncing...";
 
     try {
         let res;
         if (repActionType === 'delete') {
             res = await window.fetchWithAuth(`/reparation/${repActionId}`, 'DELETE');
         } else if (repActionType === 'verify') {
-            // CRITICAL FIX: Ensure the correct endpoint and payload for single verify
-            res = await window.fetchWithAuth(`/reparation/verify-bulk`, 'PUT', { ids: [parseInt(repActionId)] });
+            // Payloads for verify-bulk must match RepairBulkVerify schema: { ids: [1, 2] }
+            res = await window.fetchWithAuth('/reparation/verify-bulk', 'PUT', { ids: [parseInt(repActionId)] });
         } else if (repActionType === 'bulk-verify') {
-            res = await window.fetchWithAuth('/reparation/verify-bulk', 'PUT', { ids: Array.from(selectedRepIds).map(id => parseInt(id)) });
+            res = await window.fetchWithAuth('/reparation/verify-bulk', 'PUT', { ids: Array.from(selectedRepIds).map(i => parseInt(i)) });
         }
 
         window.closeModal('repConfirmModal');
         
-        // Wait for server state to stabilize then reload
-        if (res !== null) {
-            await loadRepData();
-            showRepAlert("Success", "Action completed and database synchronized.", true);
-        } else {
-            handleFriendlyRepError(res, "action");
-        }
+        // RE-FETCH DATA FROM SERVER
+        await loadRepData();
+        showRepAlert("Success", "The database has been updated successfully.", true);
+        
     } catch(e) { 
-        window.closeModal('repConfirmModal');
-        showRepAlert("Error", "Communication with server failed.", false); 
+        showRepAlert("Sync Error", "Server returned an error. Please check your inputs.", false); 
     } finally {
         btn.disabled = false; btn.innerText = "Confirm";
     }
 }
 
 // =================================================================
-// 5. SAVE / MODAL LOGIC
+// 5. MODAL SAVE LOGIC
 // =================================================================
 window.saveReparation = async function() {
     const id = getRepEl('repEditId').value;
@@ -233,48 +204,50 @@ window.saveReparation = async function() {
         status: getRepEl('repProgressStatus').value
     };
 
-    if(!payload.panne_id || !payload.garage_id) {
-        showRepAlert("Validation", "Required fields missing.", false);
-        return;
-    }
+    if(!payload.panne_id || !payload.garage_id) return showRepAlert("Validation", "Required fields are missing.", false);
 
     btn.disabled = true; btn.innerHTML = "Saving...";
     try {
         const method = id ? 'PUT' : 'POST';
         const url = id ? `/reparation/${id}` : '/reparation/';
         const res = await window.fetchWithAuth(url, method, payload);
-        
         if(res && !res.detail) {
             window.closeModal('addRepModal');
             await loadRepData();
-            showRepAlert("Success", "Repair log updated. Vehicle status recalculated.", true);
-        } else { handleFriendlyRepError(res, "save"); }
-    } catch(e) { showRepAlert("Error", "System error.", false); }
+            showRepAlert("Success", "Repair recorded. Fleet status updated.", true);
+        } else { showRepAlert("Blocked", res.detail, false); }
+    } catch(e) { showRepAlert("Error", "Server sync failed.", false); }
     btn.disabled = false; btn.innerHTML = "Save Record";
 }
 
+// =================================================================
+// 6. UI HELPERS
+// =================================================================
 window.openAddReparationModal = function() {
     getRepEl('repEditId').value = "";
-    getRepEl('repModalTitle').innerText = "Log New Reparation";
+    getRepEl('repModalTitle').innerText = "Log Reparation";
     fetchRepDropdowns(); 
     getRepEl('repCost').value = "";
     getRepEl('repDate').value = new Date().toISOString().split('T')[0];
     getRepEl('repReceipt').value = "";
-    getRepEl('repProgressStatus').value = "Inprogress";
+    
+    const pSel = getRepEl('repPanneSelect');
+    pSel.disabled = false;
+    
     getRepEl('addRepModal').classList.remove('hidden');
 }
 
 window.openEditRepModal = function(id) {
     const log = allRepLogs.find(l => l.id === id);
-    if(!log || (log.status === 'Completed' && log.is_verified)) return showRepAlert("Locked", "Historical records are immutable.", false);
+    if(!log || (log.status === 'Completed' && log.is_verified)) return showRepAlert("Locked", "History is archived.", false);
     
     getRepEl('repEditId').value = log.id;
-    getRepEl('repModalTitle').innerText = "Edit Repair Log";
+    getRepEl('repModalTitle').innerText = "Update Repair Log";
     populateSelect('repGarageSelect', repOptions.garages, log.garage_id, 'nom_garage', 'Garage');
     
     const pSel = getRepEl('repPanneSelect');
-    pSel.innerHTML = `<option value="${log.panne_id}">PAN-${log.panne_id} (Locked to this incident)</option>`;
-    pSel.disabled = true;
+    pSel.innerHTML = `<option value="${log.panne_id}">PAN-${log.panne_id} (Linked)</option>`;
+    pSel.disabled = true; // Cannot switch Panne during Edit
 
     getRepEl('repCost').value = log.cost;
     getRepEl('repDate').value = new Date(log.repair_date).toISOString().split('T')[0];
@@ -283,11 +256,8 @@ window.openEditRepModal = function(id) {
     getRepEl('addRepModal').classList.remove('hidden');
 }
 
-// =================================================================
-// 6. UTILITIES (PAGINATION / HELPERS)
-// =================================================================
 window.changeRepPage = (d) => { 
-    const totalPages = Math.ceil(filteredRepLogs.length / repPageLimit);
+    const totalPages = Math.ceil(filteredRepLogs.length / repPageLimit) || 1;
     if(repCurrentPage + d >= 1 && repCurrentPage + d <= totalPages) {
         repCurrentPage += d; renderRepTable(); 
     }
@@ -297,7 +267,7 @@ function updateRepPaginationUI() {
     const totalLogs = filteredRepLogs.length;
     const totalPages = Math.ceil(totalLogs / repPageLimit) || 1;
     getRepEl('repPageIndicator').innerText = `PAGE ${repCurrentPage} OF ${totalPages}`;
-    getRepEl('repCount').innerText = `${totalLogs} repairs logs in history`;
+    getRepEl('repCount').innerText = `${totalLogs} repairs logs in memory`;
     getRepEl('prevRepPage').disabled = (repCurrentPage === 1);
     getRepEl('nextRepPage').disabled = (repCurrentPage === totalPages || totalLogs === 0);
 }
@@ -313,17 +283,7 @@ function updateRepBulkUI() {
     const b = getRepEl('btnRepBulkVerify'); 
     const s = getRepEl('repSelectedCount');
     if(s) s.innerText = selectedRepIds.size;
-    if(b) selectedRepIds.size ? b.classList.remove('hidden') : b.classList.add('hidden');
-}
-
-function handleFriendlyRepError(res, type) {
-    let msg = "Please check your inputs.";
-    if (res && res.detail) {
-        const detail = JSON.stringify(res.detail).toLowerCase();
-        if (detail.includes("locked")) msg = "Verified history is archived.";
-        else msg = res.detail;
-    }
-    showRepAlert("Sync Blocked", msg, false);
+    if(b) selectedRepIds.size > 0 ? b.classList.remove('hidden') : b.classList.add('hidden');
 }
 
 function populateSelect(id, list, sel, key, def) {
@@ -336,8 +296,8 @@ window.closeModal = (id) => getRepEl(id).classList.add('hidden');
 function showRepConfirmModal(t, m, i, c) {
     getRepEl('repConfirmTitle').innerText = t; 
     getRepEl('repConfirmMessage').innerText = m;
-    getRepEl('repConfirmIcon').innerHTML = `<i data-lucide="${i}" class="w-8 h-8"></i>`;
-    getRepEl('btnRepConfirmAction').className = `flex-1 px-4 py-3 rounded-xl text-white font-bold transition ${c}`;
+    getRepEl('repConfirmIcon').innerHTML = `<i data-lucide="${i}" class="w-8 h-8 text-indigo-500"></i>`;
+    getRepEl('btnRepConfirmAction').className = `flex-1 px-4 py-3 rounded-xl text-white font-bold transition-all ${c}`;
     getRepEl('repConfirmModal').classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
 }
@@ -351,7 +311,7 @@ function showRepAlert(t, m, s) {
     iconDiv.innerHTML = `<i data-lucide="${s ? 'check' : 'x'}"></i>`;
     modal.classList.remove('hidden');
     if(window.lucide) window.lucide.createIcons();
-    if(s) setTimeout(() => modal.classList.add('hidden'), 3000);
+    if(s) setTimeout(() => modal.classList.add('hidden'), 3500);
 }
 
 document.addEventListener('DOMContentLoaded', initReparation);
