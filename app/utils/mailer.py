@@ -164,3 +164,11 @@ async def send_driver_assignment_email(email_to: str, driver_name: str, requeste
 async def send_rejection_email(email_to: str, requester_name: str, request_id: int, reason: str, approver_name: str):
     html = f"""<html><body><p>Dear {requester_name}, your request #{request_id} was denied. Reason: {reason}</p></body></html>"""
     await _send(email_to, f"DENIED: Vehicle Request #{request_id}", html)
+
+
+    
+async def send_accounting_email(pdf_file, filename, request_id):
+    print(f"DEBUG: Accounting email for request {request_id} would be sent here.")
+    return None
+
+  
