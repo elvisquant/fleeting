@@ -9,6 +9,7 @@ class RequestStatus(str, enum.Enum):
     PENDING = 'pending'
     APPROVED_BY_CHEF = 'approved_by_chef'
     APPROVED_BY_LOGISTIC = 'approved_by_logistic'
+    APPROVED_BY_CHAROI = 'approved_by_charoi'
     FULLY_APPROVED = 'fully_approved'
     DENIED = 'denied'
     IN_PROGRESS = 'in_progress'
