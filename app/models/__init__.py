@@ -1,5 +1,5 @@
 # Exposes all models to the app
-from .users import User, Role, Agency, Service, UserToken
-from .vehicles import Vehicle, VehicleType, VehicleMake, VehicleModel, VehicleTransmission, FuelType, Fuel
-from .operations import VehicleRequest, RequestApproval
-from .maintenance import Maintenance, CategoryMaintenance, Garage, Panne, CategoryPanne, Reparation
+from .users import *
+from .vehicles import *
+from .operations import *
+from .maintenance import *
