@@ -7,7 +7,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=for-the-badge&logo=docker)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge&logo=postgresql)
 
-> **A robust, full-stack fleet management solution engineered for operational efficiency, auditability, and role-based security..**
+> **A robust, full-stack fleet management solution engineered for operational efficiency, auditability, and role-based security.**
 
 ---
 
