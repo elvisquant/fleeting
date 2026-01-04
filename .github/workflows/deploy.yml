@@ -23,7 +23,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/fleetdash-backend:latest
+          tags: elvispro1993/fleetdash-backend:latest
 
       - name: Copy Compose File to Server
         uses: appleboy/scp-action@master
@@ -41,22 +41,22 @@ jobs:
           username: ${{ secrets.GCP_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Navigate to directory
             cd ~/fleetdash
-            # Rename for simplicity
-            mv docker-compose.prod.yml docker-compose.yml
             
-            # Pull new code
-            docker compose pull
+            # 1. Pull the newly pushed image from Docker Hub
+            docker compose -f docker-compose.prod.yml pull
             
-            # Restart App
-            docker compose up -d --remove-orphans
+            # 2. Restart services using the production file
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
             
-            # Clean up
+            # 3. CRITICAL: Wait for the new database to initialize
+            echo "Waiting for database to initialize (Fresh Volume)..."
+            sleep 15
+            
+            # 4. Run Migrations
+            echo "Running migrations..."
+            docker compose -f docker-compose.prod.yml exec -T fastapi-service alembic upgrade head
+            
+            # 5. Clean up unused images to save disk space
             docker image prune -f
-            
-            # Run Migrations
-            docker compose exec -T fastapi-service alembic upgrade head
-
-
-
-
