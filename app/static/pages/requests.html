@@ -1,124 +1,195 @@
+<!-- HEADER SECTION -->
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
     <div>
-        <h2 class="text-2xl font-bold text-white tracking-tight" data-i18n="requests">Vehicle Requests</h2>
-        <p class="text-slate-400 text-sm mt-1" data-i18n="req_desc">Track and validate mission orders.</p>
+        <h2 class="text-2xl font-bold text-white tracking-tight">Mission Orders</h2>
+        <p class="text-slate-400 text-sm mt-1">Submit and track vehicle requests and approvals.</p>
     </div>
-    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg flex items-center gap-2 transition">
-        <i data-lucide="plus-circle" class="w-4 h-4"></i>
-        <span data-i18n="new_request">New Request</span>
+    
+    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all active:scale-95">
+        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+        <span>Create Request</span>
     </button>
 </div>
 
-<!-- SEARCH & FILTERS -->
+<!-- FILTER PANEL -->
 <div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
     <div class="relative w-full md:w-96">
         <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-500"></i>
-        <input type="text" id="requestSearch" data-i18n-placeholder="search_placeholder" class="input-field pl-10">
+        <input type="text" id="requestSearch" placeholder="Search destination or requester..." 
+               class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-xl pl-10 pr-4 py-2 focus:border-blue-500 outline-none transition">
     </div>
-    <select id="requestStatusFilter" class="bg-slate-900 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500">
-        <option value="all" data-i18n="all">All Status</option>
-        <option value="pending" data-i18n="pending">Pending</option>
-        <option value="approved_by_chef">Chef Approved</option>
-        <option value="approved_by_charoi">Assigned (Charoi)</option>
-        <option value="fully_approved" data-i18n="fully_approved">Fully Approved</option>
-        <option value="denied" data-i18n="denied">Denied</option>
-    </select>
+
+    <div class="flex items-center gap-2 w-full md:w-auto">
+        <select id="requestStatusFilter" class="w-full md:w-48 bg-slate-900 border border-slate-700 text-slate-300 text-sm rounded-xl px-4 py-2 outline-none focus:border-blue-500 transition">
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved_by_chef">Chef Approved</option>
+            <option value="approved_by_charoi">Charoi Assigned</option>
+            <option value="approved_by_logistic">Logistic Approved</option>
+            <option value="fully_approved">Fully Approved</option>
+            <option value="denied">Denied</option>
+        </select>
+    </div>
 </div>
 
-<!-- DESKTOP TABLE -->
-<div class="glass-panel overflow-hidden animate-up delay-2">
+<!-- DATA TABLE -->
+<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/40">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="text-[10px] text-slate-500 uppercase tracking-widest border-b border-slate-700/50 bg-slate-800/40">
-                    <th class="p-4" data-i18n="requester">Requester</th>
-                    <th class="p-4" data-i18n="destination">Destination</th>
-                    <th class="p-4" data-i18n="departure">Departure</th>
-                    <th class="p-4" data-i18n="status">Status</th>
-                    <th class="p-4">Assigned Resource</th>
-                    <th class="p-4 text-right" data-i18n="actions">Actions</th>
+                    <th class="p-4 font-bold">Requester</th>
+                    <th class="p-4 font-bold">Destination</th>
+                    <th class="p-4 font-bold">Departure</th>
+                    <th class="p-4 font-bold">Status</th>
+                    <th class="p-4 font-bold">Assignment</th>
+                    <th class="p-4 font-bold text-right">Actions</th>
                 </tr>
             </thead>
             <tbody id="requestsBody" class="divide-y divide-slate-700/30">
-                <!-- Data injected by JS -->
+                <!-- Data injected via requests.js -->
             </tbody>
         </table>
+    </div>
+    <div class="p-4 border-t border-slate-700/30 bg-slate-800/20">
+        <span class="text-xs text-slate-500" id="requestsCount">0 requests found</span>
     </div>
 </div>
 
 <!-- ================= MODALS ================= -->
 
-<!-- ADD REQUEST -->
-<div id="addRequestModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl animate-up">
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center">
-            <h3 class="text-white font-bold" data-i18n="new_request">New Vehicle Request</h3>
-            <button onclick="closeModal('addRequestModal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+<!-- 1. ADD REQUEST MODAL -->
+<div id="addRequestModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl animate-up">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+            <h3 class="text-white font-bold text-lg">New Vehicle Request</h3>
+            <button onclick="closeModal('addRequestModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
         </div>
-        <div class="p-6 space-y-4">
-            <div><label class="label-text" data-i18n="destination">Destination</label><input type="text" id="reqDest" class="input-field" placeholder="City, Office..."></div>
-            <div class="grid grid-cols-2 gap-4">
-                <div><label class="label-text" data-i18n="departure">Start Time</label><input type="datetime-local" id="reqStart" class="input-field"></div>
-                <div><label class="label-text" data-i18n="return">End Time</label><input type="datetime-local" id="reqEnd" class="input-field"></div>
+        <div class="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <div>
+                <label class="label-text">Destination *</label>
+                <input type="text" id="reqDest" class="input-field" placeholder="Where are you going?">
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="label-text">Departure Time *</label>
+                    <input type="datetime-local" id="reqStart" class="input-field">
+                </div>
+                <div>
+                    <label class="label-text">Expected Return *</label>
+                    <input type="datetime-local" id="reqEnd" class="input-field">
+                </div>
             </div>
             <div>
                 <label class="label-text">Passengers (Matricules, comma separated)</label>
-                <textarea id="reqPassengersList" class="input-field h-20 text-xs" placeholder="MAT001, MAT002..."></textarea>
+                <textarea id="reqPassengersList" class="input-field h-20 text-xs font-mono" placeholder="EMP001, EMP002..."></textarea>
+                <p class="text-[9px] text-slate-500 mt-1">Your matricule is included by default.</p>
             </div>
-            <div><label class="label-text">Mission Description</label><textarea id="reqDesc" class="input-field h-24"></textarea></div>
+            <div>
+                <label class="label-text">Purpose of Mission</label>
+                <textarea id="reqDesc" class="input-field h-24" placeholder="Briefly explain the reason for travel..."></textarea>
+            </div>
         </div>
-        <div class="p-4 border-t border-slate-700 flex justify-end gap-3">
-            <button onclick="closeModal('addRequestModal')" class="btn-secondary" data-i18n="cancel">Cancel</button>
-            <button onclick="saveNewRequest()" class="btn-primary" data-i18n="save">Submit Request</button>
+        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+            <button onclick="closeModal('addRequestModal')" class="btn-secondary">Cancel</button>
+            <button id="btnSaveRequest" onclick="saveNewRequest()" class="btn-primary">
+                <i data-lucide="send" class="w-4 h-4 mr-2"></i> Submit Request
+            </button>
         </div>
     </div>
 </div>
 
-<!-- ASSIGN RESOURCES (CHAROI/LOGISTIC) -->
-<div id="assignResourceModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl animate-up">
+<!-- 2. VIEW DETAILS MODAL -->
+<div id="viewRequestModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl shadow-2xl animate-up">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+            <h3 class="text-white font-bold">Request Dossier</h3>
+            <button onclick="closeModal('viewRequestModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-8" id="viewRequestContent">
+            <!-- Data injected via JS -->
+        </div>
+        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
+            <button onclick="closeModal('viewRequestModal')" class="btn-secondary">Close Dossier</button>
+        </div>
+    </div>
+</div>
+
+<!-- 3. ASSIGN RESOURCE MODAL (FOR CHAROI) -->
+<div id="assignResourceModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl animate-up overflow-hidden">
         <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-blue-600/10">
-            <h3 class="text-white font-bold" data-i18n="assign_resources">Assign Vehicle & Driver</h3>
+            <h3 class="text-white font-bold">Resource Allocation</h3>
             <button onclick="closeModal('assignResourceModal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
-        <div class="p-6 space-y-4">
-            <div><label class="label-text">Select Available Vehicles</label><select id="assignVehicle" class="input-field"></select></div>
-            <div><label class="label-text">Select Driver</label><select id="assignDriver" class="input-field"></select></div>
-            <div><label class="label-text">Update Passengers (Matricules)</label><textarea id="assignPassengers" class="input-field h-16 text-xs"></textarea></div>
+        <div class="p-6">
+            <!-- CONTEXT SUMMARY -->
+            <div id="assignSummary"></div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="label-text">Available Vehicle</label>
+                    <select id="assignVehicle" class="input-field"></select>
+                </div>
+                <div>
+                    <label class="label-text">Select Active Driver</label>
+                    <select id="assignDriver" class="input-field"></select>
+                </div>
+                <div>
+                    <label class="label-text">Final Passenger List (Matricules)</label>
+                    <textarea id="assignPassengers" class="input-field h-20 text-xs font-mono"></textarea>
+                </div>
+            </div>
         </div>
-        <div class="p-4 border-t border-slate-700 flex justify-end gap-3">
-            <button onclick="closeModal('assignResourceModal')" class="btn-secondary">Close</button>
-            <button onclick="submitAssignment()" class="btn-primary bg-blue-600">Save Assignment</button>
+        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+            <button onclick="closeModal('assignResourceModal')" class="btn-secondary">Cancel</button>
+            <button onclick="submitAssignment()" class="btn-primary bg-blue-600 hover:bg-blue-500">
+                <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Assignment
+            </button>
         </div>
     </div>
 </div>
 
-<!-- APPROVAL MODAL -->
-<div id="approvalModal" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl animate-up">
-        <div class="p-6 text-center">
-            <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-500">
-                <i data-lucide="user-check" class="w-8 h-8"></i>
-            </div>
-            <h3 class="text-white font-bold text-lg mb-1" id="approvalStageTitle">Process Approval</h3>
-            <p class="text-slate-500 text-xs mb-4">Review and provide a decision.</p>
-            
-            <textarea id="approvalComments" class="input-field h-24 mb-4 text-sm" placeholder="Write comments or reason for denial..."></textarea>
-            
-            <div class="flex gap-3">
-                <button onclick="submitDecision('denied')" class="btn-danger w-full py-3" data-i18n="btn_deny">Deny</button>
-                <button onclick="submitDecision('approved')" class="btn-primary w-full py-3 bg-emerald-600" data-i18n="btn_approve">Approve</button>
-            </div>
-            <button onclick="closeModal('approvalModal')" class="mt-4 text-slate-500 text-sm hover:text-white" data-i18n="cancel">Cancel</button>
+<!-- 4. APPROVAL/DECISION MODAL -->
+<div id="approvalModal" class="fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-up text-center">
+        <div class="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-500 border border-blue-500/20">
+            <i data-lucide="check-circle" class="w-8 h-8"></i>
         </div>
+        <h3 class="text-lg font-bold text-white mb-1" id="approvalStageTitle">Process Request</h3>
+        
+        <!-- CONTEXT SUMMARY -->
+        <div id="approvalSummary"></div>
+
+        <p class="text-slate-500 text-xs mb-4">Add optional comments for your decision.</p>
+        <textarea id="approvalComments" class="input-field h-24 mb-5 text-sm" placeholder="Reason for approval or denial..."></textarea>
+        
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="submitDecision('denied')" class="btn-danger w-full py-3 font-bold">
+                <i data-lucide="x" class="w-4 h-4 inline mr-1"></i> Deny
+            </button>
+            <button onclick="submitDecision('approved')" class="btn-primary w-full py-3 bg-emerald-600 hover:bg-emerald-500 font-bold">
+                <i data-lucide="check" class="w-4 h-4 inline mr-1"></i> Approve
+            </button>
+        </div>
+        <button onclick="closeModal('approvalModal')" class="mt-5 text-slate-500 text-sm hover:text-white transition">Cancel Action</button>
     </div>
 </div>
 
 <style>
-    .label-text { display: block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 0.3rem; letter-spacing: 0.05em; }
-    .input-field { width: 100%; background: #0f172a; border: 1px solid #334155; color: #f1f5f9; border-radius: 0.75rem; padding: 0.6rem 0.8rem; font-size: 0.875rem; transition: all 0.2s; outline: none; }
-    .input-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
-    .btn-primary { background: #2563eb; color: white; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
-    .btn-secondary { background: #1e293b; border: 1px solid #334155; color: #94a3b8; border-radius: 0.75rem; padding: 0.6rem 1.2rem; font-weight: 600; font-size: 0.875rem; }
-    .btn-danger { background: #b91c1c; color: white; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
+    .label-text { display: block; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: #475569; margin-bottom: 0.4rem; letter-spacing: 0.05em; }
+    .input-field { width: 100%; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 0.75rem; padding: 0.75rem; font-size: 0.875rem; outline: none; transition: all 0.2s; }
+    .input-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+    .btn-primary { display: flex; align-items: center; justify-content: center; background: #2563eb; color: white; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
+    .btn-secondary { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 0.75rem 1.25rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
+    .btn-secondary:hover { color: white; border-color: #64748b; }
+    .btn-danger { background: #991b1b; color: white; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
+    .btn-danger:hover { background: #dc2626; }
+    
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 </style>

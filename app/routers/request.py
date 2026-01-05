@@ -8,6 +8,9 @@ from app.database import get_db
 
 router = APIRouter(prefix="/api/v1/requests", tags=['Requests API'])
 
+# =================================================================
+# 1. GET ALL REQUESTS (With Visibility Logic)
+# =================================================================
 @router.get("/", response_model=List[schemas.VehicleRequestOut])
 def get_all_requests(
     db: Session = Depends(get_db),
@@ -18,37 +21,44 @@ def get_all_requests(
     query = db.query(models.VehicleRequest).options(
         joinedload(models.VehicleRequest.requester).joinedload(models.User.service),
         joinedload(models.VehicleRequest.vehicle),
-        joinedload(models.VehicleRequest.driver)
+        joinedload(models.VehicleRequest.driver),
+        joinedload(models.VehicleRequest.approvals) # Needed for the View button
     )
     
     user_role = current_user.role.name.lower()
 
-    # Visibility Logic
+    # Visibility Logic based on your requirements
     if user_role in ["admin", "superadmin", "darh"]:
-        pass 
+        pass # Full access
     elif user_role == "chef":
+        # Sees own or service requests
         query = query.join(models.User, models.VehicleRequest.requester_id == models.User.id)\
                      .filter(or_(models.VehicleRequest.requester_id == current_user.id,
                                  models.User.service_id == current_user.service_id))
     elif user_role == "charoi":
+        # Sees own or those approved by chef (needs to assign)
         query = query.filter(or_(models.VehicleRequest.requester_id == current_user.id,
-                                 models.VehicleRequest.status == models.RequestStatus.APPROVED_BY_CHEF))
+                                 models.VehicleRequest.status == "approved_by_chef"))
     elif user_role == "logistic":
+        # Sees own or those assigned by charoi (needs to approve)
         query = query.filter(or_(models.VehicleRequest.requester_id == current_user.id,
-                                 models.VehicleRequest.status == models.RequestStatus.APPROVED_BY_CHAROI))
+                                 models.VehicleRequest.status == "approved_by_charoi"))
     else:
+        # Drivers and standard users see only their own
         query = query.filter(models.VehicleRequest.requester_id == current_user.id)
 
-    # Order by newest first and handle pagination
     return query.order_by(models.VehicleRequest.id.desc()).offset(skip).limit(limit).all()
 
+# =================================================================
+# 2. CREATE REQUEST (Matricule Logic)
+# =================================================================
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.VehicleRequestOut)
 def create_request(
     request_data: schemas.VehicleRequestCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user_from_header)
 ):
-    # Ensure matricules are used. Add requester's matricule if not present.
+    # Ensure requester's matricule is in the passenger list
     matricule_list = request_data.passengers if request_data.passengers else []
     if current_user.matricule not in matricule_list:
         matricule_list.append(current_user.matricule)
@@ -60,13 +70,16 @@ def create_request(
         return_time=request_data.return_time,
         passengers=matricule_list,
         requester_id=current_user.id,
-        status=models.RequestStatus.PENDING
+        status="pending" # Used literal string to avoid AttributeError
     )
     db.add(new_request)
     db.commit()
     db.refresh(new_request)
     return new_request
 
+# =================================================================
+# 3. ASSIGN RESOURCES (Charoi/Logistic/Admin)
+# =================================================================
 @router.put("/{id}/assign", response_model=schemas.VehicleRequestOut)
 def assign_vehicle_and_driver(
     id: int,
@@ -78,7 +91,11 @@ def assign_vehicle_and_driver(
     if not req:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    # Update Matricule list if the assigner modifies it
+    # Rule: Can only assign if Chef has approved
+    if req.status == "pending" and current_user.role.name.lower() not in ["admin", "superadmin"]:
+        raise HTTPException(status_code=400, detail="Chef must approve before resource assignment.")
+
+    # Update Passengers if provided
     if hasattr(assignment_data, 'passengers') and assignment_data.passengers is not None:
         req.passengers = assignment_data.passengers
         flag_modified(req, "passengers")
@@ -86,6 +103,23 @@ def assign_vehicle_and_driver(
     req.vehicle_id = assignment_data.vehicle_id
     req.driver_id = assignment_data.driver_id
     
+    # Crucial: Move status forward so Logistics can see it
+    req.status = "approved_by_charoi"
+    
     db.commit()
     db.refresh(req)
     return req
+
+# =================================================================
+# 4. HELPER: GET DRIVERS (For Dropdown)
+# =================================================================
+@router.get("/drivers", response_model=List[schemas.UserSimpleOut])
+def get_active_drivers(db: Session = Depends(get_db)):
+    """
+    Returns users who have the role 'driver'
+    """
+    drivers = db.query(models.User).join(models.Role).filter(
+        models.Role.name.ilike("driver"),
+        models.User.is_active == True
+    ).all()
+    return drivers
