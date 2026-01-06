@@ -40,14 +40,15 @@ def get_all_requests(
     elif user_role == "charoi":
         # See own requests OR requests ready for asset allocation (Approved by Chef)
         query = query.filter(or_(models.VehicleRequest.requester_id == current_user.id,
-                                 models.VehicleRequest.status == "approved_by_chef"))
+                                 models.VehicleRequest.status == "approved_by_chef",
+                                 models.VehicleRequest.status == "fully_approved"))
                                  
     elif user_role == "logistic":
         # UPGRADED: Logistic can see items waiting for Charoi (to help assign) 
         # AND items waiting for Logistic approval
         query = query.filter(or_(
             models.VehicleRequest.requester_id == current_user.id,
-            models.VehicleRequest.status.in_(["approved_by_chef", "approved_by_charoi"])
+            models.VehicleRequest.status.in_(["approved_by_charoi","fully_approved"])
         ))
         
     else:
@@ -141,3 +142,9 @@ def get_active_drivers(db: Session = Depends(get_db)):
         models.Role.name.ilike("driver"),
         models.User.is_active == True
     ).all()
+
+
+
+
+
+

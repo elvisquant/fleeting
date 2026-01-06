@@ -106,8 +106,6 @@ def submit_approval(
 
 
 
-
-
 @router.get("/{request_id}/pdf")
 def get_mission_order_pdf(
     request_id: int,
