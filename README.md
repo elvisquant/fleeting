@@ -27,7 +27,7 @@ The system is built on a **Micro-service ready architecture** using FastAPI, enf
 
 ### 🔐 Security & Access Control
 *   **JWT Authentication:** Secure stateless authentication with Access/Refresh token rotation.
-*   **Granular RBAC:** 6+ distinct roles (`Admin`, `Charoi`, `Logistic`, `Chef`, `Driver`, `User`).
+*   **Granular RBAC:** 6+ distinct roles (`superadmin`,`admin`, `darh`, `logistic`,`charoi`, `chef`, `driver`, `Operateur`,`technicien`,`accountant`,`user`).
 *   **Dynamic UI:** The frontend automatically adapts menus and actions based on the user's permission level.
 
 ### 🚗 Fleet Operations
