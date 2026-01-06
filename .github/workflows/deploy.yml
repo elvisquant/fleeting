@@ -23,6 +23,8 @@ jobs:
         with:
           context: .
           push: true
+          # FORCE NO CACHE: This ensures every line of code is re-read
+          no-cache: true 
           tags: elvispro1993/fleetdash-backend:latest
 
       - name: Copy Compose File to Server
@@ -44,19 +46,21 @@ jobs:
             # Navigate to directory
             cd ~/fleetdash
             
-            # 1. Pull the newly pushed image from Docker Hub
+            # 1. Pull the newly pushed image (without using local server cache)
             docker compose -f docker-compose.prod.yml pull
             
-            # 2. Restart services using the production file
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            # 2. Restart services and FORCE RECREATION 
+            # This ignores existing containers and starts them fresh
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans --force-recreate
             
-            # 3. CRITICAL: Wait for the new database to initialize
-            echo "Waiting for database to initialize (Fresh Volume)..."
+            # 3. Wait for the database to be ready
+            echo "Waiting for database..."
             sleep 15
             
             # 4. Run Migrations
             echo "Running migrations..."
             docker compose -f docker-compose.prod.yml exec -T fastapi-service alembic upgrade head
             
-            # 5. Clean up unused images to save disk space
-            docker image prune -f
+            # 5. NUCLEAR CLEANUP: Remove all old images and build cache on the server
+            # This prevents your 8.7GB disk from filling up
+            docker system prune -af
