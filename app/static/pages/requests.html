@@ -1,12 +1,12 @@
 <!-- REQUESTS MAIN CONTAINER -->
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 animate-up">
     <div>
-        <h2 class="text-3xl font-black text-white tracking-tighter uppercase">Fleet Operations</h2>
+        <h2 class="text-3xl font-black text-white tracking-tighter uppercase tracking-widest">Fleet Operations</h2>
         <p class="text-slate-500 text-sm mt-1 font-medium italic">Monitor, allocate resources, and validate mission orders.</p>
     </div>
     
-    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-900/30 flex items-center gap-3 transition-all active:scale-95 group">
-        <i data-lucide="plus-circle" class="w-5 h-5 group-hover:rotate-90 transition-transform duration-300"></i>
+    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] shadow-xl flex items-center gap-3 active:scale-95 transition-all">
+        <i data-lucide="plus-circle" class="w-5 h-5 transition-transform duration-300"></i>
         <span>Initiate Mission</span>
     </button>
 </div>
@@ -15,17 +15,14 @@
 <div class="glass-panel p-5 mb-8 flex flex-col md:flex-row gap-6 items-center justify-between animate-up delay-1 border-white/5 shadow-2xl">
     <div class="relative w-full md:w-[400px]">
         <i data-lucide="search" class="absolute left-4 top-3.5 w-4 h-4 text-slate-600"></i>
-        <input type="text" id="requestSearch" placeholder="Search destination, staff name or matricule..." 
-               class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-2xl pl-12 pr-4 py-2.5 focus:border-blue-500 outline-none transition-all shadow-inner">
+        <input type="text" id="requestSearch" placeholder="Search mission by officer or zone..." 
+               class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-2xl pl-12 pr-4 py-3 outline-none focus:border-blue-500 transition-all shadow-inner uppercase tracking-tighter">
     </div>
 
     <div class="flex items-center gap-3 w-full md:w-auto">
-        <select id="requestStatusFilter" class="w-full md:w-56 bg-slate-950 border border-slate-800 text-slate-400 text-xs font-bold rounded-2xl px-5 py-2.5 outline-none focus:border-blue-500 uppercase tracking-tighter shadow-inner">
-            <option value="all">Entire Pipeline</option>
-            <option value="pending">Awaiting Chef</option>
-            <option value="approved_by_chef">Awaiting Assets</option>
-            <option value="approved_by_charoi">Awaiting Logistic</option>
-            <option value="approved_by_logistic">Awaiting DARH</option>
+        <select id="requestStatusFilter" class="w-full md:w-60 bg-slate-950 border border-slate-800 text-slate-400 text-[10px] font-black rounded-2xl px-6 py-3 outline-none focus:border-blue-500 uppercase tracking-[0.1em] shadow-inner">
+            <option value="all">Comprehensive Pipeline</option>
+            <option value="pending">Stage: New / Pending</option>
             <option value="fully_approved">Mission Finalized</option>
             <option value="denied">Rejected</option>
         </select>
@@ -35,19 +32,19 @@
 <!-- DATA ARCHITECTURE -->
 <div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl border-white/5">
     <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="w-full text-left border-collapse min-w-[700px]">
             <thead>
                 <tr class="text-[10px] text-slate-600 uppercase tracking-[0.2em] border-b border-slate-800 bg-slate-900/50">
                     <th class="p-5 font-black">Officer / Matricule</th>
                     <th class="p-5 font-black">Destination Zone</th>
                     <th class="p-5 font-black">Departure</th>
                     <th class="p-5 font-black">Workflow Status</th>
-                    <th class="p-5 font-black">Fleet Assets</th>
+                    <th class="p-5 font-black text-center">Fleet Assets</th>
                     <th class="p-5 font-black text-right">Control Actions</th>
                 </tr>
             </thead>
             <tbody id="requestsBody" class="divide-y divide-slate-800/50 text-slate-300">
-                <!-- Data injected via requests.js -->
+                <!-- Logic injected via requests.js -->
             </tbody>
         </table>
     </div>
@@ -60,23 +57,23 @@
 
 <!-- 1. ADD REQUEST -->
 <div id="addRequestModal" class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
-    <div class="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-[2.5rem] shadow-2xl animate-up overflow-hidden">
-        <div class="p-8 border-b border-slate-800 flex justify-between items-center">
-            <h3 class="text-white font-black uppercase tracking-tighter">New Mission Order</h3>
+    <div class="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-[2.5rem] shadow-2xl animate-up overflow-hidden border-white/5">
+        <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+            <h3 class="text-white font-black uppercase tracking-widest text-sm">New Mission Protocol</h3>
             <button onclick="closeModal('addRequestModal')" class="text-slate-600 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         <div class="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-            <div class="space-y-2"><label class="label-text">Strategic Destination *</label><input type="text" id="reqDest" class="input-field" placeholder="Target City or Office"></div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-2"><label class="label-text">Deployment Time *</label><input type="datetime-local" id="reqStart" class="input-field"></div>
-                <div class="space-y-2"><label class="label-text">Expected Return *</label><input type="datetime-local" id="reqEnd" class="input-field"></div>
+            <div class="space-y-1"><label class="label-text">Strategic Destination *</label><input type="text" id="reqDest" class="input-field" placeholder="Target Zone"></div>
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-1"><label class="label-text">Deployment Time *</label><input type="datetime-local" id="reqStart" class="input-field"></div>
+                <div class="space-y-1"><label class="label-text">Return Time *</label><input type="datetime-local" id="reqEnd" class="input-field"></div>
             </div>
-            <div class="space-y-2"><label class="label-text">Staff Manifest (Matricules)</label><textarea id="reqPassengersList" class="input-field h-24 text-xs font-mono" placeholder="Comma separated: EMP001, EMP002..."></textarea></div>
-            <div class="space-y-2"><label class="label-text">Rationale</label><textarea id="reqDesc" class="input-field h-24"></textarea></div>
+            <div class="space-y-1"><label class="label-text">Mission Manifest (Matricules)</label><textarea id="reqPassengersList" class="input-field h-24 text-[10px] font-mono" placeholder="Officer Matricules..."></textarea></div>
+            <div class="space-y-1"><label class="label-text">Strategic Rationale</label><textarea id="reqDesc" class="input-field h-24"></textarea></div>
         </div>
         <div class="p-6 border-t border-slate-800 bg-slate-900/50 flex justify-end gap-4">
             <button onclick="closeModal('addRequestModal')" class="btn-secondary">Abort</button>
-            <button id="btnSaveRequest" onclick="saveNewRequest()" class="btn-primary">SUBMIT DOSSIER</button>
+            <button id="btnSaveRequest" onclick="saveNewRequest()" class="btn-primary">SUBMIT PROPOSAL</button>
         </div>
     </div>
 </div>
@@ -85,7 +82,7 @@
 <div id="viewRequestModal" class="fixed inset-0 z-[100] hidden bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4">
     <div class="bg-slate-950 border border-slate-800 w-full max-w-2xl rounded-[3rem] shadow-2xl animate-up border-white/5">
         <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/40">
-            <h3 class="text-white font-black uppercase tracking-[0.2em] text-[10px]">Mission Dossier Context</h3>
+            <h3 class="text-white font-black uppercase tracking-[0.2em] text-[10px]">Mission Dossier Metadata</h3>
             <button onclick="closeModal('viewRequestModal')" class="text-slate-600 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         <div class="p-10" id="viewRequestContent"></div>
@@ -95,11 +92,11 @@
     </div>
 </div>
 
-<!-- 3. RESOURCE ALLOCATION MODAL -->
+<!-- 3. RESOURCE ALLOCATION MODAL (EDIT/ASSIGN) -->
 <div id="assignResourceModal" class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
-    <div class="bg-slate-950 border border-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl animate-up">
+    <div class="bg-slate-950 border border-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl animate-up border-white/5">
         <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-blue-950/40">
-            <div><h3 class="text-white font-black uppercase tracking-tighter text-sm">Asset Allocation</h3><p class="text-blue-500 text-[10px] font-bold tracking-[0.2em] uppercase mt-1">Fleet Deployment</p></div>
+            <div><h3 class="text-white font-black uppercase tracking-tighter text-sm">Asset Allocation</h3><p class="text-blue-500 text-[10px] font-black tracking-[0.2em] uppercase mt-1">Fleet Deployment</p></div>
             <button onclick="closeModal('assignResourceModal')" class="text-slate-600 hover:text-white transition"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         <div class="p-8">
@@ -111,13 +108,13 @@
             </div>
         </div>
         <div class="p-6 border-t border-slate-800 bg-slate-900/50 flex justify-end gap-4">
-            <button onclick="closeModal('assignResourceModal')" class="btn-secondary">Cancel</button>
+            <button onclick="closeModal('assignResourceModal')" class="btn-secondary">Abort</button>
             <button onclick="submitAssignment()" class="btn-primary bg-blue-700 shadow-blue-900/20 uppercase font-black">Confirm Assets</button>
         </div>
     </div>
 </div>
 
-<!-- 4. DECISION GATE MODAL (UPGRADED TO MATCH VIEW MODAL SIZE) -->
+<!-- 4. DECISION GATE MODAL (UPGRADED LARGE DESIGN) -->
 <div id="approvalModal" class="fixed inset-0 z-[110] hidden bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-slate-950 border border-slate-800 w-full max-w-2xl rounded-[3.5rem] shadow-2xl animate-up border-white/5 overflow-hidden">
         <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/40">
@@ -126,30 +123,30 @@
         </div>
         
         <div class="p-8 md:p-12 overflow-y-auto max-h-[75vh] custom-scrollbar">
-            <!-- Full Context Summary (Leaving, Return, Duration, Purpose, Manifest) -->
+            <!-- Full Mission Context Summary (Leaving, Return, Duration, Purpose, Manifest) -->
             <div id="approvalSummary"></div>
 
-            <!-- Optional Modifiable Asset Section (Logistic/Admin/DARH) -->
-            <div id="approvalEditSection" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6 py-8 my-8 border-y border-slate-800/50">
+            <!-- Optional Resource Modification Section (Pre-populated) -->
+            <div id="approvalEditSection" class="hidden grid grid-cols-1 md:grid-cols-2 gap-8 py-8 my-8 border-y border-slate-800/50">
                 <div class="md:col-span-2 text-center">
-                    <p class="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-4">Override Allocation (Optional)</p>
+                    <p class="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-4">Override Strategic Allocation (Optional)</p>
                 </div>
-                <div><label class="label-text">Change Unit</label><select id="approveVehicle" class="input-field"></select></div>
-                <div><label class="label-text">Change Driver</label><select id="approveDriver" class="input-field"></select></div>
+                <div><label class="label-text">Adjust Vehicle</label><select id="approveVehicle" class="input-field"></select></div>
+                <div><label class="label-text">Adjust Driver</label><select id="approveDriver" class="input-field"></select></div>
                 <div class="md:col-span-2">
-                    <label class="label-text">Modify Manifest (Matricules)</label>
+                    <label class="label-text">Adjust Manifest Manifest (Matricules)</label>
                     <textarea id="approvePassengers" class="input-field h-20 text-[10px] font-mono"></textarea>
                 </div>
             </div>
 
             <div class="mt-4">
-                <p class="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-4 italic text-center">Final Administrative Remarks</p>
-                <textarea id="approvalComments" class="input-field h-32 mb-10 text-sm text-center" placeholder="Formal justification or denial reason..."></textarea>
+                <p class="text-slate-700 text-[10px] font-black uppercase tracking-widest mb-4 italic text-center">Final Validation Remarks</p>
+                <textarea id="approvalComments" class="input-field h-32 mb-10 text-sm text-center" placeholder="Specify decision logic or rejection reasons..."></textarea>
             </div>
             
             <div class="grid grid-cols-2 gap-6">
-                <button onclick="submitDecision('denied')" class="btn-danger w-full py-5 uppercase font-black text-xs tracking-widest shadow-red-900/10">Abort & Reject</button>
-                <button onclick="submitDecision('approved')" class="btn-primary w-full py-5 bg-emerald-700 hover:bg-emerald-600 uppercase font-black text-xs tracking-widest shadow-emerald-900/10">Confirm & Approve</button>
+                <button onclick="submitDecision('denied')" class="btn-danger w-full py-5 uppercase font-black text-xs tracking-widest shadow-red-900/10 active:scale-95 transition-all">Abort & Reject</button>
+                <button onclick="submitDecision('approved')" class="btn-primary w-full py-5 bg-emerald-700 hover:bg-emerald-600 uppercase font-black text-xs tracking-widest shadow-emerald-900/10 active:scale-95 transition-all">Confirm & Approve</button>
             </div>
         </div>
         

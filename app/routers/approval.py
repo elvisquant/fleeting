@@ -112,18 +112,17 @@ def get_mission_order_pdf(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user_from_header)
 ):
-    # 1. Fetch Request
     db_request = db.query(models.VehicleRequest).filter(models.VehicleRequest.id == request_id).first()
     if not db_request:
         raise HTTPException(status_code=404, detail="Request not found.")
     
-    if db_request.status != "fully_approved":
+    # Force lowercase comparison to avoid "Not ready" errors
+    if str(db_request.status).lower() != "fully_approved":
         raise HTTPException(status_code=400, detail="Only fully approved missions can be printed.")
 
-    # 2. Fetch Passenger Objects from Matricules for the PDF generator
     passenger_users = db.query(models.User).filter(models.User.matricule.in_(db_request.passengers)).all()
     
-    # 3. Generate PDF using your utility
+    # Note: generate_mission_order_pdf returns (buffer, filename)
     pdf_buffer, _ = generate_mission_order_pdf(
         request=db_request, 
         approver_name=current_user.full_name, 
@@ -133,5 +132,5 @@ def get_mission_order_pdf(
     return StreamingResponse(
         pdf_buffer, 
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=Mission_{request_id}.pdf"}
+        headers={"Content-Disposition": f"inline; filename=Mission_{request_id}.pdf"}
     )
