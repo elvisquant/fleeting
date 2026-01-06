@@ -102,7 +102,7 @@
     </div>
 </div>
 
-<!-- 2. DOSSIER VIEW MODAL (PRINT ENABLED) -->
+<!-- 2. DOSSIER VIEW MODAL -->
 <div id="viewRequestModal" class="fixed inset-0 z-[100] hidden bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4">
     <div class="bg-slate-950 border border-slate-800 w-full max-w-2xl rounded-[3rem] shadow-2xl animate-up border-white/5">
         <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/40">
@@ -131,7 +131,7 @@
             <button onclick="closeModal('assignResourceModal')" class="text-slate-600 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         <div class="p-8">
-            <!-- CONTEXT SUMMARY UNIT -->
+            <!-- CONTEXT SUMMARY -->
             <div id="assignSummary"></div>
             
             <div class="space-y-6">
@@ -144,7 +144,7 @@
                     <select id="assignDriver" class="input-field"></select>
                 </div>
                 <div class="space-y-2">
-                    <label class="label-text">Final Passenger Manifest (Matricules)</label>
+                    <label class="label-text">Update Passenger List (Matricules)</label>
                     <textarea id="assignPassengers" class="input-field h-24 text-xs font-mono"></textarea>
                 </div>
             </div>
@@ -164,7 +164,7 @@
         </div>
         <h3 class="text-xl font-black text-white mb-2 uppercase tracking-tighter" id="approvalStageTitle">Decision Protocol</h3>
         
-        <!-- CONTEXT SUMMARY UNIT -->
+        <!-- CONTEXT SUMMARY -->
         <div id="approvalSummary"></div>
 
         <p class="text-slate-600 text-xs font-bold uppercase tracking-widest mb-4 italic">Action Remarks</p>
@@ -184,7 +184,7 @@
     .input-field:focus { border-color: #3b82f6; background: #0f172a; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.05); }
     .btn-primary { display: flex; align-items: center; justify-content: center; background: #1d4ed8; color: white; border-radius: 1.25rem; font-weight: 900; font-size: 0.75rem; transition: all 0.3s; letter-spacing: 0.1em; padding: 0.85rem 1.5rem; }
     .btn-primary:hover { background: #2563eb; transform: translateY(-2px); }
-    .btn-secondary { background: transparent; border: 1px solid #334155; color: #64748b; padding: 0.85rem 1.5rem; border-radius: 1.25rem; font-weight: 800; font-size: 0.75rem; transition: all 0.3s; uppercase; letter-spacing: 0.1em; }
+    .btn-secondary { background: transparent; border: 1px solid #334155; color: #64748b; padding: 0.85rem 1.5rem; border-radius: 1.25rem; font-weight: 800; font-size: 0.75rem; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.1em; }
     .btn-secondary:hover { color: white; border-color: #f8fafc; background: #1e293b; }
     .btn-danger { background: #991b1b; color: white; border-radius: 1.25rem; font-weight: 900; font-size: 0.75rem; transition: all 0.3s; }
     .btn-danger:hover { background: #dc2626; transform: translateY(-2px); }
