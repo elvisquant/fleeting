@@ -1,195 +1,195 @@
-<!-- HEADER SECTION -->
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
+<!-- REQUESTS MAIN CONTAINER -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 animate-up">
     <div>
-        <h2 class="text-2xl font-bold text-white tracking-tight">Mission Orders</h2>
-        <p class="text-slate-400 text-sm mt-1">Submit and track vehicle requests and approvals.</p>
+        <h2 class="text-3xl font-black text-white tracking-tighter uppercase">Fleet Operations</h2>
+        <p class="text-slate-500 text-sm mt-1 font-medium italic">Monitor, allocate resources, and validate mission orders.</p>
     </div>
     
-    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all active:scale-95">
-        <i data-lucide="plus-circle" class="w-5 h-5"></i>
-        <span>Create Request</span>
+    <button onclick="openAddRequestModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-blue-900/30 flex items-center gap-3 transition-all active:scale-95 group">
+        <i data-lucide="plus-circle" class="w-5 h-5 group-hover:rotate-90 transition-transform duration-300"></i>
+        <span>Initiate Mission</span>
     </button>
 </div>
 
-<!-- FILTER PANEL -->
-<div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
-    <div class="relative w-full md:w-96">
-        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-500"></i>
-        <input type="text" id="requestSearch" placeholder="Search destination or requester..." 
-               class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-xl pl-10 pr-4 py-2 focus:border-blue-500 outline-none transition">
+<!-- FILTRATION UNIT -->
+<div class="glass-panel p-5 mb-8 flex flex-col md:flex-row gap-6 items-center justify-between animate-up delay-1 border-white/5 shadow-2xl">
+    <div class="relative w-full md:w-[400px]">
+        <i data-lucide="search" class="absolute left-4 top-3 w-4 h-4 text-slate-600"></i>
+        <input type="text" id="requestSearch" placeholder="Search destination, staff name or matricule..." 
+               class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-2xl pl-12 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all shadow-inner">
     </div>
 
-    <div class="flex items-center gap-2 w-full md:w-auto">
-        <select id="requestStatusFilter" class="w-full md:w-48 bg-slate-900 border border-slate-700 text-slate-300 text-sm rounded-xl px-4 py-2 outline-none focus:border-blue-500 transition">
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="approved_by_chef">Chef Approved</option>
-            <option value="approved_by_charoi">Charoi Assigned</option>
-            <option value="approved_by_logistic">Logistic Approved</option>
-            <option value="fully_approved">Fully Approved</option>
-            <option value="denied">Denied</option>
+    <div class="flex items-center gap-3 w-full md:w-auto">
+        <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest mr-2">Filter Workflow</span>
+        <select id="requestStatusFilter" class="w-full md:w-56 bg-slate-950 border border-slate-800 text-slate-400 text-xs font-bold rounded-2xl px-5 py-2.5 outline-none focus:border-blue-500 transition shadow-inner uppercase tracking-tighter">
+            <option value="all">Entire Pipeline</option>
+            <option value="pending">Awaiting Chef</option>
+            <option value="approved_by_chef">Awaiting Resource</option>
+            <option value="approved_by_charoi">Awaiting Logistic</option>
+            <option value="approved_by_logistic">Awaiting DARH</option>
+            <option value="fully_approved">Mission Finalized</option>
+            <option value="denied">Canceled/Rejected</option>
         </select>
     </div>
 </div>
 
-<!-- DATA TABLE -->
-<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/40">
+<!-- DATA ARCHITECTURE -->
+<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/60 border-white/5">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
-                <tr class="text-[10px] text-slate-500 uppercase tracking-widest border-b border-slate-700/50 bg-slate-800/40">
-                    <th class="p-4 font-bold">Requester</th>
-                    <th class="p-4 font-bold">Destination</th>
-                    <th class="p-4 font-bold">Departure</th>
-                    <th class="p-4 font-bold">Status</th>
-                    <th class="p-4 font-bold">Assignment</th>
-                    <th class="p-4 font-bold text-right">Actions</th>
+                <tr class="text-[10px] text-slate-600 uppercase tracking-[0.2em] border-b border-slate-800 bg-slate-900/50">
+                    <th class="p-5 font-black">Officer / Matricule</th>
+                    <th class="p-5 font-black">Destination Zone</th>
+                    <th class="p-5 font-black">Departure</th>
+                    <th class="p-5 font-black">Workflow Status</th>
+                    <th class="p-5 font-black">Fleet Assets</th>
+                    <th class="p-5 font-black text-right">Control Actions</th>
                 </tr>
             </thead>
-            <tbody id="requestsBody" class="divide-y divide-slate-700/30">
-                <!-- Data injected via requests.js -->
+            <tbody id="requestsBody" class="divide-y divide-slate-800/50">
+                <!-- Logic injected via requests.js -->
             </tbody>
         </table>
     </div>
-    <div class="p-4 border-t border-slate-700/30 bg-slate-800/20">
-        <span class="text-xs text-slate-500" id="requestsCount">0 requests found</span>
+    <div class="p-5 border-t border-slate-800 bg-slate-900/30 flex justify-between items-center">
+        <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest" id="requestsCount">0 active records synced</span>
     </div>
 </div>
 
-<!-- ================= MODALS ================= -->
+<!-- ================= MODAL FRAMEWORK ================= -->
 
-<!-- 1. ADD REQUEST MODAL -->
-<div id="addRequestModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl animate-up">
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-            <h3 class="text-white font-bold text-lg">New Vehicle Request</h3>
-            <button onclick="closeModal('addRequestModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
-                <i data-lucide="x" class="w-5 h-5"></i>
+<!-- 1. CREATION MODAL -->
+<div id="addRequestModal" class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-[2.5rem] shadow-2xl animate-up overflow-hidden">
+        <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+            <div>
+                <h3 class="text-white font-black text-xl uppercase tracking-tighter">New Mission Order</h3>
+                <p class="text-slate-500 text-xs font-medium">Internal vehicle allocation request.</p>
+            </div>
+            <button onclick="closeModal('addRequestModal')" class="text-slate-600 hover:text-white transition p-2 hover:bg-slate-800 rounded-2xl">
+                <i data-lucide="x" class="w-6 h-6"></i>
             </button>
         </div>
-        <div class="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
-            <div>
-                <label class="label-text">Destination *</label>
-                <input type="text" id="reqDest" class="input-field" placeholder="Where are you going?">
+        <div class="p-8 space-y-6 max-h-[65vh] overflow-y-auto custom-scrollbar">
+            <div class="space-y-2">
+                <label class="label-text">Strategic Destination *</label>
+                <input type="text" id="reqDest" class="input-field" placeholder="Target City or Branch Office">
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="label-text">Departure Time *</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label class="label-text">Deployment Time *</label>
                     <input type="datetime-local" id="reqStart" class="input-field">
                 </div>
-                <div>
+                <div class="space-y-2">
                     <label class="label-text">Expected Return *</label>
                     <input type="datetime-local" id="reqEnd" class="input-field">
                 </div>
             </div>
-            <div>
-                <label class="label-text">Passengers (Matricules, comma separated)</label>
-                <textarea id="reqPassengersList" class="input-field h-20 text-xs font-mono" placeholder="EMP001, EMP002..."></textarea>
-                <p class="text-[9px] text-slate-500 mt-1">Your matricule is included by default.</p>
+            <div class="space-y-2">
+                <label class="label-text">Passenger Manifest (Matricules)</label>
+                <textarea id="reqPassengersList" class="input-field h-24 text-xs font-mono" placeholder="Comma separated: EMP001, EMP002..."></textarea>
             </div>
-            <div>
-                <label class="label-text">Purpose of Mission</label>
-                <textarea id="reqDesc" class="input-field h-24" placeholder="Briefly explain the reason for travel..."></textarea>
+            <div class="space-y-2">
+                <label class="label-text">Mission Rationale</label>
+                <textarea id="reqDesc" class="input-field h-28" placeholder="Context for fleet supervisors..."></textarea>
             </div>
         </div>
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeModal('addRequestModal')" class="btn-secondary">Cancel</button>
-            <button id="btnSaveRequest" onclick="saveNewRequest()" class="btn-primary">
-                <i data-lucide="send" class="w-4 h-4 mr-2"></i> Submit Request
-            </button>
+        <div class="p-6 border-t border-slate-800 bg-slate-900/50 flex justify-end gap-4">
+            <button onclick="closeModal('addRequestModal')" class="btn-secondary">Cancel Request</button>
+            <button id="btnSaveRequest" onclick="saveNewRequest()" class="btn-primary">SUBMIT DOSSIER</button>
         </div>
     </div>
 </div>
 
-<!-- 2. VIEW DETAILS MODAL -->
-<div id="viewRequestModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl shadow-2xl animate-up">
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-            <h3 class="text-white font-bold">Request Dossier</h3>
-            <button onclick="closeModal('viewRequestModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
-                <i data-lucide="x" class="w-5 h-5"></i>
+<!-- 2. DOSSIER VIEW MODAL (PRINT ENABLED) -->
+<div id="viewRequestModal" class="fixed inset-0 z-[100] hidden bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4">
+    <div class="bg-slate-950 border border-slate-800 w-full max-w-2xl rounded-[3rem] shadow-2xl animate-up border-white/5">
+        <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/40">
+            <h3 class="text-white font-black uppercase tracking-widest text-sm">Mission Dossier Summary</h3>
+            <button onclick="closeModal('viewRequestModal')" class="text-slate-600 hover:text-white transition p-2 hover:bg-slate-800 rounded-2xl">
+                <i data-lucide="x" class="w-6 h-6"></i>
             </button>
         </div>
-        <div class="p-8" id="viewRequestContent">
+        <div class="p-10" id="viewRequestContent">
             <!-- Data injected via JS -->
         </div>
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-            <button onclick="closeModal('viewRequestModal')" class="btn-secondary">Close Dossier</button>
+        <div class="p-8 border-t border-slate-800 bg-slate-900/40 flex justify-end">
+            <button onclick="closeModal('viewRequestModal')" class="btn-secondary px-8">Close Dossier</button>
         </div>
     </div>
 </div>
 
-<!-- 3. ASSIGN RESOURCE MODAL (FOR CHAROI) -->
-<div id="assignResourceModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl animate-up overflow-hidden">
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-blue-600/10">
-            <h3 class="text-white font-bold">Resource Allocation</h3>
-            <button onclick="closeModal('assignResourceModal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+<!-- 3. RESOURCE ALLOCATION MODAL (EDIT/ASSIGN) -->
+<div id="assignResourceModal" class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="bg-slate-950 border border-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl animate-up overflow-hidden">
+        <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-blue-900/20">
+            <div>
+                <h3 class="text-white font-black text-lg uppercase tracking-tighter">Asset Allocation</h3>
+                <p class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">Fleet & Driver Assignment</p>
+            </div>
+            <button onclick="closeModal('assignResourceModal')" class="text-slate-600 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
-        <div class="p-6">
-            <!-- CONTEXT SUMMARY -->
+        <div class="p-8">
+            <!-- CONTEXT SUMMARY UNIT -->
             <div id="assignSummary"></div>
             
-            <div class="space-y-4">
-                <div>
-                    <label class="label-text">Available Vehicle</label>
+            <div class="space-y-6">
+                <div class="space-y-2">
+                    <label class="label-text">Select Mission Vehicle</label>
                     <select id="assignVehicle" class="input-field"></select>
                 </div>
-                <div>
-                    <label class="label-text">Select Active Driver</label>
+                <div class="space-y-2">
+                    <label class="label-text">Select Designated Driver</label>
                     <select id="assignDriver" class="input-field"></select>
                 </div>
-                <div>
-                    <label class="label-text">Final Passenger List (Matricules)</label>
-                    <textarea id="assignPassengers" class="input-field h-20 text-xs font-mono"></textarea>
+                <div class="space-y-2">
+                    <label class="label-text">Final Passenger Manifest (Matricules)</label>
+                    <textarea id="assignPassengers" class="input-field h-24 text-xs font-mono"></textarea>
                 </div>
             </div>
         </div>
-        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
-            <button onclick="closeModal('assignResourceModal')" class="btn-secondary">Cancel</button>
-            <button onclick="submitAssignment()" class="btn-primary bg-blue-600 hover:bg-blue-500">
-                <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Assignment
-            </button>
+        <div class="p-6 border-t border-slate-800 bg-slate-900/50 flex justify-end gap-4">
+            <button onclick="closeModal('assignResourceModal')" class="btn-secondary">Abort</button>
+            <button onclick="submitAssignment()" class="btn-primary bg-blue-700 hover:bg-blue-600 shadow-blue-900/20">CONFIRM ASSETS</button>
         </div>
     </div>
 </div>
 
-<!-- 4. APPROVAL/DECISION MODAL -->
-<div id="approvalModal" class="fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-up text-center">
-        <div class="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-500 border border-blue-500/20">
-            <i data-lucide="check-circle" class="w-8 h-8"></i>
+<!-- 4. DECISION GATE MODAL -->
+<div id="approvalModal" class="fixed inset-0 z-[110] hidden bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-[3rem] p-10 shadow-2xl animate-up text-center border-white/5">
+        <div class="w-20 h-20 bg-blue-600/20 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-blue-500 border border-blue-500/20">
+            <i data-lucide="user-check" class="w-10 h-10"></i>
         </div>
-        <h3 class="text-lg font-bold text-white mb-1" id="approvalStageTitle">Process Request</h3>
+        <h3 class="text-xl font-black text-white mb-2 uppercase tracking-tighter" id="approvalStageTitle">Decision Protocol</h3>
         
-        <!-- CONTEXT SUMMARY -->
+        <!-- CONTEXT SUMMARY UNIT -->
         <div id="approvalSummary"></div>
 
-        <p class="text-slate-500 text-xs mb-4">Add optional comments for your decision.</p>
-        <textarea id="approvalComments" class="input-field h-24 mb-5 text-sm" placeholder="Reason for approval or denial..."></textarea>
+        <p class="text-slate-600 text-xs font-bold uppercase tracking-widest mb-4 italic">Action Remarks</p>
+        <textarea id="approvalComments" class="input-field h-28 mb-8 text-sm text-center" placeholder="Specify decision logic or rejection reasons..."></textarea>
         
-        <div class="grid grid-cols-2 gap-3">
-            <button onclick="submitDecision('denied')" class="btn-danger w-full py-3 font-bold">
-                <i data-lucide="x" class="w-4 h-4 inline mr-1"></i> Deny
-            </button>
-            <button onclick="submitDecision('approved')" class="btn-primary w-full py-3 bg-emerald-600 hover:bg-emerald-500 font-bold">
-                <i data-lucide="check" class="w-4 h-4 inline mr-1"></i> Approve
-            </button>
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="submitDecision('denied')" class="btn-danger w-full py-4 uppercase font-black tracking-widest text-[11px] shadow-lg shadow-red-900/20">Reject</button>
+            <button onclick="submitDecision('approved')" class="btn-primary w-full py-4 bg-emerald-700 hover:bg-emerald-600 uppercase font-black tracking-widest text-[11px] shadow-lg shadow-emerald-900/20">Approve</button>
         </div>
-        <button onclick="closeModal('approvalModal')" class="mt-5 text-slate-500 text-sm hover:text-white transition">Cancel Action</button>
+        <button onclick="closeModal('approvalModal')" class="mt-8 text-slate-600 text-[10px] font-black uppercase tracking-[0.2em] hover:text-white transition-colors duration-300">Close decision window</button>
     </div>
 </div>
 
 <style>
-    .label-text { display: block; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: #475569; margin-bottom: 0.4rem; letter-spacing: 0.05em; }
-    .input-field { width: 100%; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 0.75rem; padding: 0.75rem; font-size: 0.875rem; outline: none; transition: all 0.2s; }
-    .input-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
-    .btn-primary { display: flex; align-items: center; justify-content: center; background: #2563eb; color: white; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
-    .btn-secondary { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 0.75rem 1.25rem; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
-    .btn-secondary:hover { color: white; border-color: #64748b; }
-    .btn-danger { background: #991b1b; color: white; border-radius: 0.75rem; font-weight: 600; font-size: 0.875rem; transition: all 0.2s; }
-    .btn-danger:hover { background: #dc2626; }
+    .label-text { display: block; font-size: 0.6rem; font-weight: 900; text-transform: uppercase; color: #475569; margin-bottom: 0.5rem; letter-spacing: 0.15em; }
+    .input-field { width: 100%; background: #020617; border: 1px solid #1e293b; color: #f8fafc; border-radius: 1.25rem; padding: 0.85rem 1.25rem; font-size: 0.85rem; outline: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .input-field:focus { border-color: #3b82f6; background: #0f172a; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.05); }
+    .btn-primary { display: flex; align-items: center; justify-content: center; background: #1d4ed8; color: white; border-radius: 1.25rem; font-weight: 900; font-size: 0.75rem; transition: all 0.3s; letter-spacing: 0.1em; padding: 0.85rem 1.5rem; }
+    .btn-primary:hover { background: #2563eb; transform: translateY(-2px); }
+    .btn-secondary { background: transparent; border: 1px solid #334155; color: #64748b; padding: 0.85rem 1.5rem; border-radius: 1.25rem; font-weight: 800; font-size: 0.75rem; transition: all 0.3s; uppercase; letter-spacing: 0.1em; }
+    .btn-secondary:hover { color: white; border-color: #f8fafc; background: #1e293b; }
+    .btn-danger { background: #991b1b; color: white; border-radius: 1.25rem; font-weight: 900; font-size: 0.75rem; transition: all 0.3s; }
+    .btn-danger:hover { background: #dc2626; transform: translateY(-2px); }
     
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 20px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 </style>
