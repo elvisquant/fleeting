@@ -1,6 +1,5 @@
 // app/static/js/requests.js
 
-// Global State
 let allRequests = [];
 let availableVehicles = [];
 let activeDrivers = [];
@@ -8,9 +7,6 @@ let requestUserRole = 'user';
 let requestUserMatricule = '';
 let currentRequestId = null;
 
-/**
- * Element Getter for SPA compatibility
- */
 function getReqEl(id) {
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
@@ -21,11 +17,7 @@ function getReqEl(id) {
     return document.getElementById(id);
 }
 
-/**
- * Module Initialization
- */
 async function initRequests() {
-    console.log("Requests Module: Full Professional Initialization");
     requestUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
     requestUserMatricule = localStorage.getItem('user_matricule') || '';
 
@@ -36,55 +28,31 @@ async function initRequests() {
 
     await loadRequestsData();
     
-    // Elevated roles fetch vehicle/driver pools for assigning or editing
-    const elevatedRoles = ['admin', 'superadmin', 'charoi', 'logistic', 'darh'];
-    if (elevatedRoles.includes(requestUserRole)) {
-        await Promise.all([
-            fetchAvailableVehicles(),
-            fetchActiveDrivers()
-        ]);
+    const managementRoles = ['admin', 'superadmin', 'charoi', 'logistic', 'darh', 'chef'];
+    if (managementRoles.includes(requestUserRole)) {
+        await Promise.all([fetchAvailableVehicles(), fetchActiveDrivers()]);
     }
 }
-
-// =================================================================
-// DATA FETCHING
-// =================================================================
 
 async function loadRequestsData() {
     const tbody = getReqEl('requestsBody');
     if (!tbody) return;
-
-    tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-500">
-        <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
-        <div class="text-[10px] font-black uppercase tracking-widest">${window.t('loading')}</div>
-    </td></tr>`;
-    if (window.lucide) window.lucide.createIcons();
-
     try {
         const data = await window.fetchWithAuth('/requests/?limit=1000');
         allRequests = Array.isArray(data) ? data : (data.items || []);
         renderRequestsTable();
-    } catch (e) {
-        console.error("Load Error", e);
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-500 font-bold uppercase">Critical Sync Failure</td></tr>`;
-    }
+    } catch (e) { console.error("Sync Error", e); }
 }
 
 async function fetchAvailableVehicles() {
     const data = await window.fetchWithAuth('/vehicles/?limit=500');
-    if (Array.isArray(data)) {
-        availableVehicles = data.filter(v => v.status === 'available' || v.status === 'active');
-    }
+    if (Array.isArray(data)) availableVehicles = data.filter(v => v.status === 'available' || v.status === 'active');
 }
 
 async function fetchActiveDrivers() {
     const data = await window.fetchWithAuth('/requests/drivers');
     activeDrivers = Array.isArray(data) ? data : [];
 }
-
-// =================================================================
-// TABLE RENDERING
-// =================================================================
 
 function renderRequestsTable() {
     const tbody = getReqEl('requestsBody');
@@ -94,38 +62,27 @@ function renderRequestsTable() {
     const filterValue = getReqEl('requestStatusFilter')?.value || 'all';
 
     let filtered = allRequests.filter(r => {
-        const searchPool = `${r.destination} ${r.requester?.full_name} ${r.requester?.matricule}`.toLowerCase();
-        return searchPool.includes(searchValue) && (filterValue === 'all' || r.status === filterValue);
+        const match = `${r.destination} ${r.requester?.full_name}`.toLowerCase();
+        return match.includes(searchValue) && (filterValue === 'all' || r.status === filterValue);
     });
 
-    const countEl = getReqEl('requestsCount');
-    if (countEl) countEl.innerText = `${filtered.length} entries synced`;
-
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-slate-600 font-bold uppercase tracking-widest">${window.t('no_records')}</td></tr>`;
-        return;
-    }
-
     tbody.innerHTML = filtered.map(r => {
-        const depTime = new Date(r.departure_time).toLocaleString(window.APP_LOCALE, {month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+        const depDate = new Date(r.departure_time).toLocaleString(window.APP_LOCALE, {month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
         return `
-            <tr class="hover:bg-white/[0.02] border-b border-slate-700/30 transition-all">
+            <tr class="hover:bg-white/[0.02] border-b border-slate-700/30 transition-colors">
                 <td class="p-4">
-                    <div class="font-black text-white text-sm uppercase">${r.requester?.full_name || 'N/A'}</div>
-                    <div class="text-[10px] text-slate-500 font-mono tracking-tighter">${r.requester?.matricule || ''}</div>
+                    <div class="font-bold text-white text-xs md:text-sm">${r.requester?.full_name || 'N/A'}</div>
+                    <div class="text-[9px] text-slate-500">${r.requester?.matricule || ''}</div>
                 </td>
-                <td class="p-4 text-sm text-slate-300 font-bold tracking-tight">${r.destination}</td>
-                <td class="p-4 text-[11px] text-slate-400 font-mono italic">${depTime}</td>
+                <td class="p-4 text-xs md:text-sm text-slate-300 font-medium">${r.destination}</td>
+                <td class="p-4 text-[10px] md:text-xs text-slate-400 font-mono">${depDate}</td>
                 <td class="p-4">${getStatusBadge(r.status)}</td>
                 <td class="p-4">
-                    ${r.vehicle ? `
-                        <div class="text-blue-400 font-black text-[11px] tracking-widest uppercase">${r.vehicle.plate_number}</div>
-                        <div class="text-[10px] text-slate-600 font-bold">${r.driver?.full_name || ''}</div>
-                    ` : '<span class="text-slate-800 text-[10px] font-black uppercase italic">Pending Fleet</span>'}
+                    ${r.vehicle ? `<div class="text-blue-400 font-bold text-[10px] uppercase">${r.vehicle.plate_number}</div>` : '<span class="text-slate-700 text-[9px] font-bold italic uppercase">Pending</span>'}
                 </td>
                 <td class="p-4 text-right">
-                    <div class="flex justify-end gap-2">
-                        <button onclick="viewRequestDetails(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 rounded-lg border border-slate-700 hover:bg-blue-600 hover:text-white transition shadow-lg" title="View Dossier"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                    <div class="flex justify-end gap-1 md:gap-2">
+                        <button onclick="viewRequestDetails(${r.id})" class="p-1.5 bg-slate-800 text-blue-400 rounded-lg border border-slate-700 hover:bg-blue-600 transition shadow-sm"><i data-lucide="eye" class="w-4 h-4"></i></button>
                         ${renderWorkflowActions(r)}
                     </div>
                 </td>
@@ -135,56 +92,39 @@ function renderRequestsTable() {
     if (window.lucide) window.lucide.createIcons();
 }
 
-/**
- * Dynamic Action Buttons based on Role & Status
- */
 function renderWorkflowActions(r) {
     const role = requestUserRole;
     let html = '';
-
-    // Upgrade: Logistic, DARH, Admin can edit resources at any stage before completion
-    const canEdit = ['admin', 'superadmin', 'logistic', 'darh', 'charoi'].includes(role);
-    if (canEdit && r.status !== 'fully_approved' && r.status !== 'denied') {
-        html += `<button onclick="openAssignModal(${r.id})" class="p-1.5 bg-amber-600/20 text-amber-500 rounded-lg border border-amber-500/20 hover:bg-amber-600 hover:text-white transition" title="Modify Assets/Staff"><i data-lucide="edit-3" class="w-4 h-4"></i></button>`;
+    const elevatedRoles = ['admin', 'superadmin', 'logistic', 'darh', 'charoi'];
+    
+    if (elevatedRoles.includes(role) && r.status !== 'fully_approved' && r.status !== 'denied') {
+        html += `<button onclick="openAssignModal(${r.id})" class="p-1.5 bg-amber-600/20 text-amber-500 rounded-lg border border-amber-500/20 hover:bg-amber-600 hover:text-white transition shadow-sm" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>`;
     }
-
-    if (role === 'chef' && r.status === 'pending') 
-        html += `<button onclick="openApprovalModal(${r.id}, 'chef')" class="p-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition"><i data-lucide="check-circle" class="w-4 h-4"></i></button>`;
-    
-    if (role === 'charoi' && r.status === 'approved_by_chef' && r.vehicle_id) 
-        html += `<button onclick="openApprovalModal(${r.id}, 'charoi')" class="p-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition"><i data-lucide="user-check" class="w-4 h-4"></i></button>`;
-    
-    if (role === 'logistic' && r.status === 'approved_by_charoi') 
-        html += `<button onclick="openApprovalModal(${r.id}, 'logistic')" class="p-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition"><i data-lucide="clipboard-check" class="w-4 h-4"></i></button>`;
-    
-    if (['darh', 'admin', 'superadmin'].includes(role) && r.status === 'approved_by_logistic') 
-        html += `<button onclick="openApprovalModal(${r.id}, 'darh')" class="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition shadow-lg shadow-purple-900/20"><i data-lucide="shield-check" class="w-4 h-4"></i></button>`;
-
+    if (role === 'chef' && r.status === 'pending') html += `<button onclick="openApprovalModal(${r.id}, 'chef')" class="p-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition shadow-sm"><i data-lucide="check-circle" class="w-4 h-4"></i></button>`;
+    if (role === 'charoi' && r.status === 'approved_by_chef' && r.vehicle_id) html += `<button onclick="openApprovalModal(${r.id}, 'charoi')" class="p-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition shadow-sm"><i data-lucide="user-check" class="w-4 h-4"></i></button>`;
+    if (role === 'logistic' && r.status === 'approved_by_charoi') html += `<button onclick="openApprovalModal(${r.id}, 'logistic')" class="p-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition shadow-sm"><i data-lucide="clipboard-check" class="w-4 h-4"></i></button>`;
+    if (['darh', 'admin', 'superadmin'].includes(role) && r.status === 'approved_by_logistic') html += `<button onclick="openApprovalModal(${r.id}, 'darh')" class="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition shadow-lg"><i data-lucide="shield-check" class="w-4 h-4"></i></button>`;
     return html;
 }
 
-// =================================================================
-// 3. PRINTING SYSTEM
-// =================================================================
-
+// ================= PRINT LOGIC =================
 window.printMissionOrder = async (id) => {
     const btn = event.currentTarget;
     const original = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> GENERATING...`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i>`;
     if(window.lucide) window.lucide.createIcons();
 
     try {
         const response = await fetch(`${API_BASE}/approvals/${id}/pdf`, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
         });
-        if (!response.ok) throw new Error("Restricted or Missing PDF");
+        if (!response.ok) throw new Error("PDF Failed");
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        const win = window.open(url, '_blank');
-        if (!win) alert("Pop-up blocked! Allow pop-ups to view Mission Order.");
+        window.open(url, '_blank');
     } catch (e) {
-        alert("System Error: Mission Order cannot be generated. Check approval status.");
+        alert("Mission Order not ready for printing.");
     } finally {
         btn.disabled = false;
         btn.innerHTML = original;
@@ -192,70 +132,60 @@ window.printMissionOrder = async (id) => {
     }
 };
 
-// =================================================================
-// 4. MODALS (VIEW / ASSIGN / APPROVE)
-// =================================================================
-
+// ================= VIEW DETAILS =================
 window.viewRequestDetails = function(id) {
     const r = allRequests.find(req => req.id === id);
     if (!r) return;
 
-    // Check Print Permissions
-    const canPrintRoles = ['admin', 'superadmin', 'darh', 'charoi', 'account', 'comptabilite'];
-    const hasPermission = canPrintRoles.includes(requestUserRole);
-    const isApproved = r.status === 'fully_approved';
+    // Calculate Duration
+    const start = new Date(r.departure_time);
+    const end = new Date(r.return_time);
+    const diffMs = end - start;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const durationText = `${diffDays}d ${diffHrs}h`;
 
-    // The PRINT BUTTON Logic requested
-    let printButtonHtml = '';
-    if (hasPermission && isApproved) {
-        printButtonHtml = `
-            <button onclick="printMissionOrder(${r.id})" class="flex items-center gap-3 bg-emerald-700 hover:bg-emerald-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black tracking-widest transition-all shadow-xl shadow-emerald-900/30 active:scale-95">
-                <i data-lucide="printer" class="w-4 h-4"></i> PRINT MISSION ORDER
-            </button>
-        `;
-    }
+    const canPrint = ['admin', 'superadmin', 'darh', 'charoi', 'account', 'comptabilite'].includes(requestUserRole) && r.status === 'fully_approved';
 
     const content = `
-        <div class="space-y-8">
-            <div class="flex justify-between items-start border-b border-slate-800 pb-6">
+        <div class="space-y-4 text-left">
+            <div class="flex justify-between items-start border-b border-slate-800 pb-3">
                 <div>
-                    <h4 class="text-3xl font-black text-white tracking-tighter uppercase">${r.destination}</h4>
-                    <p class="text-slate-400 text-xs mt-1 font-bold tracking-widest uppercase italic">${r.description || 'General mission request'}</p>
+                    <h4 class="text-lg md:text-xl font-black text-white uppercase">${r.destination}</h4>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">${r.description || 'Mission'}</p>
                 </div>
                 ${getStatusBadge(r.status)}
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50">
-                    <span class="label-text">Departure Schedule</span>
-                    <p class="text-white text-sm font-black">${new Date(r.departure_time).toLocaleString()}</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-800/40 p-2 rounded-xl border border-slate-700/50">
+                    <span class="label-text">Start</span>
+                    <p class="text-white text-[11px] font-black">${start.toLocaleString()}</p>
                 </div>
-                <div class="bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50">
-                    <span class="label-text">Return Schedule</span>
-                    <p class="text-white text-sm font-black">${new Date(r.return_time).toLocaleString()}</p>
-                </div>
-            </div>
-
-            <div class="bg-slate-950 p-5 rounded-[2rem] border border-slate-800 shadow-inner">
-                <span class="label-text mb-4 block text-center">Manifest (Passenger Matricules)</span>
-                <div class="flex flex-wrap justify-center gap-2">
-                    ${r.passengers.map(m => `<span class="bg-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-300 border border-slate-700 font-mono font-black shadow-sm">${m}</span>`).join('')}
+                <div class="bg-slate-800/40 p-2 rounded-xl border border-slate-700/50">
+                    <span class="label-text">Return</span>
+                    <p class="text-white text-[11px] font-black">${end.toLocaleString()}</p>
                 </div>
             </div>
 
-            ${r.vehicle ? `
-            <div class="grid grid-cols-2 gap-4 p-4 bg-blue-500/5 border border-blue-500/10 rounded-[2rem]">
-                <div class="text-center"><span class="label-text block mb-1">Fleet Unit</span><p class="text-blue-400 font-black text-xl uppercase">${r.vehicle.plate_number}</p></div>
-                <div class="text-center"><span class="label-text block mb-1">Operator</span><p class="text-white font-black text-lg">${r.driver?.full_name || 'N/A'}</p></div>
-            </div>` : ''}
+            <div class="bg-blue-500/5 border border-blue-500/10 p-2 rounded-xl flex justify-between items-center">
+                <span class="label-text">Trip Duration</span>
+                <span class="text-blue-400 font-black text-xs uppercase">${durationText}</span>
+            </div>
 
-            <div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-6 border-t border-slate-800">
-                <span class="text-[10px] text-slate-600 font-black uppercase tracking-[0.2em]">Origin: ${r.requester?.full_name}</span>
-                ${printButtonHtml}
+            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                <span class="label-text mb-2 block">Passengers</span>
+                <div class="flex flex-wrap gap-1.5">
+                    ${r.passengers.map(m => `<span class="bg-slate-800 px-2 py-0.5 rounded text-[9px] text-slate-300 border border-slate-700 font-mono font-bold">${m}</span>`).join('')}
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-3 border-t border-slate-800">
+                <span class="text-[9px] text-slate-600 font-bold uppercase">Staff: ${r.requester?.full_name}</span>
+                ${canPrint ? `<button onclick="printMissionOrder(${r.id})" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[9px] font-black transition-all shadow-lg active:scale-95"><i data-lucide="printer" class="w-3 h-3"></i> PRINT ORDER</button>` : ''}
             </div>
         </div>
     `;
-    
     getReqEl('viewRequestContent').innerHTML = content;
     getReqEl('viewRequestModal').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
@@ -282,10 +212,9 @@ window.openAssignModal = (id) => {
     currentRequestId = id;
     const r = allRequests.find(req => req.id === id);
     if (!r) return;
-    getReqEl('assignSummary').innerHTML = `<div class="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl mb-6 text-xs font-black uppercase tracking-[0.1em] text-center"><p class="text-blue-400">${r.destination}</p><p class="text-slate-500 font-mono mt-1">${new Date(r.departure_time).toLocaleString()}</p></div>`;
-    
-    getReqEl('assignVehicle').innerHTML = `<option value="">-- NO UNIT SELECTED --</option>` + availableVehicles.map(v => `<option value="${v.id}" ${r.vehicle_id === v.id ? 'selected':''}>${v.plate_number} [${v.make} ${v.model}]</option>`).join('');
-    getReqEl('assignDriver').innerHTML = `<option value="">-- NO DRIVER SELECTED --</option>` + activeDrivers.map(d => `<option value="${d.id}" ${r.driver_id === d.id ? 'selected':''}>${d.full_name} (${d.matricule})</option>`).join('');
+    getReqEl('assignSummary').innerHTML = `<div class="bg-blue-600/10 border border-blue-500/20 p-3 rounded-lg mb-4 text-[10px] font-bold uppercase"><p class="text-blue-400">${r.destination}</p><p class="text-slate-500 font-mono mt-1">${new Date(r.departure_time).toLocaleString()}</p></div>`;
+    getReqEl('assignVehicle').innerHTML = `<option value="">-- UNIT --</option>` + availableVehicles.map(v => `<option value="${v.id}" ${r.vehicle_id === v.id ? 'selected':''}>${v.plate_number} [${v.model}]</option>`).join('');
+    getReqEl('assignDriver').innerHTML = `<option value="">-- DRIVER --</option>` + activeDrivers.map(d => `<option value="${d.id}" ${r.driver_id === d.id ? 'selected':''}>${d.full_name}</option>`).join('');
     getReqEl('assignPassengers').value = r.passengers.join(', ');
     getReqEl('assignResourceModal').classList.remove('hidden');
 };
@@ -304,12 +233,12 @@ window.openApprovalModal = (id, stage) => {
     currentRequestId = id;
     const r = allRequests.find(req => req.id === id);
     getReqEl('approvalStageTitle').innerText = `${stage.toUpperCase()} DECISION`;
-    getReqEl('approvalSummary').innerHTML = `<div class="text-center bg-slate-900 p-4 rounded-2xl border border-slate-800 mb-6 text-[10px] font-black uppercase tracking-widest text-white">${r.destination}</div>`;
+    getReqEl('approvalSummary').innerHTML = `<div class="bg-slate-900 p-3 rounded-lg border border-slate-800 mb-4 text-[10px] font-bold uppercase text-white">${r.destination}</div>`;
     getReqEl('approvalModal').classList.remove('hidden');
 };
 
 window.submitDecision = async (decision) => {
-    const payload = { status: decision, comments: getReqEl('approvalComments').value || "Manual Administrative Action" };
+    const payload = { status: decision, comments: getReqEl('approvalComments').value || "Manual Action" };
     const res = await window.fetchWithAuth(`/approvals/${currentRequestId}`, 'POST', payload);
     if (res && !res.detail) { window.closeModal('approvalModal'); await loadRequestsData(); }
 };
@@ -317,7 +246,7 @@ window.submitDecision = async (decision) => {
 function getStatusBadge(status) {
     const map = { 'pending': 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', 'approved_by_chef': 'bg-blue-500/10 text-blue-400 border-blue-500/20', 'approved_by_charoi': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20', 'approved_by_logistic': 'bg-purple-500/10 text-purple-400 border-purple-500/20', 'fully_approved': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', 'denied': 'bg-red-500/10 text-red-400 border-red-500/20' };
     const cls = map[status] || 'bg-slate-500/10 text-slate-400 border-slate-500/20';
-    return `<span class="px-3 py-1 rounded-full text-[9px] font-black border ${cls} uppercase tracking-tighter shadow-sm">${status.replace(/_/g, ' ')}</span>`;
+    return `<span class="px-2 py-0.5 rounded-full text-[8px] md:text-[9px] font-black border ${cls} uppercase tracking-tighter">${status.replace(/_/g, ' ')}</span>`;
 }
 
 window.closeModal = (id) => getReqEl(id).classList.add('hidden');
