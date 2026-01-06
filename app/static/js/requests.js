@@ -7,6 +7,10 @@ let requestUserRole = 'user';
 let requestUserMatricule = '';
 let currentRequestId = null;
 
+/**
+ * Professional Element Getter
+ * Ensures compatibility between Desktop and Mobile containers
+ */
 function getReqEl(id) {
     if (window.innerWidth < 768) {
         const mobileEl = document.querySelector('#app-content-mobile #' + id);
@@ -17,6 +21,9 @@ function getReqEl(id) {
     return document.getElementById(id);
 }
 
+/**
+ * Module Initialization
+ */
 async function initRequests() {
     requestUserRole = (localStorage.getItem('user_role') || 'user').toLowerCase();
     requestUserMatricule = localStorage.getItem('user_matricule') || '';
@@ -28,6 +35,7 @@ async function initRequests() {
 
     await loadRequestsData();
     
+    // Elevated roles fetch resources for assignment/decision-making
     const managementRoles = ['admin', 'superadmin', 'charoi', 'logistic', 'darh', 'chef'];
     if (managementRoles.includes(requestUserRole)) {
         await Promise.all([fetchAvailableVehicles(), fetchActiveDrivers()]);
@@ -54,6 +62,19 @@ async function fetchActiveDrivers() {
     activeDrivers = Array.isArray(data) ? data : [];
 }
 
+/**
+ * Helper: Calculate Trip Duration String
+ */
+function calculateDuration(start, end) {
+    const s = new Date(start);
+    const e = new Date(end);
+    const diffMs = e - s;
+    if (diffMs < 0) return "0d 0h";
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return `${days}d ${hrs}h`;
+}
+
 function renderRequestsTable() {
     const tbody = getReqEl('requestsBody');
     if (!tbody) return;
@@ -71,14 +92,14 @@ function renderRequestsTable() {
         return `
             <tr class="hover:bg-white/[0.02] border-b border-slate-700/30 transition-colors">
                 <td class="p-4">
-                    <div class="font-bold text-white text-xs md:text-sm">${r.requester?.full_name || 'N/A'}</div>
-                    <div class="text-[9px] text-slate-500">${r.requester?.matricule || ''}</div>
+                    <div class="font-bold text-white text-xs md:text-sm uppercase">${r.requester?.full_name || 'N/A'}</div>
+                    <div class="text-[9px] text-slate-500 font-mono tracking-tighter">${r.requester?.matricule || ''}</div>
                 </td>
                 <td class="p-4 text-xs md:text-sm text-slate-300 font-medium">${r.destination}</td>
-                <td class="p-4 text-[10px] md:text-xs text-slate-400 font-mono">${depDate}</td>
+                <td class="p-4 text-[10px] md:text-xs text-slate-400 font-mono italic">${depDate}</td>
                 <td class="p-4">${getStatusBadge(r.status)}</td>
                 <td class="p-4">
-                    ${r.vehicle ? `<div class="text-blue-400 font-bold text-[10px] uppercase">${r.vehicle.plate_number}</div>` : '<span class="text-slate-700 text-[9px] font-bold italic uppercase">Pending</span>'}
+                    ${r.vehicle ? `<div class="text-blue-400 font-black text-[10px] uppercase tracking-widest">${r.vehicle.plate_number}</div>` : '<span class="text-slate-800 text-[9px] font-bold italic uppercase">Pending</span>'}
                 </td>
                 <td class="p-4 text-right">
                     <div class="flex justify-end gap-1 md:gap-2">
@@ -98,7 +119,7 @@ function renderWorkflowActions(r) {
     const elevatedRoles = ['admin', 'superadmin', 'logistic', 'darh', 'charoi'];
     
     if (elevatedRoles.includes(role) && r.status !== 'fully_approved' && r.status !== 'denied') {
-        html += `<button onclick="openAssignModal(${r.id})" class="p-1.5 bg-amber-600/20 text-amber-500 rounded-lg border border-amber-500/20 hover:bg-amber-600 hover:text-white transition shadow-sm" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>`;
+        html += `<button onclick="openAssignModal(${r.id})" class="p-1.5 bg-amber-600/20 text-amber-500 rounded-lg border border-amber-500/20 hover:bg-amber-600 hover:text-white transition shadow-sm" title="Edit Assets"><i data-lucide="edit-3" class="w-4 h-4"></i></button>`;
     }
     if (role === 'chef' && r.status === 'pending') html += `<button onclick="openApprovalModal(${r.id}, 'chef')" class="p-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition shadow-sm"><i data-lucide="check-circle" class="w-4 h-4"></i></button>`;
     if (role === 'charoi' && r.status === 'approved_by_chef' && r.vehicle_id) html += `<button onclick="openApprovalModal(${r.id}, 'charoi')" class="p-1.5 bg-emerald-600/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition shadow-sm"><i data-lucide="user-check" class="w-4 h-4"></i></button>`;
@@ -137,14 +158,7 @@ window.viewRequestDetails = function(id) {
     const r = allRequests.find(req => req.id === id);
     if (!r) return;
 
-    // Calculate Duration
-    const start = new Date(r.departure_time);
-    const end = new Date(r.return_time);
-    const diffMs = end - start;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const durationText = `${diffDays}d ${diffHrs}h`;
-
+    const duration = calculateDuration(r.departure_time, r.return_time);
     const canPrint = ['admin', 'superadmin', 'darh', 'charoi', 'account', 'comptabilite'].includes(requestUserRole) && r.status === 'fully_approved';
 
     const content = `
@@ -152,37 +166,43 @@ window.viewRequestDetails = function(id) {
             <div class="flex justify-between items-start border-b border-slate-800 pb-3">
                 <div>
                     <h4 class="text-lg md:text-xl font-black text-white uppercase">${r.destination}</h4>
-                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">${r.description || 'Mission'}</p>
+                    <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest">${r.description || 'General Mission'}</p>
                 </div>
                 ${getStatusBadge(r.status)}
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <div class="bg-slate-800/40 p-2 rounded-xl border border-slate-700/50">
-                    <span class="label-text">Start</span>
-                    <p class="text-white text-[11px] font-black">${start.toLocaleString()}</p>
+                    <span class="label-text">Departure</span>
+                    <p class="text-white text-[11px] font-black">${new Date(r.departure_time).toLocaleString()}</p>
                 </div>
                 <div class="bg-slate-800/40 p-2 rounded-xl border border-slate-700/50">
                     <span class="label-text">Return</span>
-                    <p class="text-white text-[11px] font-black">${end.toLocaleString()}</p>
+                    <p class="text-white text-[11px] font-black">${new Date(r.return_time).toLocaleString()}</p>
                 </div>
             </div>
 
-            <div class="bg-blue-500/5 border border-blue-500/10 p-2 rounded-xl flex justify-between items-center">
-                <span class="label-text">Trip Duration</span>
-                <span class="text-blue-400 font-black text-xs uppercase">${durationText}</span>
+            <div class="bg-blue-500/5 border border-blue-500/10 p-2 rounded-xl flex justify-between items-center px-4">
+                <span class="label-text">Duration</span>
+                <span class="text-blue-400 font-black text-xs uppercase tracking-widest">${duration}</span>
             </div>
 
-            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-                <span class="label-text mb-2 block">Passengers</span>
+            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800 shadow-inner">
+                <span class="label-text mb-2 block uppercase">Passengers</span>
                 <div class="flex flex-wrap gap-1.5">
                     ${r.passengers.map(m => `<span class="bg-slate-800 px-2 py-0.5 rounded text-[9px] text-slate-300 border border-slate-700 font-mono font-bold">${m}</span>`).join('')}
                 </div>
             </div>
 
+            ${r.vehicle ? `
+            <div class="grid grid-cols-2 gap-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
+                <div class="text-center border-r border-blue-500/10"><span class="label-text block mb-1">Unit</span><p class="text-blue-400 font-black text-sm uppercase">${r.vehicle.plate_number}</p></div>
+                <div class="text-center"><span class="label-text block mb-1">Driver</span><p class="text-white font-black text-sm uppercase">${r.driver?.full_name || 'N/A'}</p></div>
+            </div>` : ''}
+
             <div class="flex justify-between items-center pt-3 border-t border-slate-800">
-                <span class="text-[9px] text-slate-600 font-bold uppercase">Staff: ${r.requester?.full_name}</span>
-                ${canPrint ? `<button onclick="printMissionOrder(${r.id})" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[9px] font-black transition-all shadow-lg active:scale-95"><i data-lucide="printer" class="w-3 h-3"></i> PRINT ORDER</button>` : ''}
+                <span class="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Requested by: ${r.requester?.full_name}</span>
+                ${canPrint ? `<button onclick="printMissionOrder(${r.id})" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[9px] font-black transition-all shadow-lg active:scale-95"><i data-lucide="printer" class="w-3 h-3"></i> PRINT</button>` : ''}
             </div>
         </div>
     `;
@@ -208,13 +228,27 @@ window.saveNewRequest = async () => {
     if (res && !res.detail) { window.closeModal('addRequestModal'); await loadRequestsData(); }
 };
 
+/**
+ * Resource Allocation (Edit/Assign Modal)
+ */
 window.openAssignModal = (id) => {
     currentRequestId = id;
     const r = allRequests.find(req => req.id === id);
     if (!r) return;
-    getReqEl('assignSummary').innerHTML = `<div class="bg-blue-600/10 border border-blue-500/20 p-3 rounded-lg mb-4 text-[10px] font-bold uppercase"><p class="text-blue-400">${r.destination}</p><p class="text-slate-500 font-mono mt-1">${new Date(r.departure_time).toLocaleString()}</p></div>`;
-    getReqEl('assignVehicle').innerHTML = `<option value="">-- UNIT --</option>` + availableVehicles.map(v => `<option value="${v.id}" ${r.vehicle_id === v.id ? 'selected':''}>${v.plate_number} [${v.model}]</option>`).join('');
-    getReqEl('assignDriver').innerHTML = `<option value="">-- DRIVER --</option>` + activeDrivers.map(d => `<option value="${d.id}" ${r.driver_id === d.id ? 'selected':''}>${d.full_name}</option>`).join('');
+
+    const duration = calculateDuration(r.departure_time, r.return_time);
+    getReqEl('assignSummary').innerHTML = `
+        <div class="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl mb-6 flex justify-between items-center">
+            <div>
+                <p class="text-blue-400 font-black uppercase text-[11px] tracking-widest">${r.destination}</p>
+                <p class="text-slate-500 font-mono text-[9px] mt-1">${new Date(r.departure_time).toLocaleString()}</p>
+            </div>
+            <span class="text-[9px] bg-blue-500 text-white px-2 py-0.5 rounded font-black uppercase">${duration}</span>
+        </div>
+    `;
+
+    getReqEl('assignVehicle').innerHTML = `<option value="">-- CHOOSE VEHICLE --</option>` + availableVehicles.map(v => `<option value="${v.id}" ${r.vehicle_id == v.id ? 'selected':''}>${v.plate_number} [${v.make} ${v.model}]</option>`).join('');
+    getReqEl('assignDriver').innerHTML = `<option value="">-- CHOOSE DRIVER --</option>` + activeDrivers.map(d => `<option value="${d.id}" ${r.driver_id == d.id ? 'selected':''}>${d.full_name} (${d.matricule})</option>`).join('');
     getReqEl('assignPassengers').value = r.passengers.join(', ');
     getReqEl('assignResourceModal').classList.remove('hidden');
 };
@@ -229,16 +263,78 @@ window.submitAssignment = async () => {
     if (res && !res.detail) { window.closeModal('assignResourceModal'); await loadRequestsData(); }
 };
 
+/**
+ * Decision Gateway (Approval Modal)
+ * UPGRADED: Added Full mission details + Optional Editing
+ */
 window.openApprovalModal = (id, stage) => {
     currentRequestId = id;
     const r = allRequests.find(req => req.id === id);
+    if (!r) return;
+
+    const duration = calculateDuration(r.departure_time, r.return_time);
     getReqEl('approvalStageTitle').innerText = `${stage.toUpperCase()} DECISION`;
-    getReqEl('approvalSummary').innerHTML = `<div class="bg-slate-900 p-3 rounded-lg border border-slate-800 mb-4 text-[10px] font-bold uppercase text-white">${r.destination}</div>`;
+    getReqEl('approvalComments').value = "";
+
+    // 1. Mission Context Info (Leaving, Return, Duration, Purpose, Passengers)
+    getReqEl('approvalSummary').innerHTML = `
+        <div class="text-left bg-slate-900/50 p-4 rounded-2xl border border-slate-800 mb-6 shadow-inner space-y-4">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-white font-black text-xs uppercase tracking-widest">${r.destination}</p>
+                    <p class="text-[9px] text-slate-500 font-bold uppercase mt-0.5 tracking-tighter">${r.description || 'Strategic Mission'}</p>
+                </div>
+                <span class="text-[8px] bg-slate-800 text-blue-400 px-2 py-1 rounded font-black border border-slate-700">${duration}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-[9px] font-black uppercase text-slate-500">
+                <p>Start: ${new Date(r.departure_time).toLocaleString()}</p>
+                <p>End: ${new Date(r.return_time).toLocaleString()}</p>
+            </div>
+            <div class="pt-2 border-t border-slate-800">
+                <p class="text-[8px] text-slate-600 font-black uppercase mb-1">Manifest</p>
+                <p class="text-[9px] text-slate-300 font-mono tracking-tighter">${r.passengers.join(', ')}</p>
+            </div>
+        </div>
+    `;
+
+    // 2. Optional Resource Override (Pre-filled with Charoi's choice)
+    const elevatedRoles = ['admin', 'superadmin', 'logistic', 'darh'];
+    const editSection = getReqEl('approvalEditSection');
+    
+    if (elevatedRoles.includes(requestUserRole)) {
+        editSection.classList.remove('hidden');
+        getReqEl('approveVehicle').innerHTML = `<option value="">-- NO CHANGE --</option>` + availableVehicles.map(v => `<option value="${v.id}" ${r.vehicle_id == v.id ? 'selected':''}>${v.plate_number}</option>`).join('');
+        getReqEl('approveDriver').innerHTML = `<option value="">-- NO CHANGE --</option>` + activeDrivers.map(d => `<option value="${d.id}" ${r.driver_id == d.id ? 'selected':''}>${d.full_name}</option>`).join('');
+        getReqEl('approvePassengers').value = r.passengers.join(', ');
+    } else {
+        editSection.classList.add('hidden');
+    }
+
     getReqEl('approvalModal').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
 };
 
 window.submitDecision = async (decision) => {
-    const payload = { status: decision, comments: getReqEl('approvalComments').value || "Manual Action" };
+    const elevatedRoles = ['admin', 'superadmin', 'logistic', 'darh'];
+    
+    // If the user modified resources in the approval window, sync those first
+    if (elevatedRoles.includes(requestUserRole) && decision === 'approved') {
+        const vVal = getReqEl('approveVehicle').value;
+        const dVal = getReqEl('approveDriver').value;
+        const pVal = getReqEl('approvePassengers').value;
+
+        if (vVal || dVal || pVal) {
+            const req = allRequests.find(r => r.id === currentRequestId);
+            const assignPayload = {
+                vehicle_id: vVal ? parseInt(vVal) : req.vehicle_id,
+                driver_id: dVal ? parseInt(dVal) : req.driver_id,
+                passengers: pVal ? pVal.split(',').map(m => m.trim()) : req.passengers
+            };
+            await window.fetchWithAuth(`/requests/${currentRequestId}/assign`, 'PUT', assignPayload);
+        }
+    }
+
+    const payload = { status: decision, comments: getReqEl('approvalComments').value || "Administrative validation completed." };
     const res = await window.fetchWithAuth(`/approvals/${currentRequestId}`, 'POST', payload);
     if (res && !res.detail) { window.closeModal('approvalModal'); await loadRequestsData(); }
 };
@@ -246,7 +342,7 @@ window.submitDecision = async (decision) => {
 function getStatusBadge(status) {
     const map = { 'pending': 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', 'approved_by_chef': 'bg-blue-500/10 text-blue-400 border-blue-500/20', 'approved_by_charoi': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20', 'approved_by_logistic': 'bg-purple-500/10 text-purple-400 border-purple-500/20', 'fully_approved': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', 'denied': 'bg-red-500/10 text-red-400 border-red-500/20' };
     const cls = map[status] || 'bg-slate-500/10 text-slate-400 border-slate-500/20';
-    return `<span class="px-2 py-0.5 rounded-full text-[8px] md:text-[9px] font-black border ${cls} uppercase tracking-tighter">${status.replace(/_/g, ' ')}</span>`;
+    return `<span class="px-2 py-0.5 rounded-full text-[8px] md:text-[9px] font-black border ${cls} uppercase tracking-tighter shadow-sm">${status.replace(/_/g, ' ')}</span>`;
 }
 
 window.closeModal = (id) => getReqEl(id).classList.add('hidden');
