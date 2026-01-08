@@ -116,18 +116,22 @@ def get_mission_order_pdf(
     if not db_request:
         raise HTTPException(status_code=404, detail="Request not found.")
     
-    # Force lowercase comparison to avoid "Not ready" errors
-    if str(db_request.status).lower() != "fully_approved":
-        raise HTTPException(status_code=400, detail="Only fully approved missions can be printed.")
+    # FIX: Convert the database status to a string and lowercase it before checking
+    # This handles "FULLY_APPROVED", "Fully_Approved", or "fully_approved"
+    status_str = str(db_request.status.value if hasattr(db_request.status, 'value') else db_request.status).lower()
+    
+    if status_str != "fully_approved":
+        raise HTTPException(status_code=400, detail=f"Mission not finalized. Status: {status_str}")
 
     passenger_users = db.query(models.User).filter(models.User.matricule.in_(db_request.passengers)).all()
     
-    # Note: generate_mission_order_pdf returns (buffer, filename)
-    pdf_buffer, _ = generate_mission_order_pdf(
+    pdf_result = generate_mission_order_pdf(
         request=db_request, 
         approver_name=current_user.full_name, 
         passenger_details=passenger_users
     )
+    
+    pdf_buffer = pdf_result[0] if isinstance(pdf_result, tuple) else pdf_result
 
     return StreamingResponse(
         pdf_buffer, 
