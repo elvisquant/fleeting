@@ -1,140 +1,160 @@
-# app/utils/pdf_generator.py
-
+import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from io import BytesIO
 from datetime import datetime
 
 def generate_mission_order_pdf(request, approver_name, passenger_details):
-    """
-    Generates a Mission Order PDF that complies exactly with the BRB official form.
-    Fixed to handle direct Vehicle attributes 'make' and 'model'.
-    """
+    # --- CONFIGURATION: MODIFY SIGNATURES HERE ---
+    SIGNATORY_1 = {
+        "name": "Ingrid Nelly MUTONI",
+        "title": "Chef du Service Logistique<br/>et Patrimoine",
+        "stamp_path": "app/static/img/stamp_logistic.png" # Optional: add scanned stamp path
+    }
+    SIGNATORY_2 = {
+        "name": "Elie NDAYISENGA",
+        "title": "Directeur de l'Administration<br/>et Ressources Humaines",
+        "stamp_path": "app/static/img/stamp_darh.png"    # Optional: add scanned stamp path
+    }
+    LOGO_PATH = "app/static/img/logo.png"
+    # --------------------------------------------
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4, 
-        rightMargin=60, 
-        leftMargin=60, 
-        topMargin=50, 
-        bottomMargin=50
+        rightMargin=50, 
+        leftMargin=50, 
+        topMargin=40, 
+        bottomMargin=40
     )
     
     styles = getSampleStyleSheet()
     
-    # --- CUSTOM STYLES ---
-    header_style = ParagraphStyle('HeaderStyle', fontSize=10, leading=12, alignment=0, fontName='Helvetica-Bold')
-    header_sub_style = ParagraphStyle('HeaderSubStyle', fontSize=10, leading=12, alignment=0, fontName='Helvetica')
-    title_style = ParagraphStyle('TitleStyle', fontSize=12, leading=14, alignment=1, spaceAfter=25, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('BodyStyle', fontSize=11, leading=16, alignment=4) 
-    sig_style = ParagraphStyle('SigStyle', fontSize=10, leading=12, alignment=1, fontName='Helvetica-Bold')
-    footer_style = ParagraphStyle('FooterStyle', fontSize=7, leading=9, alignment=1, color=colors.black)
+    # Custom Styles
+    header_bold = ParagraphStyle('HeaderBold', fontSize=10, leading=12, fontName='Helvetica-Bold')
+    title_style = ParagraphStyle('TitleStyle', fontSize=13, leading=15, alignment=1, spaceAfter=20, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('BodyStyle', fontSize=11, leading=16, alignment=4) # Alignment 4 = Justified
+    footer_style = ParagraphStyle('FooterStyle', fontSize=8, leading=10, alignment=1, color=colors.black)
 
     story = []
 
-    # --- 1. HEADER ---
-    story.append(Paragraph("BANQUE DE LA REPUBLIQUE<br/><u>DU BURUNDI</u>", header_style))
-    story.append(Spacer(1, 10))
-    story.append(Paragraph("DIRECTION DE L'ADMINISTRATION,<br/>ET RESSOURCES HUMAINES.", header_style))
-    story.append(Spacer(1, 15))
-    story.append(Paragraph("<u>Service Logistique et Patrimoine,</u>", header_sub_style))
+    # --- 1. LOGO AND TOP HEADER ---
+    try:
+        logo = Image(LOGO_PATH, width=0.8*inch, height=0.8*inch)
+        logo.hAlign = 'LEFT'
+        story.append(logo)
+    except:
+        story.append(Paragraph("[LOGO MISSING]", header_bold))
+
     story.append(Spacer(1, 5))
-    story.append(Paragraph("<u>Section Charroi</u>", header_sub_style))
-    story.append(Spacer(1, 40))
+    story.append(Paragraph("BANQUE DE LA REPUBLIQUE<br/><u>DU BURUNDI</u>", header_bold))
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("DIRECTION DE L'ADMINISTRATION,<br/>ET RESSOURCES HUMAINES.", header_bold))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("<u>Service Logistique et Patrimoine,</u>", header_bold))
+    story.append(Spacer(1, 5))
+    story.append(Paragraph("<u>Section Charroi</u>", header_bold))
+    story.append(Spacer(1, 30))
 
     # --- 2. DOCUMENT TITLE ---
-    year = request.departure_time.year if request.departure_time else datetime.now().year
+    year = request.departure_time.year
     story.append(Paragraph(f"ORDRE DE MISSION n°{request.id}/{year}", title_style))
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 10))
 
-    # --- 3. DATA PREPARATION (FIXED ATTRIBUTE ACCESS) ---
-    # We use getattr to safely get 'make' and 'model' directly from the vehicle object
-    if request.vehicle:
-        v_make = getattr(request.vehicle, 'make', "") or ""
-        v_model = getattr(request.vehicle, 'model', "") or ""
-        vehicle_full = f"{v_make} {v_model}".strip() or "VÉHICULE DE SERVICE"
-        plate = getattr(request.vehicle, 'plate_number', "__________")
-    else:
-        vehicle_full = "VÉHICULE DE SERVICE"
-        plate = "__________"
+    # --- 3. DATA & LOGIC ---
+    destination = request.destination
+    date_start = request.departure_time.strftime("%d/%m/%Y")
+    date_end = request.return_time.strftime("%d/%m/%Y")
     
-    destination = request.destination or "__________"
-    date_start = request.departure_time.strftime("%d/%m/%Y") if request.departure_time else "__/__/____"
-    date_end = request.return_time.strftime("%d/%m/%Y") if request.return_time else "__/__/____"
-    driver_name = request.driver.full_name if request.driver else "CHAUFFEUR NON DÉSIGNÉ"
+    if request.vehicle:
+        vehicle_info = f"{getattr(request.vehicle, 'make', '')} {getattr(request.vehicle, 'model', '')}".strip()
+        plate = getattr(request.vehicle, 'plate_number', '_______')
+    else:
+        vehicle_info = "Véhicule de service"
+        plate = "_______"
+
+    # Mission Duration Logic
+    is_same_day = request.departure_time.date() == request.return_time.date()
+    
+    if is_same_day:
+        mission_time_text = f"une mission aller et retour à <b>{destination}</b> en date du <b>{date_start}</b>."
+    else:
+        duration = (request.return_time - request.departure_time).days
+        if duration == 0: duration = 1 # Show at least 1 day if dates differ but < 24h
+        mission_time_text = (f"une mission à <b>{destination}</b> du <b>{date_start}</b> au <b>{date_end}</b>. "
+                            f"La durée de la mission est de <b>{duration} jours</b>.")
 
     # --- 4. BODY PARAGRAPHS ---
     
-    # P1: Authorization
-    p1_text = (
-        f"Pour des raisons de service, le véhicule <b>{vehicle_full}</b> immatriculé <b>{plate}</b> est "
-        f"autorisé à effectuer une mission aller et retour à <b>{destination}</b> en date du <b>{date_start}</b>."
-    )
-    story.append(Paragraph(p1_text, body_style))
+    # Paragraph 1
+    p1 = f"Pour des raisons de service, le véhicule <b>{vehicle_info}</b> immatriculé <b>{plate}</b> est autorisé à effectuer {mission_time_text}"
+    story.append(Paragraph(p1, body_style))
     story.append(Spacer(1, 12))
 
-    # P2: Duration
-    p2_text = (
-        f"Pour la personne à bord la mission s'étend du <b>{date_start}</b> au <b>{date_end}</b> "
-        f"(pas des frais de mission)."
-    )
-    story.append(Paragraph(p2_text, body_style))
+    # Paragraph 2
+    p2 = f"Pour la personne à bord la mission s'étend du <b>{date_start}</b> au <b>{date_end}</b> (pas des frais de mission)."
+    story.append(Paragraph(p2, body_style))
     story.append(Spacer(1, 12))
 
-    # P3: Driver
-    p3_text = f"Ledit véhicule est conduit par le chauffeur <b>{driver_name}</b>."
-    story.append(Paragraph(p3_text, body_style))
+    # Driver
+    driver = request.driver.full_name if request.driver else "A désigner"
+    story.append(Paragraph(f"Ledit véhicule est conduit par le chauffeur <b>{driver}</b>.", body_style))
     story.append(Spacer(1, 12))
 
-    # P4: Passengers
-    passenger_string_list = []
-    if passenger_details:
-        for p in passenger_details:
-            # Safe access to service name
-            dept = "SMF"
-            if hasattr(p, 'service') and p.service:
-                dept = getattr(p.service, 'service_name', "SMF")
-            passenger_string_list.append(f"- Mr/Mme <b>{p.full_name}</b>, du {dept}")
-    
-    passengers_joined = ". ".join(passenger_string_list) if passenger_string_list else "Aucun passager enregistré"
-    p4_text = f"<u>Personnes à bord :</u> {passengers_joined}."
-    story.append(Paragraph(p4_text, body_style))
-    story.append(Spacer(1, 30))
+    # --- 5. PASSENGER LIST (NUMBERED) ---
+    if len(passenger_details) > 1:
+        p_intro = "<u>Personnes à bord :</u>"
+        story.append(Paragraph(p_intro, body_style))
+        for i, p in enumerate(passenger_details, 1):
+            dept = getattr(p.service, 'service_name', 'SMF')
+            story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;{i}. Mr/Mme <b>{p.full_name}</b>, du {dept}", body_style))
+    else:
+        p = passenger_details[0] if passenger_details else None
+        name = p.full_name if p else "Aucun"
+        dept = getattr(p.service, 'service_name', 'SMF') if p else ""
+        story.append(Paragraph(f"<u>Personnes à bord :</u> Mr/Mme <b>{name}</b>, du {dept}.", body_style))
 
-    # P5: Object
-    p5_text = f"<b><u>Objet de la mission :</u></b> {request.description or 'Mission de travail'}"
-    story.append(Paragraph(p5_text, body_style))
-    story.append(Spacer(1, 50))
+    story.append(Spacer(1, 20))
+    story.append(Paragraph(f"<b><u>Objet de la mission :</u></b> {request.description}", body_style))
+    story.append(Spacer(1, 40))
 
-    # --- 5. LOCATION AND DATE ---
-    today_formatted = datetime.now().strftime("%d/%m/%Y")
-    story.append(Paragraph(f"Fait à Bujumbura, le {today_formatted}", ParagraphStyle('RightAlign', alignment=2, fontSize=11)))
-    story.append(Spacer(1, 30))
+    # --- 6. LOCATION AND DATE ---
+    today = datetime.now().strftime("%d/%m/%Y")
+    story.append(Paragraph(f"Fait à Bujumbura, le {today}", ParagraphStyle('Right', alignment=2, fontSize=11)))
+    story.append(Spacer(1, 20))
 
-    # --- 6. SIGNATURE BLOCKS ---
-    sig_data = [
-        [
-            Paragraph("Ingrid Nelly MUTONI<br/><br/><u>Chef du Service Logistique<br/>et Patrimoine</u>", sig_style),
-            Paragraph("Elie NDAYISENGA<br/><br/><u>Directeur de l'Administration<br/>et Ressources Humaines</u>", sig_style)
-        ]
+    # --- 7. SIGNATURE TABLE (Swappable Names) ---
+    # To include digital signature images, replace the Spacer with an Image()
+    sig_cell_1 = [
+        Paragraph(SIGNATORY_1["name"], header_bold),
+        Spacer(1, 10),
+        Paragraph(f"<u>{SIGNATORY_1['title']}</u>", header_bold)
     ]
     
-    sig_table = Table(sig_data, colWidths=[2.5 * inch, 3.5 * inch])
+    sig_cell_2 = [
+        Paragraph(SIGNATORY_2["name"], header_bold),
+        Spacer(1, 10),
+        Paragraph(f"<u>{SIGNATORY_2['title']}</u>", header_bold)
+    ]
+
+    sig_data = [[sig_cell_1, sig_cell_2]]
+    sig_table = Table(sig_data, colWidths=[2.5*inch, 3.5*inch])
     sig_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (0,0), (0,0), 'LEFT'),
+        ('ALIGN', (1,1), (1,1), 'CENTER'),
     ]))
     story.append(sig_table)
 
-    # --- 7. FOOTER ---
-    story.append(Spacer(1, 1.5 * inch))
-    footer_line = "<u>1, avenue du Gouvernement, BP: 705 Bujumbura, Tél: (257) 22 20 40 00/22 27 44 - Fax: (257) 22 22 31 28 - Courriel : brb@brb.bi</u>"
-    story.append(Paragraph(footer_line, footer_style))
+    # --- 8. FOOTER ---
+    story.append(Spacer(1, 1*inch))
+    footer_text = "1, avenue du Gouvernement, BP: 705 Bujumbura, Tél: (257) 22 20 40 00/22 27 44 - Fax: (257) 22 22 31 28 - Courriel : brb@brb.bi"
+    story.append(Paragraph(f"<hr/>{footer_text}", footer_style))
 
-    # Build PDF
     doc.build(story)
     buffer.seek(0)
     return buffer
