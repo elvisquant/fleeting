@@ -107,32 +107,59 @@ def submit_approval(
     db.refresh(db_request)
     return db_request
 
+
+
 @router.get("/{request_id}/pdf")
 def get_pdf(request_id: int, db: Session = Depends(get_db)):
-    # Fetch with full relationships to resolve Make/Model IDs into Names
+    # 1. Fetch Request with DEEP loading to get Make/Model names
     request = db.query(models.VehicleRequest).options(
         joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.vehicle_make),
         joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.vehicle_model),
-        joinedload(models.VehicleRequest.driver)
+        joinedload(models.VehicleRequest.driver),
+        joinedload(models.VehicleRequest.requester)
     ).filter(models.VehicleRequest.id == request_id).first()
     
     if not request:
-        raise HTTPException(status_code=404, detail="Request not found.")
+        raise HTTPException(status_code=404, detail="Request not found in database.")
     
-    # Case-insensitive check for fully approved status
-    if str(request.status).lower() != "fully_approved":
-        raise HTTPException(status_code=400, detail="Mission order is not fully approved yet.")
+    # 2. Case-Insensitive Status Check (Handles 'FULLY_APPROVED' or 'fully_approved')
+    current_status = str(request.status.value if hasattr(request.status, 'value') else request.status).lower()
     
-    # Fetch Signatories
+    if current_status != "fully_approved":
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Mission not ready. Current status is {current_status}"
+        )
+    
+    # 3. Fetch Signatories (If not found, we pass None and let generator handle placeholders)
     log_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("logistic")).first()
     darh_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("darh")).first()
-    passenger_users = db.query(models.User).filter(models.User.matricule.in_(request.passengers)).all()
-
-    pdf_buffer = generate_mission_order_pdf(
-        request=request, 
-        passenger_details=passenger_users,
-        logistic_officer=log_off,
-        darh_officer=darh_off
-    )
     
-    return StreamingResponse(pdf_buffer, media_type="application/pdf")
+    # 4. Fetch Passenger Objects from the list of matricules
+    passenger_users = []
+    if request.passengers:
+        passenger_users = db.query(models.User).options(joinedload(models.User.service)).filter(
+            models.User.matricule.in_(request.passengers)
+        ).all()
+
+    try:
+        # 5. Generate PDF
+        pdf_buffer = generate_mission_order_pdf(
+            request=request, 
+            passenger_details=passenger_users,
+            logistic_officer=log_off,
+            darh_officer=darh_off
+        )
+        
+        return StreamingResponse(
+            pdf_buffer, 
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename=Mission_{request_id}.pdf",
+                "Cache-Control": "no-cache"
+            }
+        )
+    except Exception as e:
+        # This prevents the "JSON Parse" error by sending a clean JSON error if the PDF fails
+        print(f"PDF GENERATION ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"PDF Generator Error: {str(e)}")

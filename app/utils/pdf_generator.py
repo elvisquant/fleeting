@@ -8,6 +8,10 @@ from io import BytesIO
 from datetime import datetime
 
 def generate_mission_order_pdf(request, passenger_details, logistic_officer=None, darh_officer=None):
+    """
+    Generates a Mission Order PDF for the BRB (Banque de la République du Burundi).
+    Preserves all logic for same-day vs multi-day missions and dynamic signatures.
+    """
     # --- IMAGE PATHS ---
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     LOGO_PATH = os.path.join(BASE_DIR, "static", "img", "logo.png")
@@ -26,9 +30,11 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     )
     
     styles = getSampleStyleSheet()
+    
+    # Custom Text Styles
     header_bold = ParagraphStyle('HeaderBold', fontSize=10, leading=12, fontName='Helvetica-Bold')
     title_style = ParagraphStyle('TitleStyle', fontSize=13, leading=15, alignment=1, spaceAfter=20, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('BodyStyle', fontSize=11, leading=16, alignment=4) 
+    body_style = ParagraphStyle('BodyStyle', fontSize=11, leading=16, alignment=4) # Justified
     sig_style = ParagraphStyle('SigStyle', fontSize=10, leading=12, alignment=1, fontName='Helvetica-Bold')
     footer_style = ParagraphStyle('FooterStyle', fontSize=7, leading=9, alignment=1, color=colors.black)
 
@@ -40,7 +46,8 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
             logo = Image(LOGO_PATH, width=0.7*inch, height=0.7*inch)
             logo.hAlign = 'LEFT'
             story.append(logo)
-    except: pass
+    except Exception:
+        pass
 
     story.append(Paragraph("BANQUE DE LA REPUBLIQUE<br/><u>DU BURUNDI</u>", header_bold))
     story.append(Spacer(1, 10))
@@ -55,10 +62,11 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Paragraph(f"ORDRE DE MISSION n°{request.id}/{year}", title_style))
     story.append(Spacer(1, 15))
 
-    # --- 3. VEHICLE DATA (RESOLVING NAMES) ---
+    # --- 3. VEHICLE DATA RESOLUTION ---
     v_make = ""
     v_model = ""
     if request.vehicle:
+        # Traversed relationship logic to get Make/Model string names
         if hasattr(request.vehicle, 'vehicle_make') and request.vehicle.vehicle_make:
             v_make = getattr(request.vehicle.vehicle_make, 'vehicle_make', '')
         if hasattr(request.vehicle, 'vehicle_model') and request.vehicle.vehicle_model:
@@ -67,6 +75,7 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     vehicle_info = f"{v_make} {v_model}".strip() or "VÉHICULE DE SERVICE"
     plate = getattr(request.vehicle, 'plate_number', '_______') if request.vehicle else "_______"
 
+    # --- 4. MISSION TIME LOGIC ---
     destination = request.destination
     date_start = request.departure_time.strftime("%d/%m/%Y")
     is_same_day = request.departure_time.date() == request.return_time.date()
@@ -78,7 +87,7 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
         time_text = (f"une mission à <b>{destination}</b> du <b>{date_start}</b> au "
                      f"{request.return_time.strftime('%d/%m/%Y')}. La durée est de <b>{delta} jours</b>.")
 
-    # --- 4. BODY ---
+    # --- 5. BODY PARAGRAPHS ---
     story.append(Paragraph(f"Pour des raisons de service, le véhicule <b>{vehicle_info}</b> immatriculé <b>{plate}</b> est autorisé à effectuer {time_text}", body_style))
     story.append(Spacer(1, 12))
     story.append(Paragraph(f"Pour la personne à bord la mission s'étend du <b>{date_start}</b> au {request.return_time.strftime('%d/%m/%Y')} (pas des frais de mission).", body_style))
@@ -87,11 +96,14 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Paragraph(f"Ledit véhicule est conduit par le chauffeur <b>{driver}</b>.", body_style))
     story.append(Spacer(1, 12))
 
-    # --- 5. NUMBERED PASSENGERS ---
+    # --- 6. NUMBERED PASSENGERS ---
     story.append(Paragraph("<u>Personnes à bord :</u>", body_style))
-    if len(passenger_details) > 0:
+    if passenger_details and len(passenger_details) > 0:
         for i, p in enumerate(passenger_details, 1):
-            story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;{i}. Mr/Mme <b>{p.full_name}</b>", body_style))
+            dept = "SMF"
+            if hasattr(p, 'service') and p.service:
+                dept = getattr(p.service, 'service_name', 'SMF')
+            story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;{i}. Mr/Mme <b>{p.full_name}</b>, du {dept}", body_style))
     else:
         story.append(Paragraph("&nbsp;&nbsp;&nbsp;&nbsp;Aucune personne enregistrée.", body_style))
 
@@ -99,47 +111,48 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Paragraph(f"<b><u>Objet de la mission :</u></b> {request.description}", body_style))
     story.append(Spacer(1, 40))
 
-    # --- 6. DATE & SIGNATURES (Name -> Signature Under Name -> Right Aligned) ---
+    # --- 7. DATE AND SIGNATURES ---
     story.append(Paragraph(f"Fait à Bujumbura, le {datetime.now().strftime('%d/%m/%Y')}", ParagraphStyle('Right', alignment=2, fontSize=11)))
     story.append(Spacer(1, 20))
 
-    # --- LOGISTIC CELL ---
+    # --- LOGISTIC BLOCK ---
     log_cell = []
-    log_cell.append(Paragraph(logistic_officer.full_name if logistic_officer else "________________", sig_style))
+    log_cell.append(Paragraph(getattr(logistic_officer, 'full_name', "________________"), sig_style))
     if os.path.exists(SIG_LOGISTIC):
         log_cell.append(Image(SIG_LOGISTIC, width=1.1*inch, height=0.4*inch))
     log_cell.append(Paragraph("<u>Chef du Service Logistique</u>", sig_style))
 
-    # --- DARH CELL ---
+    # --- DARH BLOCK ---
     darh_cell = []
     if os.path.exists(STAMP_ONE):
-        # Round stamp at the top
+        # Place official institution stamp at the very top of the DARH cell
         img_stamp = Image(STAMP_ONE, width=1.0*inch, height=1.0*inch)
         darh_cell.append(img_stamp)
     
-    darh_cell.append(Paragraph(darh_officer.full_name if darh_officer else "________________", sig_style))
+    darh_cell.append(Paragraph(getattr(darh_officer, 'full_name', "________________"), sig_style))
     
     if os.path.exists(SIG_DARH):
-        # Signature Image UNDER the name
+        # Place digital signature image under the officer's name
         img_sig = Image(SIG_DARH, width=1.1*inch, height=0.4*inch)
         darh_cell.append(img_sig)
 
     darh_cell.append(Paragraph("<u>Directeur de l'Administration</u>", sig_style))
 
-    # Column widths: Logistic block is slightly smaller, DARH block (right) is slightly larger
+    # Table layout for signatures
     sig_data = [[log_cell, darh_cell]]
     sig_table = Table(sig_data, colWidths=[2.5*inch, 3.5*inch])
     sig_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'), # Centers content within the respective columns
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
     ]))
     story.append(sig_table)
 
-    # --- 7. FOOTER ---
+    # --- 8. FOOTER ---
     story.append(Spacer(1, 1 * inch))
     footer_text = "1, avenue du Gouvernement, BP: 705 Bujumbura, Tél: (257) 22 20 40 00/22 27 44 - Fax: (257) 22 22 31 28 - Courriel : brb@brb.bi"
     story.append(Paragraph(f"<hr color='black'/><br/>{footer_text}", footer_style))
 
+    # Final Document Construction
     doc.build(story)
     buffer.seek(0)
     return buffer
