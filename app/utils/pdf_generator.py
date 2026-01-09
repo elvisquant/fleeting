@@ -7,13 +7,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from io import BytesIO
 from datetime import datetime
 
-# --- CUSTOM FLOWABLE FOR SUPERIMPOSED STAMP ---
+# --- CUSTOM FLOWABLE FOR THE AUTHENTIC OVERLAID STAMP ---
 class OverlaidStamp(Flowable):
     """
-    Draws a stamp image without taking up vertical space, 
-    allowing it to be superimposed over text.
+    Draws a stamp image over the text without occupying space.
+    mimics a physical stamp placed over the signature.
     """
-    def __init__(self, img_path, width=1.2*inch, height=1.2*inch, x_offset=0, y_offset=0):
+    def __init__(self, img_path, width=1.4*inch, height=1.4*inch, x_offset=0, y_offset=0):
         Flowable.__init__(self)
         self.img_path = img_path
         self.w = width
@@ -23,7 +23,10 @@ class OverlaidStamp(Flowable):
 
     def draw(self):
         if os.path.exists(self.img_path):
-            self.canv.drawImage(self.img_path, self.x_off, self.y_off, width=self.w, height=self.h, mask='auto')
+            # The coordinate (0,0) is the bottom-left of the cell where this is placed.
+            # We use negative y_offset to move the stamp "down" over the name/sig.
+            self.canv.drawImage(self.img_path, self.x_off, self.y_off, 
+                                width=self.w, height=self.h, mask='auto')
 
 def generate_mission_order_pdf(request, passenger_details, logistic_officer=None, darh_officer=None):
     # --- IMAGE PATHS ---
@@ -119,48 +122,52 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
 
     story.append(Spacer(1, 20))
     story.append(Paragraph(f"<b><u>Objet de la mission :</u></b> {request.description}", body_style))
-    story.append(Spacer(1, 45))
+    story.append(Spacer(1, 40))
 
-    # --- 6. DATE & SIGNATURES ---
+    # --- 6. DATE (Now correctly placed ABOVE signatures) ---
     story.append(Paragraph(f"Fait à Bujumbura, le {datetime.now().strftime('%d/%m/%Y')}", ParagraphStyle('Right', alignment=2, fontSize=11)))
-    story.append(Spacer(1, 30))
+    story.append(Spacer(1, 40))
 
-    # LOGISTIC CELL: Aligned Left
+    # --- 7. SIGNATURE BLOCK (Same line alignment) ---
+
+    # Cell 1: LOGISTIC [Name -> Signature -> Title]
     log_cell = [
         Paragraph(getattr(logistic_officer, 'full_name', "________________"), sig_style),
-        Spacer(1, 2)
+        Spacer(1, 4)
     ]
     if os.path.exists(SIG_LOGISTIC):
         log_cell.append(Image(SIG_LOGISTIC, width=1.1*inch, height=0.4*inch))
     log_cell.append(Paragraph("<u>Chef du Service Logistique et Patrimoine</u>", sig_style))
 
-    # DARH CELL: Aligned Right with Superimposed Stamp
+    # Cell 2: DARH [Name -> Signature -> Title] with OVERLAID STAMP
     darh_cell = []
-    # Add the superimposed stamp FIRST so it appears "behind/over" the text
+    
+    # We add the overlaid stamp logic here. 
+    # Because it's a specialized Flowable, it will draw on top of the text following it.
     if os.path.exists(STAMP_ONE):
-        # x_offset and y_offset adjust the stamp position relative to the name
-        darh_cell.append(OverlaidStamp(STAMP_ONE, width=1.3*inch, height=1.3*inch, x_offset=20, y_offset=-40))
+        # x_offset moves left/right, y_offset moves up/down. 
+        # Adjusted to cover the name and signature area.
+        darh_cell.append(OverlaidStamp(STAMP_ONE, width=1.4*inch, height=1.4*inch, x_offset=30, y_offset=-50))
     
     darh_cell.append(Paragraph(getattr(darh_officer, 'full_name', "________________"), sig_style))
-    darh_cell.append(Spacer(1, 2))
+    darh_cell.append(Spacer(1, 4))
     
     if os.path.exists(SIG_DARH):
         darh_cell.append(Image(SIG_DARH, width=1.1*inch, height=0.4*inch))
         
     darh_cell.append(Paragraph("<u>Directeur de l'Administration et Ressources Humaines</u>", sig_style))
 
-    # TABLE: [Logistic] [DARH] Aligned on the SAME horizontal line
+    # Table layout to keep both signatories on the same line
     sig_table = Table([[log_cell, darh_cell]], colWidths=[2.8*inch, 3.2*inch])
     sig_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ALIGN', (0,0), (0,0), 'LEFT'),
-        ('ALIGN', (1,0), (1,0), 'CENTER'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
     ]))
     story.append(sig_table)
 
-    # --- 7. FOOTER ---
+    # --- 8. FOOTER WITH LINE ---
     story.append(Spacer(1, 1.2 * inch))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.black, spaceBefore=1, spaceAfter=5))
     footer_text = "1, avenue du Gouvernement, BP: 705 Bujumbura, Tél: (257) 22 20 40 00/22 27 44 - Fax: (257) 22 22 31 28 - Courriel : brb@brb.bi"
