@@ -7,14 +7,14 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from io import BytesIO
 from datetime import datetime
 
-# --- CUSTOM FLOWABLE TO OVERLAY STAMP ON TOP OF TEXT ---
-class StampedOverlay(Flowable):
+# --- CUSTOM FLOWABLE FOR THE AUTHENTIC OVERLAID STAMP ---
+class StampedInk(Flowable):
     """
-    Draws a stamp image over the text. 
-    It doesn't take up any space in the 'Story', so the text stays put,
-    and the stamp is drawn on top of it at the specified coordinates.
+    Draws a stamp image OVER the text. 
+    It has 0 height/width so it doesn't push text down.
+    The y_off is used to move it UP so it centers over the name and signature.
     """
-    def __init__(self, img_path, width=1.3*inch, height=1.3*inch, x_off=0, y_off=0):
+    def __init__(self, img_path, width=1.5*inch, height=1.5*inch, x_off=0, y_off=0):
         Flowable.__init__(self)
         self.img_path = img_path
         self.w = width
@@ -24,7 +24,7 @@ class StampedOverlay(Flowable):
 
     def draw(self):
         if os.path.exists(self.img_path):
-            # We use transparency mask 'auto' to ensure the background is clear
+            # We use 'mask' to ensure background transparency
             self.canv.drawImage(self.img_path, self.x_off, self.y_off, 
                                 width=self.w, height=self.h, mask='auto')
 
@@ -57,12 +57,12 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
 
     story = []
 
-    # --- 1. INSTITUTIONAL HEADER (No underlines) ---
+    # --- 1. INSTITUTIONAL HEADER ---
     try:
         if os.path.exists(LOGO_PATH):
-            logo = Image(LOGO_PATH, width=0.7*inch, height=0.7*inch)
-            logo.hAlign = 'LEFT'
-            story.append(logo)
+            img = Image(LOGO_PATH, width=0.7*inch, height=0.7*inch)
+            img.hAlign = 'LEFT'
+            story.append(img)
     except: pass
     
     story.append(Paragraph("BANQUE DE LA REPUBLIQUE DU BURUNDI", header_bold))
@@ -78,7 +78,7 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Paragraph(f"<u>ORDRE DE MISSION n°{request.id}/{year}</u>", title_style))
     story.append(Spacer(1, 10))
 
-    # --- 3. VEHICLE DATA (Using Make/Model Table Relationships) ---
+    # --- 3. VEHICLE DATA (Resolving names from refs) ---
     v_make_name = ""
     v_model_name = ""
     if request.vehicle:
@@ -102,7 +102,7 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
         time_text = (f"une mission à <b>{destination}</b> du <b>{date_start}</b> au "
                      f"{request.return_time.strftime('%d/%m/%Y')}. La durée est de <b>{delta} jours</b>.")
 
-    # --- 5. BODY ---
+    # --- 5. BODY PARAGRAPHS ---
     story.append(Paragraph(f"Pour des raisons de service, le véhicule <b>{vehicle_info}</b> immatriculé <b>{plate}</b> est autorisé à effectuer {time_text}", body_style))
     story.append(Spacer(1, 12))
     story.append(Paragraph(f"Pour la personne à bord la mission s'étend du <b>{date_start}</b> au {request.return_time.strftime('%d/%m/%Y') if request.return_time else ''} (pas des frais de mission).", body_style))
@@ -124,9 +124,9 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Paragraph(f"<b><u>Objet de la mission :</u></b> {request.description}", body_style))
     story.append(Spacer(1, 30))
 
-    # --- 6. DATE (Placed ABOVE signatures with enough space) ---
-    story.append(Paragraph(f"Fait à Bujumbura, le {datetime.now().strftime('%d/%m/%Y')}", ParagraphStyle('Right', alignment=2, fontSize=11)))
-    story.append(Spacer(1, 50)) # Added more space so it's not hidden by signatures
+    # --- 6. DATE (High position to avoid stamp overlap) ---
+    story.append(Paragraph(f"Fait à Bujumbura, le {datetime.now().strftime('%d/%m/%Y')}", ParagraphStyle('DateRight', alignment=2, fontSize=11)))
+    story.append(Spacer(1, 50)) 
 
     # --- 7. SIGNATURE BLOCK (Same horizontal line) ---
 
@@ -139,25 +139,26 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
         log_cell.append(Image(SIG_LOGISTIC, width=1.1*inch, height=0.4*inch))
     log_cell.append(Paragraph("<u>Chef du Service Logistique et Patrimoine</u>", sig_style))
 
-    # --- Cell 2: DARH (The Layered Approach) ---
+    # --- Cell 2: DARH (Stamp OVER Name and Signature) ---
     darh_cell = []
-    # We draw the stamp OVER everything. 
-    # By placing it in the flowable list, it draw based on current cursor.
-    # We use a large positive y_off to move the stamp 'up' relative to the text.
+    
+    # We add the StampedInk Flowable first.
+    # We use a negative y_off to push the drawing location UP from the anchor point.
     if os.path.exists(STAMP_ONE):
-        # x_off: moves right, y_off: moves UP. 
-        # (40 points right, 30 points up lands it right on the name/sig area)
-        darh_cell.append(StampedOverlay(STAMP_ONE, width=1.4*inch, height=1.4*inch, x_off=35, y_off=10))
+        # x_off: centers the round stamp horizontally
+        # y_off: pulls the stamp UP to land exactly on the name and signature area
+        darh_cell.append(StampedInk(STAMP_ONE, width=1.5*inch, height=1.5*inch, x_off=25, y_off=-25))
     
     darh_cell.append(Paragraph(getattr(darh_officer, 'full_name', "________________"), sig_style))
     darh_cell.append(Spacer(1, 2))
     
     if os.path.exists(SIG_DARH):
+        # Blue ink signature
         darh_cell.append(Image(SIG_DARH, width=1.1*inch, height=0.4*inch))
         
     darh_cell.append(Paragraph("<u>Directeur de l'Administration et Ressources Humaines</u>", sig_style))
 
-    # Table ensures both start at the exact same vertical line
+    # Single row table keeps both cells on the same horizontal line
     sig_table = Table([[log_cell, darh_cell]], colWidths=[2.8*inch, 3.2*inch])
     sig_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -167,7 +168,7 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     ]))
     story.append(sig_table)
 
-    # --- 8. FOOTER WITH SEPARATOR LINE ---
+    # --- 8. FOOTER ---
     story.append(Spacer(1, 1.3 * inch))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.black, spaceBefore=1, spaceAfter=5))
     footer_text = "1, avenue du Gouvernement, BP: 705 Bujumbura, Tél: (257) 22 20 40 00/22 27 44 - Fax: (257) 22 22 31 28 - Courriel : brb@brb.bi"
