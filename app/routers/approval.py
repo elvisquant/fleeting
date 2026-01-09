@@ -111,13 +111,12 @@ def submit_approval(
 
 
 
-
-
 @router.get("/{request_id}/pdf")
 def get_pdf(request_id: int, db: Session = Depends(get_db)):
-    # Fetch Request - We only join the direct relations to avoid the AttributeErrors
+    # Fetch Request with relationships loaded via 'make_ref' and 'model_ref'
     request = db.query(models.VehicleRequest).options(
-        joinedload(models.VehicleRequest.vehicle),
+        joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.make_ref),
+        joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.model_ref),
         joinedload(models.VehicleRequest.driver),
         joinedload(models.VehicleRequest.requester)
     ).filter(models.VehicleRequest.id == request_id).first()
@@ -130,24 +129,23 @@ def get_pdf(request_id: int, db: Session = Depends(get_db)):
     if current_status != "fully_approved":
         raise HTTPException(status_code=400, detail="Mission not fully approved.")
     
-    # Fetch Signatories
-    log_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("logistic")).first()
-    darh_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("darh")).first()
+    logistic_officer = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("logistic")).first()
+    darh_officer = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("darh")).first()
     
-    # Fetch Passengers
-    passenger_users = []
-    if request.passengers:
-        passenger_users = db.query(models.User).filter(models.User.matricule.in_(request.passengers)).all()
+    passenger_users = db.query(models.User).filter(models.User.matricule.in_(request.passengers)).all()
 
     pdf_buffer = generate_mission_order_pdf(
         request=request, 
         passenger_details=passenger_users,
-        logistic_officer=log_off,
-        darh_officer=darh_off
+        logistic_officer=logistic_officer,
+        darh_officer=darh_officer
     )
     
-    return StreamingResponse(
-        pdf_buffer, 
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename=Mission_{request_id}.pdf"}
-    )
+    return StreamingResponse(pdf_buffer, media_type="application/pdf")
+
+
+
+
+
+
+    
