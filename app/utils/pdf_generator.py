@@ -2,10 +2,28 @@ import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, HRFlowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, HRFlowable, Flowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from io import BytesIO
 from datetime import datetime
+
+# --- CUSTOM FLOWABLE FOR SUPERIMPOSED STAMP ---
+class OverlaidStamp(Flowable):
+    """
+    Draws a stamp image without taking up vertical space, 
+    allowing it to be superimposed over text.
+    """
+    def __init__(self, img_path, width=1.2*inch, height=1.2*inch, x_offset=0, y_offset=0):
+        Flowable.__init__(self)
+        self.img_path = img_path
+        self.w = width
+        self.h = height
+        self.x_off = x_offset
+        self.y_off = y_offset
+
+    def draw(self):
+        if os.path.exists(self.img_path):
+            self.canv.drawImage(self.img_path, self.x_off, self.y_off, width=self.w, height=self.h, mask='auto')
 
 def generate_mission_order_pdf(request, passenger_details, logistic_officer=None, darh_officer=None):
     # --- IMAGE PATHS ---
@@ -46,28 +64,23 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     
     story.append(Paragraph("BANQUE DE LA REPUBLIQUE DU BURUNDI", header_bold))
     story.append(Spacer(1, 10))
-    story.append(Paragraph("DIRECTION DE L'ADMINISTRATION,<br/>ET RESSOURCES HUMAINES", header_bold))
+    story.append(Paragraph("DIRECTION DE L'ADMINISTRATION,<br/>ET RESSOURCES HUMAINES.", header_bold))
     story.append(Spacer(1, 12))
-    story.append(Paragraph("Service Logistique et Patrimoine", header_bold))
+    story.append(Paragraph("Service Logistique et Patrimoine,", header_bold))
     story.append(Paragraph("Section Charroi", header_bold))
     story.append(Spacer(1, 40))
 
-    # --- 2. TITLE (Underlined) ---
+    # --- 2. DOCUMENT TITLE (Underlined) ---
     year = request.departure_time.year if request.departure_time else datetime.now().year
     story.append(Paragraph(f"<u>ORDRE DE MISSION n°{request.id}/{year}</u>", title_style))
     story.append(Spacer(1, 10))
 
-    # --- 3. VEHICLE DATA (FIXED USING YOUR MODEL NAMES) ---
+    # --- 3. VEHICLE DATA RESOLUTION ---
     v_make_name = ""
     v_model_name = ""
-    
     if request.vehicle:
-        # Based on your app/models/vehicles.py:
-        # Relationship = make_ref -> Column = vehicle_make
         if hasattr(request.vehicle, 'make_ref') and request.vehicle.make_ref:
             v_make_name = getattr(request.vehicle.make_ref, 'vehicle_make', '')
-            
-        # Relationship = model_ref -> Column = vehicle_model
         if hasattr(request.vehicle, 'model_ref') and request.vehicle.model_ref:
             v_model_name = getattr(request.vehicle.model_ref, 'vehicle_model', '')
 
@@ -108,38 +121,46 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Paragraph(f"<b><u>Objet de la mission :</u></b> {request.description}", body_style))
     story.append(Spacer(1, 45))
 
-    # --- 6. DATE & SIGNATURES (Same horizontal line) ---
+    # --- 6. DATE & SIGNATURES ---
     story.append(Paragraph(f"Fait à Bujumbura, le {datetime.now().strftime('%d/%m/%Y')}", ParagraphStyle('Right', alignment=2, fontSize=11)))
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 30))
 
-    # LOGISTIC CELL: Name -> Sig -> Title
+    # LOGISTIC CELL: Aligned Left
     log_cell = [
-        Paragraph(getattr(logistic_officer, 'full_name', "________________"), sig_style)
+        Paragraph(getattr(logistic_officer, 'full_name', "________________"), sig_style),
+        Spacer(1, 2)
     ]
     if os.path.exists(SIG_LOGISTIC):
         log_cell.append(Image(SIG_LOGISTIC, width=1.1*inch, height=0.4*inch))
     log_cell.append(Paragraph("<u>Chef du Service Logistique et Patrimoine</u>", sig_style))
 
-    # DARH CELL: Stamp One -> Name -> Sig -> Title
+    # DARH CELL: Aligned Right with Superimposed Stamp
     darh_cell = []
+    # Add the superimposed stamp FIRST so it appears "behind/over" the text
     if os.path.exists(STAMP_ONE):
-        darh_cell.append(Image(STAMP_ONE, width=1.1*inch, height=1.1*inch))
+        # x_offset and y_offset adjust the stamp position relative to the name
+        darh_cell.append(OverlaidStamp(STAMP_ONE, width=1.3*inch, height=1.3*inch, x_offset=20, y_offset=-40))
     
     darh_cell.append(Paragraph(getattr(darh_officer, 'full_name', "________________"), sig_style))
+    darh_cell.append(Spacer(1, 2))
     
     if os.path.exists(SIG_DARH):
         darh_cell.append(Image(SIG_DARH, width=1.1*inch, height=0.4*inch))
-    
+        
     darh_cell.append(Paragraph("<u>Directeur de l'Administration et Ressources Humaines</u>", sig_style))
 
-    sig_table = Table([[log_cell, darh_cell]], colWidths=[2.6*inch, 3.4*inch])
+    # TABLE: [Logistic] [DARH] Aligned on the SAME horizontal line
+    sig_table = Table([[log_cell, darh_cell]], colWidths=[2.8*inch, 3.2*inch])
     sig_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('ALIGN', (0,0), (0,0), 'LEFT'),
+        ('ALIGN', (1,0), (1,0), 'CENTER'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
     ]))
     story.append(sig_table)
 
-    # --- 7. FOOTER WITH LINE ---
+    # --- 7. FOOTER ---
     story.append(Spacer(1, 1.2 * inch))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.black, spaceBefore=1, spaceAfter=5))
     footer_text = "1, avenue du Gouvernement, BP: 705 Bujumbura, Tél: (257) 22 20 40 00/22 27 44 - Fax: (257) 22 22 31 28 - Courriel : brb@brb.bi"
