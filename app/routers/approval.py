@@ -109,57 +109,45 @@ def submit_approval(
 
 
 
+
+
+
+
 @router.get("/{request_id}/pdf")
 def get_pdf(request_id: int, db: Session = Depends(get_db)):
-    # 1. Fetch Request with DEEP loading to get Make/Model names
+    # Fetch Request - We only join the direct relations to avoid the AttributeErrors
     request = db.query(models.VehicleRequest).options(
-        joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.vehicle_make),
-        joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.vehicle_model),
+        joinedload(models.VehicleRequest.vehicle),
         joinedload(models.VehicleRequest.driver),
         joinedload(models.VehicleRequest.requester)
     ).filter(models.VehicleRequest.id == request_id).first()
     
     if not request:
-        raise HTTPException(status_code=404, detail="Request not found in database.")
+        raise HTTPException(status_code=404, detail="Request not found.")
     
-    # 2. Case-Insensitive Status Check (Handles 'FULLY_APPROVED' or 'fully_approved')
+    # Case-insensitive status check
     current_status = str(request.status.value if hasattr(request.status, 'value') else request.status).lower()
-    
     if current_status != "fully_approved":
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Mission not ready. Current status is {current_status}"
-        )
+        raise HTTPException(status_code=400, detail="Mission not fully approved.")
     
-    # 3. Fetch Signatories (If not found, we pass None and let generator handle placeholders)
+    # Fetch Signatories
     log_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("logistic")).first()
     darh_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("darh")).first()
     
-    # 4. Fetch Passenger Objects from the list of matricules
+    # Fetch Passengers
     passenger_users = []
     if request.passengers:
-        passenger_users = db.query(models.User).options(joinedload(models.User.service)).filter(
-            models.User.matricule.in_(request.passengers)
-        ).all()
+        passenger_users = db.query(models.User).filter(models.User.matricule.in_(request.passengers)).all()
 
-    try:
-        # 5. Generate PDF
-        pdf_buffer = generate_mission_order_pdf(
-            request=request, 
-            passenger_details=passenger_users,
-            logistic_officer=log_off,
-            darh_officer=darh_off
-        )
-        
-        return StreamingResponse(
-            pdf_buffer, 
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"inline; filename=Mission_{request_id}.pdf",
-                "Cache-Control": "no-cache"
-            }
-        )
-    except Exception as e:
-        # This prevents the "JSON Parse" error by sending a clean JSON error if the PDF fails
-        print(f"PDF GENERATION ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"PDF Generator Error: {str(e)}")
+    pdf_buffer = generate_mission_order_pdf(
+        request=request, 
+        passenger_details=passenger_users,
+        logistic_officer=log_off,
+        darh_officer=darh_off
+    )
+    
+    return StreamingResponse(
+        pdf_buffer, 
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=Mission_{request_id}.pdf"}
+    )
