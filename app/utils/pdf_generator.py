@@ -12,9 +12,8 @@ class StampedInk(Flowable):
     """
     Draws a stamp image OVER the text. 
     It has 0 height/width so it doesn't push text down.
-    The y_off is used to move it UP so it centers over the name and signature.
     """
-    def __init__(self, img_path, width=1.5*inch, height=1.5*inch, x_off=0, y_off=0):
+    def __init__(self, img_path, width=1.6*inch, height=1.6*inch, x_off=0, y_off=0):
         Flowable.__init__(self)
         self.img_path = img_path
         self.w = width
@@ -24,7 +23,7 @@ class StampedInk(Flowable):
 
     def draw(self):
         if os.path.exists(self.img_path):
-            # We use 'mask' to ensure background transparency
+            # 'mask' handles transparency of the PNG
             self.canv.drawImage(self.img_path, self.x_off, self.y_off, 
                                 width=self.w, height=self.h, mask='auto')
 
@@ -125,8 +124,8 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Spacer(1, 30))
 
     # --- 6. DATE (High position to avoid stamp overlap) ---
-    story.append(Paragraph(f"Fait à Bujumbura, le {datetime.now().strftime('%d/%m/%Y')}", ParagraphStyle('DateRight', alignment=2, fontSize=11)))
-    story.append(Spacer(1, 50)) 
+    story.append(Paragraph(f"Fait à Bujumbura, le {datetime.now().strftime('%d/%m/%Y')}", ParagraphStyle('DateRight', alignment=2, fontSize=11, rightIndent=20)))
+    story.append(Spacer(1, 60)) 
 
     # --- 7. SIGNATURE BLOCK (Same horizontal line) ---
 
@@ -142,12 +141,13 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     # --- Cell 2: DARH (Stamp OVER Name and Signature) ---
     darh_cell = []
     
-    # We add the StampedInk Flowable first.
-    # We use a negative y_off to push the drawing location UP from the anchor point.
+    # We add the StampedInk Flowable.
+    # In the screenshot, the stamp was too high. 
+    # y_off: Negative values pull it DOWN towards the text.
+    # x_off: Positive values move it RIGHT.
     if os.path.exists(STAMP_ONE):
-        # x_off: centers the round stamp horizontally
-        # y_off: pulls the stamp UP to land exactly on the name and signature area
-        darh_cell.append(StampedInk(STAMP_ONE, width=1.5*inch, height=1.5*inch, x_off=25, y_off=-25))
+        # Adjusted: -40 pulls it down over the Name, 20 centers it horizontally in the cell
+        darh_cell.append(StampedInk(STAMP_ONE, width=1.6*inch, height=1.6*inch, x_off=20, y_off=-55))
     
     darh_cell.append(Paragraph(getattr(darh_officer, 'full_name', "________________"), sig_style))
     darh_cell.append(Spacer(1, 2))
