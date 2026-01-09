@@ -105,36 +105,29 @@ def submit_approval(
 
 
 
-
 @router.get("/{request_id}/pdf")
-def get_mission_order_pdf(
-    request_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(oauth2.get_current_user_from_header)
-):
-    db_request = db.query(models.VehicleRequest).filter(models.VehicleRequest.id == request_id).first()
-    if not db_request:
-        raise HTTPException(status_code=404, detail="Request not found.")
+def get_pdf(request_id: int, db: Session = Depends(get_db)):
+    request = db.query(models.VehicleRequest).filter(models.VehicleRequest.id == request_id).first()
     
-    # FIX: Convert the database status to a string and lowercase it before checking
-    # This handles "FULLY_APPROVED", "Fully_Approved", or "fully_approved"
-    status_str = str(db_request.status.value if hasattr(db_request.status, 'value') else db_request.status).lower()
-    
-    if status_str != "fully_approved":
-        raise HTTPException(status_code=400, detail=f"Mission not finalized. Status: {status_str}")
+    # 1. Get the current Logistic Officer (User with role 'logistic')
+    logistic_officer = db.query(models.User).join(models.Role).filter(
+        models.Role.name.ilike("logistic")
+    ).first()
 
-    passenger_users = db.query(models.User).filter(models.User.matricule.in_(db_request.passengers)).all()
-    
-    pdf_result = generate_mission_order_pdf(
-        request=db_request, 
-        approver_name=current_user.full_name, 
-        passenger_details=passenger_users
+    # 2. Get the current DARH Officer (User with role 'darh')
+    darh_officer = db.query(models.User).join(models.Role).filter(
+        models.Role.name.ilike("darh")
+    ).first()
+
+    # 3. Get passenger details
+    passenger_users = db.query(models.User).filter(models.User.matricule.in_(request.passengers)).all()
+
+    # 4. Generate
+    pdf_buffer = generate_mission_order_pdf(
+        request=request, 
+        passenger_details=passenger_users,
+        logistic_officer=logistic_officer,
+        darh_officer=darh_officer
     )
     
-    pdf_buffer = pdf_result[0] if isinstance(pdf_result, tuple) else pdf_result
-
-    return StreamingResponse(
-        pdf_buffer, 
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename=Mission_{request_id}.pdf"}
-    )
+    return StreamingResponse(pdf_buffer, media_type="application/pdf")
