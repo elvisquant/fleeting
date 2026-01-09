@@ -8,21 +8,13 @@ from io import BytesIO
 from datetime import datetime
 
 def generate_mission_order_pdf(request, passenger_details, logistic_officer=None, darh_officer=None):
-    """
-    Generates a Mission Order PDF.
-    logistic_officer: User model instance with 'logistic' role
-    darh_officer: User model instance with 'darh' role
-    """
-    # --- DYNAMIC SIGNATORY SETUP ---
-    # We pull the name from the passed objects, or use a placeholder if not found
-    name_logistic = logistic_officer.full_name if logistic_officer else "____________________"
-    name_darh = darh_officer.full_name if darh_officer else "____________________"
-    
-    # Titles remain standard for the institution
-    TITLE_LOGISTIC = "Chef du Service Logistique<br/>et Patrimoine"
-    TITLE_DARH = "Directeur de l'Administration<br/>et Ressources Humaines"
-    
-    LOGO_PATH = "app/static/img/logo.png"
+    # --- IMAGE PATHS ---
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Paths adjusted to reach app/static/img/
+    LOGO_PATH = os.path.join(BASE_DIR, "static", "img", "logo.png")
+    SIG_LOGISTIC = os.path.join(BASE_DIR, "static", "img", "stamp_logistic.png")
+    SIG_DARH = os.path.join(BASE_DIR, "static", "img", "stamp_darh.png")
+    STAMP_ONE = os.path.join(BASE_DIR, "static", "img", "stamp_one.png")
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -43,14 +35,13 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
 
     story = []
 
-    # --- 1. LOGO AND HEADER ---
+    # --- 1. HEADER & LOGO ---
     try:
         if os.path.exists(LOGO_PATH):
             logo = Image(LOGO_PATH, width=0.7*inch, height=0.7*inch)
             logo.hAlign = 'LEFT'
             story.append(logo)
-    except:
-        pass
+    except: pass
 
     story.append(Spacer(1, 5))
     story.append(Paragraph("BANQUE DE LA REPUBLIQUE<br/><u>DU BURUNDI</u>", header_bold))
@@ -62,26 +53,33 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Paragraph("<u>Section Charroi</u>", header_bold))
     story.append(Spacer(1, 35))
 
-    # --- 2. DOCUMENT TITLE ---
+    # --- 2. TITLE ---
     year = request.departure_time.year
     story.append(Paragraph(f"ORDRE DE MISSION n°{request.id}/{year}", title_style))
     story.append(Spacer(1, 15))
 
-    # --- 3. DATA & MISSION LOGIC ---
-    destination = request.destination
-    date_start = request.departure_time.strftime("%d/%m/%Y")
-    date_end = request.return_time.strftime("%d/%m/%Y")
-    
+    # --- 3. VEHICLE DATA (FIXED FOR NAMES INSTEAD OF IDS) ---
     if request.vehicle:
-        vehicle_info = f"{getattr(request.vehicle, 'make', '')} {getattr(request.vehicle, 'model', '')}".strip()
+        # Assuming relationships are named 'vehicle_make' and 'vehicle_model' in your model
+        # Update these attribute names if they differ in your models.py
+        v_make = getattr(request.vehicle.vehicle_make, 'name', '') if hasattr(request.vehicle, 'vehicle_make') else ""
+        v_model = getattr(request.vehicle.vehicle_model, 'name', '') if hasattr(request.vehicle, 'vehicle_model') else ""
+        
+        # Fallback to direct attribute if strings, otherwise keep empty
+        if not v_make: v_make = getattr(request.vehicle, 'make', '')
+        if not v_model: v_model = getattr(request.vehicle, 'model', '')
+            
+        vehicle_info = f"{v_make} {v_model}".strip()
         plate = getattr(request.vehicle, 'plate_number', '_______')
     else:
         vehicle_info = "Véhicule de service"
         plate = "_______"
 
-    # Trip Duration / Aller-Retour Logic
+    destination = request.destination
+    date_start = request.departure_time.strftime("%d/%m/%Y")
+    date_end = request.return_time.strftime("%d/%m/%Y")
+
     is_same_day = request.departure_time.date() == request.return_time.date()
-    
     if is_same_day:
         time_text = f"une mission aller et retour à <b>{destination}</b> en date du <b>{date_start}</b>."
     else:
@@ -90,18 +88,15 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
                      f"La durée de la mission est de <b>{delta} jours</b>.")
 
     # --- 4. BODY ---
-    p1 = f"Pour des raisons de service, le véhicule <b>{vehicle_info}</b> immatriculé <b>{plate}</b> est autorisé à effectuer {time_text}"
-    story.append(Paragraph(p1, body_style))
+    story.append(Paragraph(f"Pour des raisons de service, le véhicule <b>{vehicle_info}</b> immatriculé <b>{plate}</b> est autorisé à effectuer {time_text}", body_style))
     story.append(Spacer(1, 12))
-
     story.append(Paragraph(f"Pour la personne à bord la mission s'étend du <b>{date_start}</b> au <b>{date_end}</b> (pas des frais de mission).", body_style))
     story.append(Spacer(1, 12))
-
     driver = request.driver.full_name if request.driver else "A désigner"
     story.append(Paragraph(f"Ledit véhicule est conduit par le chauffeur <b>{driver}</b>.", body_style))
     story.append(Spacer(1, 12))
 
-    # --- 5. NUMBERED PASSENGERS ---
+    # --- 5. PASSENGERS (NUMBERED) ---
     if len(passenger_details) > 1:
         story.append(Paragraph("<u>Personnes à bord :</u>", body_style))
         for i, p in enumerate(passenger_details, 1):
@@ -118,23 +113,35 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     story.append(Spacer(1, 40))
 
     # --- 6. DATE & SIGNATURES ---
-    today = datetime.now().strftime("%d/%m/%Y")
-    story.append(Paragraph(f"Fait à Bujumbura, le {today}", ParagraphStyle('Right', alignment=2, fontSize=11)))
-    story.append(Spacer(1, 25))
+    story.append(Paragraph(f"Fait à Bujumbura, le {datetime.now().strftime('%d/%m/%Y')}", ParagraphStyle('Right', alignment=2, fontSize=11)))
+    story.append(Spacer(1, 10))
 
-    # Signatures Table
-    sig_cell_1 = [
-        Paragraph(name_logistic, sig_style),
-        Spacer(1, 10),
-        Paragraph(f"<u>{TITLE_LOGISTIC}</u>", sig_style)
-    ]
-    sig_cell_2 = [
-        Paragraph(name_darh, sig_style),
-        Spacer(1, 10),
-        Paragraph(f"<u>{TITLE_DARH}</u>", sig_style)
-    ]
+    # --- SIGNATURE BLOCK PREPARATION ---
+    # LOGISTIC CELL
+    logistic_elements = []
+    if os.path.exists(SIG_LOGISTIC):
+        img = Image(SIG_LOGISTIC, width=1.4*inch, height=0.6*inch)
+        img.hAlign = 'CENTER'
+        logistic_elements.append(img)
+    logistic_elements.append(Paragraph(logistic_officer.full_name if logistic_officer else "________________", sig_style))
+    logistic_elements.append(Paragraph("<u>Chef du Service Logistique<br/>et Patrimoine</u>", sig_style))
 
-    sig_data = [[sig_cell_1, sig_cell_2]]
+    # DARH CELL (Signature + Stamp)
+    darh_elements = []
+    # Overlay signature and stamp using a small nested table if they overlap, 
+    # but here we stack them for clarity.
+    if os.path.exists(SIG_DARH):
+        img_sig = Image(SIG_DARH, width=1.4*inch, height=0.6*inch)
+        darh_elements.append(img_sig)
+    
+    if os.path.exists(STAMP_ONE):
+        img_stamp = Image(STAMP_ONE, width=1.1*inch, height=1.1*inch)
+        darh_elements.append(img_stamp)
+
+    darh_elements.append(Paragraph(darh_officer.full_name if darh_officer else "________________", sig_style))
+    darh_elements.append(Paragraph("<u>Directeur de l'Administration<br/>et Ressources Humaines</u>", sig_style))
+
+    sig_data = [[logistic_elements, darh_elements]]
     sig_table = Table(sig_data, colWidths=[2.6*inch, 3.4*inch])
     sig_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -144,8 +151,8 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
 
     # --- 7. FOOTER ---
     story.append(Spacer(1, 1.2 * inch))
-    footer_hr = "__________________________________________________________________________________________________________"
-    story.append(Paragraph(footer_hr, footer_style))
+    story.append(Paragraph("_"*100, footer_style))
+    
     footer_text = "1, avenue du Gouvernement, BP: 705 Bujumbura, Tél: (257) 22 20 40 00/22 27 44 - Fax: (257) 22 22 31 28 - Courriel : brb@brb.bi"
     story.append(Paragraph(footer_text, footer_style))
 
