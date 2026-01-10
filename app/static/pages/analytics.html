@@ -1,164 +1,156 @@
-<div id="analytics-container" class="space-y-6 animate-fade-in pb-10">
-  
-  <!-- Header & Period Selector -->
-  <div class="glass-panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 border-white/5">
-    <div>
-      <h1 class="text-3xl font-black text-white tracking-tighter">FLEET ANALYTICS</h1>
-      <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Real-time expenditure tracking</p>
-    </div>
-    
-    <div class="flex flex-wrap items-center gap-3">
-      <select id="reportPeriod" class="bg-slate-950 border border-slate-800 text-white rounded-xl px-5 py-3 text-xs font-bold uppercase outline-none focus:border-blue-500 transition shadow-inner">
-        <option value="last30days">Last 30 Days</option>
-        <option value="last90days">Last 90 Days</option>
-        <option value="last12months" selected>Last 12 Months</option>
-        <option value="currentYear">Current Year</option>
-        <option value="custom">Custom Range</option>
-      </select>
+<!-- analytics.html - Professional Responsive Design -->
+<div id="analytics-container" class="space-y-6">
+  <!-- Header -->
+  <div class="bg-gradient-to-r from-slate-900/50 to-slate-800/30 rounded-2xl border border-slate-700/30 p-6 backdrop-blur-sm">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-white uppercase tracking-tight">Analytics & Reports</h1>
+        <p class="text-slate-400 mt-1">Comprehensive expenditure analysis for your fleet</p>
+      </div>
+      
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="relative">
+          <select id="reportPeriod" class="bg-slate-900 border border-slate-600 text-white rounded-xl px-4 py-2.5 outline-none focus:border-blue-500 transition">
+            <option value="last30days">Last 30 Days</option>
+            <option value="last90days">Last 90 Days</option>
+            <option value="last12months" selected>Last 12 Months</option>
+            <option value="currentYear">Current Year</option>
+            <option value="custom">Custom Range</option>
+          </select>
+        </div>
 
-      <div id="customReportDateContainer" class="hidden flex flex-col md:flex-row items-center gap-2">
-        <input type="date" id="reportCustomStart" class="bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs">
-        <span class="text-slate-600 font-bold">TO</span>
-        <input type="date" id="reportCustomEnd" class="bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs">
-        <button id="applyCustomDateBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase transition">Apply</button>
+        <div id="customReportDateContainer" class="hidden flex items-center gap-2">
+          <input type="date" id="reportCustomStart" class="bg-slate-900 border border-slate-600 text-white rounded-lg p-2 text-sm outline-none">
+          <span class="text-slate-500 font-bold uppercase text-[10px]">to</span>
+          <input type="date" id="reportCustomEnd" class="bg-slate-900 border border-slate-600 text-white rounded-lg p-2 text-sm outline-none">
+          <button id="applyCustomDateBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase transition">Apply</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- KPI Grid -->
+  <!-- KPI Cards -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    <!-- Fuel KPI -->
-    <div class="glass-panel p-5 border-l-4 border-red-500 shadow-lg">
-      <div class="flex justify-between items-start">
-        <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 mb-4">
-          <i data-lucide="fuel" class="w-5 h-5"></i>
+    <div class="glass-panel p-5 border-l-4 border-red-500 shadow-xl">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="p-2.5 bg-red-500/10 rounded-xl w-12 h-12 flex items-center justify-center mb-3 text-red-500">
+            <i data-lucide="fuel" class="w-6 h-6"></i>
+          </div>
+          <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Total Fuel</p>
+          <h3 class="text-xl font-bold text-white mt-1" id="kpiFuelTotal">BIF 0</h3>
         </div>
         <span class="text-[10px] font-black text-red-400 bg-red-500/10 px-2 py-1 rounded-lg" id="fuel-percent">0%</span>
       </div>
-      <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest">Total Fuel</p>
-      <h3 class="text-xl font-black text-white mt-1" id="kpiFuelTotal">BIF 0</h3>
     </div>
 
-    <!-- Repairs KPI -->
-    <div class="glass-panel p-5 border-l-4 border-amber-500 shadow-lg">
-      <div class="flex justify-between items-start">
-        <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mb-4">
-          <i data-lucide="hammer" class="w-5 h-5"></i>
+    <div class="glass-panel p-5 border-l-4 border-amber-500 shadow-xl">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="p-2.5 bg-amber-500/10 rounded-xl w-12 h-12 flex items-center justify-center mb-3 text-amber-500">
+            <i data-lucide="hammer" class="w-6 h-6"></i>
+          </div>
+          <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Total Repairs</p>
+          <h3 class="text-xl font-bold text-white mt-1" id="kpiReparationTotal">BIF 0</h3>
         </div>
         <span class="text-[10px] font-black text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg" id="reparation-percent">0%</span>
       </div>
-      <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest">Total Repairs</p>
-      <h3 class="text-xl font-black text-white mt-1" id="kpiReparationTotal">BIF 0</h3>
     </div>
 
-    <!-- Maintenance KPI -->
-    <div class="glass-panel p-5 border-l-4 border-blue-500 shadow-lg">
-      <div class="flex justify-between items-start">
-        <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 mb-4">
-          <i data-lucide="wrench" class="w-5 h-5"></i>
+    <div class="glass-panel p-5 border-l-4 border-blue-500 shadow-xl">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="p-2.5 bg-blue-500/10 rounded-xl w-12 h-12 flex items-center justify-center mb-3 text-blue-500">
+            <i data-lucide="wrench" class="w-6 h-6"></i>
+          </div>
+          <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Total Maintenance</p>
+          <h3 class="text-xl font-bold text-white mt-1" id="kpiMaintenanceTotal">BIF 0</h3>
         </div>
         <span class="text-[10px] font-black text-blue-400 bg-blue-500/10 px-2 py-1 rounded-lg" id="maintenance-percent">0%</span>
       </div>
-      <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest">Total Maintenance</p>
-      <h3 class="text-xl font-black text-white mt-1" id="kpiMaintenanceTotal">BIF 0</h3>
     </div>
 
-    <!-- Purchases KPI -->
-    <div class="glass-panel p-5 border-l-4 border-emerald-500 shadow-lg">
-      <div class="flex justify-between items-start">
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-4">
-          <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+    <div class="glass-panel p-5 border-l-4 border-emerald-500 shadow-xl">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="p-2.5 bg-emerald-500/10 rounded-xl w-12 h-12 flex items-center justify-center mb-3 text-emerald-500">
+            <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+          </div>
+          <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Asset Purchases</p>
+          <h3 class="text-xl font-bold text-white mt-1" id="kpiVehiclePurchaseTotal">BIF 0</h3>
         </div>
         <span class="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg" id="purchases-percent">0%</span>
       </div>
-      <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest">Asset Purchases</p>
-      <h3 class="text-xl font-black text-white mt-1" id="kpiVehiclePurchaseTotal">BIF 0</h3>
     </div>
   </div>
 
-  <!-- Charts Architecture -->
+  <!-- Charts -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Expenses Trend (Dynamic Line Chart) -->
-    <div class="lg:col-span-2 glass-panel p-6">
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h3 class="text-lg font-black text-white uppercase tracking-tighter">Expenditure Trend</h3>
-          <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Fluctuation over time</p>
-        </div>
-        <div class="hidden sm:flex gap-4">
-            <div class="flex items-center gap-2"><div class="w-3 h-1 bg-red-500 rounded-full"></div><span class="text-[9px] font-black text-slate-500 uppercase">Fuel</span></div>
-            <div class="flex items-center gap-2"><div class="w-3 h-1 bg-amber-500 rounded-full"></div><span class="text-[9px] font-black text-slate-500 uppercase">Repair</span></div>
-            <div class="flex items-center gap-2"><div class="w-3 h-1 bg-blue-500 rounded-full"></div><span class="text-[9px] font-black text-slate-500 uppercase">Maint</span></div>
-        </div>
-      </div>
+    <!-- Trend Chart -->
+    <div class="lg:col-span-2 glass-panel p-6 shadow-2xl">
+      <h3 class="text-lg font-bold text-white mb-6 uppercase tracking-tight">Expense Trend</h3>
       <div class="h-80 w-full">
         <canvas id="monthlyExpenseChart"></canvas>
       </div>
     </div>
 
-    <!-- Distribution Doughnut with Percentages -->
-    <div class="glass-panel p-6 flex flex-col items-center">
-      <h3 class="text-lg font-black text-white uppercase tracking-tighter self-start mb-6">Distribution</h3>
+    <!-- Distribution Chart with Legend Percentages -->
+    <div class="glass-panel p-6 flex flex-col items-center shadow-2xl">
+      <h3 class="text-lg font-bold text-white mb-6 self-start uppercase tracking-tight">Expense Distribution</h3>
       <div class="h-56 w-full relative mb-8">
         <canvas id="expenseDistributionChart"></canvas>
       </div>
-      <div class="w-full grid grid-cols-2 gap-3">
-        <div class="bg-slate-950/50 p-3 rounded-2xl border border-white/5">
-          <p class="text-[9px] font-black text-red-500 uppercase">Fuel</p>
+      
+      <div class="grid grid-cols-2 gap-4 w-full">
+        <div class="bg-slate-900/50 p-3 rounded-2xl border border-white/5">
+          <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">Fuel</p>
           <p class="text-lg font-black text-white" id="fuel-legend-percent">0%</p>
         </div>
-        <div class="bg-slate-950/50 p-3 rounded-2xl border border-white/5">
-          <p class="text-[9px] font-black text-amber-500 uppercase">Repairs</p>
+        <div class="bg-slate-900/50 p-3 rounded-2xl border border-white/5">
+          <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">Repairs</p>
           <p class="text-lg font-black text-white" id="reparation-legend-percent">0%</p>
         </div>
-        <div class="bg-slate-950/50 p-3 rounded-2xl border border-white/5">
-          <p class="text-[9px] font-black text-blue-500 uppercase">Maint</p>
+        <div class="bg-slate-900/50 p-3 rounded-2xl border border-white/5">
+          <p class="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Maint.</p>
           <p class="text-lg font-black text-white" id="maintenance-legend-percent">0%</p>
         </div>
-        <div class="bg-slate-950/50 p-3 rounded-2xl border border-white/5">
-          <p class="text-[9px] font-black text-emerald-500 uppercase">Assets</p>
+        <div class="bg-slate-900/50 p-3 rounded-2xl border border-white/5">
+          <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Assets</p>
           <p class="text-lg font-black text-white" id="purchases-legend-percent">0%</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Report Generator Console -->
-  <div class="glass-panel p-8 border-t-4 border-blue-600 shadow-2xl">
-    <div class="flex items-center gap-3 mb-8">
-        <div class="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-500"><i data-lucide="printer" class="w-5 h-5"></i></div>
-        <h3 class="text-xl font-black text-white uppercase tracking-tighter">Reporting Terminal</h3>
-    </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-8 items-end">
-      <div class="md:col-span-2 grid grid-cols-2 gap-4">
-        <label class="flex items-center gap-3 p-4 bg-slate-950/50 rounded-2xl border border-slate-800 cursor-pointer hover:border-blue-500/50 transition">
-          <input type="checkbox" id="reportCatFuel" checked class="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700">
-          <span class="text-xs font-black text-slate-300 uppercase">Fuel Logs</span>
-        </label>
-        <label class="flex items-center gap-3 p-4 bg-slate-950/50 rounded-2xl border border-slate-800 cursor-pointer hover:border-blue-500/50 transition">
-          <input type="checkbox" id="reportCatReparation" checked class="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700">
-          <span class="text-xs font-black text-slate-300 uppercase">Repairs</span>
-        </label>
-        <label class="flex items-center gap-3 p-4 bg-slate-950/50 rounded-2xl border border-slate-800 cursor-pointer hover:border-blue-500/50 transition">
-          <input type="checkbox" id="reportCatMaintenance" checked class="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700">
-          <span class="text-xs font-black text-slate-300 uppercase">Maintenance</span>
-        </label>
-        <label class="flex items-center gap-3 p-4 bg-slate-950/50 rounded-2xl border border-slate-800 cursor-pointer hover:border-blue-500/50 transition">
-          <input type="checkbox" id="reportCatPurchases" checked class="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700">
-          <span class="text-xs font-black text-slate-300 uppercase">Assets</span>
-        </label>
+  <!-- Detailed Report Generator -->
+  <div class="glass-panel p-8 shadow-2xl border-t-4 border-blue-600">
+    <h3 class="text-lg font-bold text-white mb-8 flex items-center gap-3 uppercase tracking-widest">
+      <i data-lucide="file-text" class="text-blue-400"></i> Generate Reporting Export
+    </h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
+      <div class="space-y-4">
+        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Categories</p>
+        <div class="grid grid-cols-1 gap-2">
+            <label class="flex items-center gap-3 p-3 bg-slate-950/50 rounded-xl border border-slate-800 cursor-pointer transition-colors hover:border-blue-500/50">
+                <input type="checkbox" id="reportCatFuel" checked class="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700">
+                <span class="text-xs font-bold text-slate-300 uppercase">Fuel Logs</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 bg-slate-950/50 rounded-xl border border-slate-800 cursor-pointer transition-colors hover:border-amber-500/50">
+                <input type="checkbox" id="reportCatReparation" checked class="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700">
+                <span class="text-xs font-bold text-slate-300 uppercase">Repair Records</span>
+            </label>
+        </div>
       </div>
-
-      <div class="space-y-2">
+      
+      <div class="space-y-4">
         <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Output Format</p>
-        <select id="reportFormat" class="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-xs font-bold uppercase outline-none">
-          <option value="pdf">Professional PDF</option>
-          <option value="excel">Excel Spreadsheet</option>
+        <select id="reportFormat" class="w-full bg-slate-950 border border-slate-800 text-white rounded-xl p-3 text-xs font-bold uppercase outline-none focus:border-blue-500">
+          <option value="pdf">Document PDF</option>
+          <option value="excel">Spreadsheet Excel</option>
         </select>
       </div>
 
-      <button id="generateReportBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+      <button id="generateReportBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
         <i data-lucide="download-cloud" class="w-5 h-5"></i>
         <span>Execute Export</span>
       </button>
