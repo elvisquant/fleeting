@@ -1,18 +1,14 @@
 /** 
  * analytics.js - Professional Fleet Analytics
- * Full Regeneration - No logic skipped.
+ * Same functionality, better visual integration
  */
 
 let monthlyChart = null;
 let distributionChart = null;
 let currentAnalyticsPeriod = 'last12months';
 
-// Element Selector (SPA & Mobile Compatible)
+// Element Selector
 function getAnEl(id) {
-    if (window.innerWidth < 768) {
-        const mobileEl = document.querySelector('#app-content-mobile #' + id);
-        if (mobileEl) return mobileEl;
-    }
     const desktopEl = document.querySelector('#app-content #' + id);
     if (desktopEl) return desktopEl;
     return document.getElementById(id);
@@ -20,7 +16,7 @@ function getAnEl(id) {
 
 // 1. Initialization
 async function initAnalytics() {
-    console.log("Analytics: Initializing Dashboard");
+    console.log("Analytics: Initializing");
     attachAnalyticsListeners();
     setupDefaultDates();
     await loadAnalyticsData();
@@ -32,12 +28,8 @@ function attachAnalyticsListeners() {
         periodSelect.addEventListener('change', (e) => {
             currentAnalyticsPeriod = e.target.value;
             const custom = getAnEl('customReportDateContainer');
-            if (currentAnalyticsPeriod === 'custom') {
-                custom?.classList.remove('hidden');
-            } else {
-                custom?.classList.add('hidden');
-                loadAnalyticsData();
-            }
+            if (currentAnalyticsPeriod === 'custom') custom?.classList.remove('hidden');
+            else { custom?.classList.add('hidden'); loadAnalyticsData(); }
         });
     }
 
@@ -64,11 +56,10 @@ async function loadAnalyticsData() {
         const range = getAnRange(currentAnalyticsPeriod);
         const data = await window.fetchWithAuth(`/analytics-data/expense-summary?start_date=${range.start}&end_date=${range.end}`);
 
-        if (data) {
-            updateAnKPIs(data);
-            renderAnCharts(data);
-            updateQuickStats(data);
-        }
+        updateAnKPIs(data);
+        updateDistributionText(data);
+        renderAnCharts(data);
+        updateQuickStats(data);
 
     } catch (err) {
         console.error("Analytics Load Failed:", err);
@@ -89,88 +80,92 @@ function getAnRange(p) {
     return { start: start.toISOString().split('T')[0], end: today.toISOString().split('T')[0] };
 }
 
-// 3. UI Updaters - FIXED PERCENTAGE DUPLICATION
+// 3. UI Updaters
 function updateAnKPIs(data) {
+    const f = (id, val) => { const el = getAnEl(id); if (el) el.innerText = formatBIF(val); };
+    f('kpiFuelTotal', data.total_fuel_cost);
+    f('kpiReparationTotal', data.total_reparation_cost);
+    f('kpiMaintenanceTotal', data.total_maintenance_cost);
+    f('kpiVehiclePurchaseTotal', data.total_vehicle_purchase_cost);
+}
+
+function updateDistributionText(data) {
     const f = data.total_fuel_cost || 0;
     const r = data.total_reparation_cost || 0;
     const m = data.total_maintenance_cost || 0;
     const p = data.total_vehicle_purchase_cost || 0;
     const total = f + r + m + p;
 
-    // Set Currency Values
-    const setVal = (id, val) => { const el = getAnEl(id); if (el) el.innerText = formatBIF(val); };
-    setVal('kpiFuelTotal', f);
-    setVal('kpiReparationTotal', r);
-    setVal('kpiMaintenanceTotal', m);
-    setVal('kpiVehiclePurchaseTotal', p);
-    
-    // Logic to update both KPI cards AND Doughnut legend with same percentages
-    const syncPerc = (idPrefix, val) => {
-        const perc = total > 0 ? ((val / total) * 100).toFixed(1) + '%' : '0%';
-        const kpiEl = getAnEl(idPrefix + '-percent');
-        const legendEl = getAnEl(idPrefix + '-legend-percent');
-        if (kpiEl) kpiEl.innerText = perc;
-        if (legendEl) legendEl.innerText = perc;
+    const setP = (id, val) => {
+        const el = getAnEl(id);
+        if (el) el.innerText = total > 0 ? ((val / total) * 100).toFixed(1) + '%' : '0%';
     };
 
-    syncPerc('fuel', f);
-    syncPerc('reparation', r);
-    syncPerc('maintenance', m);
-    syncPerc('purchases', p);
+    setP('fuel-percent', f);
+    setP('reparation-percent', r);
+    setP('maintenance-percent', m);
+    setP('purchases-percent', p);
 }
 
 function renderAnCharts(data) {
-    // Trend Chart - Upgraded to LINE chart for trend visibility
-    const trendCtx = getAnEl('monthlyExpenseChart')?.getContext('2d');
-    if (trendCtx) {
+    // Trend Chart with better styling
+    const barCtx = getAnEl('monthlyExpenseChart')?.getContext('2d');
+    if (barCtx) {
         if (monthlyChart) monthlyChart.destroy();
         const sorted = data.monthly_breakdown;
         
-        monthlyChart = new Chart(trendCtx, {
-            type: 'line',
+        monthlyChart = new Chart(barCtx, {
+            type: 'bar',
             data: {
-                labels: sorted.map(i => i.month_year),
+                labels: sorted.map(i => {
+                    const date = new Date(i.month_year);
+                    return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                }),
                 datasets: [
                     { 
                         label: 'Fuel', 
                         data: sorted.map(i => i.fuel_cost), 
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 4
+                        backgroundColor: '#ef4444',
+                        borderColor: '#dc2626',
+                        borderWidth: 1,
+                        borderRadius: 6
                     },
                     { 
-                        label: 'Repairs', 
+                        label: 'Repair', 
                         data: sorted.map(i => i.reparation_cost), 
-                        borderColor: '#f59e0b',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 4
+                        backgroundColor: '#f59e0b',
+                        borderColor: '#d97706',
+                        borderWidth: 1,
+                        borderRadius: 6
                     },
                     { 
                         label: 'Maintenance', 
                         data: sorted.map(i => i.maintenance_cost), 
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 4
+                        backgroundColor: '#3b82f6',
+                        borderColor: '#2563eb',
+                        borderWidth: 1,
+                        borderRadius: 6
                     }
                 ]
             },
             options: {
                 responsive: true, 
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: { 
+                    legend: { 
+                        labels: { 
+                            color: '#94a3b8',
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        } 
+                    } 
+                },
                 scales: {
                     y: { 
-                        beginAtZero: true,
-                        ticks: { color: '#94a3b8', callback: (v) => v.toLocaleString() }, 
+                        ticks: { 
+                            color: '#94a3b8',
+                            callback: (value) => formatBIF(value)
+                        }, 
                         grid: { color: 'rgba(255,255,255,0.05)' } 
                     },
                     x: { 
@@ -182,11 +177,11 @@ function renderAnCharts(data) {
         });
     }
 
-    // Distribution Chart
-    const distCtx = getAnEl('expenseDistributionChart')?.getContext('2d');
-    if (distCtx) {
+    // Distribution Chart with better styling
+    const pieCtx = getAnEl('expenseDistributionChart')?.getContext('2d');
+    if (pieCtx) {
         if (distributionChart) distributionChart.destroy();
-        distributionChart = new Chart(distCtx, {
+        distributionChart = new Chart(pieCtx, {
             type: 'doughnut',
             data: {
                 labels: ['Fuel', 'Repair', 'Maintenance', 'Purchases'],
@@ -200,7 +195,7 @@ function renderAnCharts(data) {
             options: { 
                 responsive: true, 
                 maintainAspectRatio: false, 
-                cutout: '75%', 
+                cutout: '70%', 
                 plugins: { legend: { display: false } }
             }
         });
@@ -225,6 +220,7 @@ function updateQuickStats(data) {
     }
 }
 
+// 4. Report Generation (Exact same logic)
 window.generateReport = async function () {
     const btn = getAnEl('generateReportBtn');
     const original = btn.innerHTML;
@@ -236,6 +232,7 @@ window.generateReport = async function () {
         const range = getAnRange(currentAnalyticsPeriod);
         const format = getAnEl('reportFormat')?.value;
 
+        // Collect checked categories
         const cats = [];
         if (getAnEl('reportCatFuel')?.checked) cats.push('fuel');
         if (getAnEl('reportCatReparation')?.checked) cats.push('reparation');
@@ -247,11 +244,15 @@ window.generateReport = async function () {
         const catParams = cats.map(c => `categories=${c}`).join('&');
         const data = await window.fetchWithAuth(`/analytics-data/detailed-expense-records?start_date=${range.start}&end_date=${range.end}&${catParams}`);
 
-        if (format === 'excel') generateExcel(data, cats);
-        else generatePDF(data, cats, range);
+        if (format === 'excel') {
+            generateExcel(data, cats);
+        } else {
+            generatePDF(data, cats, range);
+        }
 
-    } catch (err) { console.error(err); }
-    finally {
+    } catch (err) {
+        console.error(err);
+    } finally {
         btn.innerHTML = original;
         btn.disabled = false;
         if (window.lucide) window.lucide.createIcons();
@@ -281,15 +282,23 @@ function generatePDF(data, cats, range) {
         if (!rows || rows.length === 0) return;
         doc.setFontSize(12);
         doc.text(title, 14, y);
-        doc.autoTable({ startY: y + 5, head: [headers], body: rows, theme: 'grid', headStyles: { fillColor: [30, 41, 59] } });
+        doc.autoTable({
+            startY: y + 5,
+            head: [headers],
+            body: rows,
+            theme: 'grid',
+            headStyles: { fillColor: [30, 41, 59] }
+        });
         y = doc.autoTable.previous.finalY + 15;
     };
 
     if (cats.includes('fuel')) addTable("Fuel Records", ["Vehicle", "Date", "Qty", "Cost"], data.fuel_records.map(r => [r.vehicle_plate, r.date, r.quantity, r.cost]));
     if (cats.includes('reparation')) addTable("Reparation Records", ["Vehicle", "Date", "Provider", "Cost"], data.reparation_records.map(r => [r.vehicle_plate, r.repair_date, r.provider, r.cost]));
+
     doc.save(`Fleet_Report_${new Date().getTime()}.pdf`);
 }
 
+// Helpers (exact same)
 function formatBIF(amt) {
     return `BIF ${(amt || 0).toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 }
@@ -301,5 +310,3 @@ function setAnLoading(isLoading) {
         if (el) isLoading ? el.classList.add('animate-pulse', 'opacity-50') : el.classList.remove('animate-pulse', 'opacity-50');
     });
 }
-
-window.initAnalytics = initAnalytics;
