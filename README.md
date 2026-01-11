@@ -133,17 +133,21 @@ The project utilizes a fully automated **GitHub Actions** pipeline (`deploy.yml`
 
 ## 📸 Screenshots
 
-| Dashboard Overview | Vehicle Management |
+| Dashboard Overview | Vehicle Management Login Page|
 |:---:|:---:|
-| <img src="./screenshots/dashboard.png" alt="Dashboard" width="100%"> | <img src="./screenshots/vehicles.png" alt="Vehicles" width="100%"> |
+| <img src="./screenshots/image1.png" alt="Dashboard" width="100%"> | <img src="./screenshots/image1.png" alt="Vehicles" width="100%"> |
 
 | Dashboard Overview | Vehicle Management |
 |:---:|:---:|
-| <img src="./screenshots/dashboard.png" alt="Dashboard" width="100%"> | <img src="./screenshots/vehicles.png" alt="Vehicles" width="100%"> |
+| <img src="./screenshots/image2.png" alt="Dashboard" width="100%"> | <img src="./screenshots/image2.png" alt="Vehicles" width="100%"> |
+
+| Dashboard Analytics| Vehicle Management |
+|:---:|:---:|
+| <img src="./screenshots/image3.png" alt="Dashboard" width="100%"> | <img src="./screenshots/image3.png" alt="Vehicles" width="100%"> |
 
 | Approval Workflow | Mobile Responsive |
 |:---:|:---:|
-| <img src="./screenshots/dashboard.png" alt="Dashboard" width="100%"> | <img src="./screenshots/vehicles.png" alt="Vehicles" width="100%"> |
+| <img src="./screenshots/image4.png" alt="Dashboard" width="100%"> | <img src="./screenshots/image4.png" alt="Vehicles" width="100%"> |
 
 ---
 
