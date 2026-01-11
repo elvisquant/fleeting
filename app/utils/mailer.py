@@ -57,7 +57,6 @@ async def send_account_verification_email(user, background_tasks):
     token = hash_password(string_context)
     
     # 2. Construct CLEAN URL -> Matches the ui_router in user.py
-    # We remove /api/v1/ here for a professional look
     activate_url = f"{settings.FRONTEND_HOST}/auth/verify-ui?token={token}&email={user.email}"
     
     html = f"""
@@ -105,7 +104,7 @@ async def send_password_reset_email(user, background_tasks):
     string_context = user.get_context_string(context=FORGOT_PASSWORD)
     token = hash_password(string_context)
     
-    # 2. Construct CLEAN URL -> Matches the route in main.py
+    # 2. Construct CLEAN URL
     reset_url = f"{settings.FRONTEND_HOST}/reset-password.html?token={token}&email={user.email}"
     
     html = f"""
@@ -146,29 +145,85 @@ async def send_password_changed_email(email: str, full_name: str):
     await _send(email, f"Security Alert - Password Changed", html)
 
 # ==============================================================================
-# REQUEST & MISSION EMAILS (KEEPING ORIGINAL LOGIC)
+# REQUEST & MISSION EMAILS
 # ==============================================================================
 
-async def send_mission_order_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
-    html = f"""<html><body><p>Dear {requester_name}, your mission order is approved and attached.</p></body></html>"""
-    await _send_with_pdf(email_to, f"APPROVED: Mission Order - {filename}", html, pdf_file, filename)
+async def send_mission_order_email(email_to: str, recipient_name: str, pdf_bytes: bytes, filename: str):
+    """Notification for Requester and Charoi role users upon Full Approval."""
+    html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #2563eb;">Mission Order Authorized</h2>
+                <p>Hello <strong>{recipient_name}</strong>,</p>
+                <p>A mission order has been fully authorized by the Administration. Please find the official PDF document attached to this email.</p>
+                <div style="background: #f0f7ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                    <p style="margin: 0; font-size: 14px;"><strong>Note:</strong> Please ensure the document is printed and available during the mission.</p>
+                </div>
+                <p>Best regards,<br>Fleet Management System</p>
+            </div>
+        </body>
+    </html>
+    """
+    await _send_with_pdf(email_to, f"APPROVED Mission Order - {filename}", html, pdf_bytes, filename)
 
 async def send_mission_update_email(email_to: str, requester_name: str, pdf_file: bytes, filename: str):
+    """Original logic preserved for mission details updates."""
     html = f"""<html><body><p>Dear {requester_name}, details updated for your mission.</p></body></html>"""
     await _send_with_pdf(email_to, f"UPDATED: Mission Order - {filename}", html, pdf_file, filename)
 
-async def send_driver_assignment_email(email_to: str, driver_name: str, requester_name: str, destination: str, pdf_file: bytes, filename: str):
-    html = f"""<html><body><p>Hello {driver_name}, you have a new mission to {destination}.</p></body></html>"""
-    await _send_with_pdf(email_to, f"ASSIGNMENT: New Mission to {destination}", html, pdf_file, filename)
+# ==============================================================================
+# FEATURE DEPRECATED: DRIVER EMAILS DISABLED
+# ==============================================================================
+# async def send_driver_assignment_email(email_to: str, driver_name: str, requester_name: str, destination: str, pdf_file: bytes, filename: str):
+#     """Standard assignment email for the designated driver (Currently Disabled)."""
+#     html = f"""
+#     <html>
+#         <body style="font-family: Arial, sans-serif; color: #333;">
+#             <div style="padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+#                 <h3 style="color: #2563eb;">New Driver Assignment</h3>
+#                 <p>Hello <strong>{driver_name}</strong>,</p>
+#                 <p>You have been assigned as the designated driver for a new mission to <strong>{destination}</strong> requested by {requester_name}.</p>
+#                 <p>Please find the mission order attached for your records.</p>
+#             </div>
+#         </body>
+#     </html>
+#     """
+#     await _send_with_pdf(email_to, f"Driver Assignment: Mission to {destination}", html, pdf_file, filename)
 
 async def send_rejection_email(email_to: str, requester_name: str, request_id: int, reason: str, approver_name: str):
-    html = f"""<html><body><p>Dear {requester_name}, your request #{request_id} was denied. Reason: {reason}</p></body></html>"""
-    await _send(email_to, f"DENIED: Vehicle Request #{request_id}", html)
+    """Notification sent ONLY to the requester when a request is denied."""
+    html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #ef4444;">Request Denied</h2>
+                <p>Hello <strong>{requester_name}</strong>,</p>
+                <p>Your vehicle request <strong>#{request_id}</strong> has been reviewed and declined.</p>
+                <div style="background: #fff5f5; padding: 15px; border-radius: 8px; border: 1px solid #feb2b2; margin: 20px 0;">
+                    <strong>Reason for Denial:</strong><br>{reason}
+                </div>
+                <p>Reviewed by: {approver_name}</p>
+                <p>If you require further information, please contact your department head.</p>
+            </div>
+        </body>
+    </html>
+    """
+    await _send(email_to, f"Update: Vehicle Request #{request_id} Denied", html)
 
-
-    
-async def send_accounting_email(pdf_file, filename, request_id):
-    print(f"DEBUG: Accounting email for request {request_id} would be sent here.")
-    return None
-
-  
+async def send_accounting_email(email_to: str, accountant_name: str, pdf_bytes: bytes, filename: str, request_id: int):
+    """Customized function to notify the Accountant user role."""
+    html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #1e293b;">Accounting Copy: Mission Order Authorized</h2>
+                <p>Dear <strong>{accountant_name}</strong>,</p>
+                <p>Vehicle request <strong>#{request_id}</strong> has received final administrative approval. An attached copy of the mission order is provided for your processing and accounting records.</p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                <p style="font-size: 11px; color: #94a3b8;">Automated Notification - Generated by {settings.APP_NAME}.</p>
+            </div>
+        </body>
+    </html>
+    """
+    await _send_with_pdf(email_to, f"Accounting Notification: Mission #{request_id}", html, pdf_bytes, filename)

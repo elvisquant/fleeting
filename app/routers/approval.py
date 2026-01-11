@@ -24,8 +24,8 @@ def submit_approval(
     db_request = db.query(models.VehicleRequest).options(
         joinedload(models.VehicleRequest.requester),
         joinedload(models.VehicleRequest.driver),
-        joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.vehicle_make),
-        joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.vehicle_model)
+        joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.make_ref),
+        joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.model_ref)
     ).filter(models.VehicleRequest.id == request_id).first()
     
     if not db_request:
@@ -34,15 +34,26 @@ def submit_approval(
     user_role = current_user.role.name.lower()
     decision = approval_data.status.lower()
 
-    # Optional update of passengers during approval
+    # Optional update of passengers during approval (Managers only)
     if hasattr(approval_data, 'passengers') and approval_data.passengers is not None:
         if user_role != "chef":
             db_request.passengers = approval_data.passengers
             flag_modified(db_request, "passengers")
 
+    # --- DENIAL LOGIC: Sent only to Requester ---
     if decision == "denied":
         db_request.status = models.RequestStatus.DENIED
         db_request.rejection_reason = approval_data.comments
+        
+        if db_request.requester.email:
+            background_tasks.add_task(
+                send_rejection_email, 
+                email_to=db_request.requester.email, 
+                requester_name=db_request.requester.full_name, 
+                request_id=db_request.id, 
+                reason=approval_data.comments, 
+                approver_name=current_user.full_name
+            )
         db.commit()
         return db_request
 
@@ -69,33 +80,57 @@ def submit_approval(
         step_num = 3
         
     elif user_role in ["darh", "admin", "superadmin"]:
-        # Allow DARH/Admin to finalize if at Logistic step
         if str(db_request.status).lower() != "approved_by_logistic":
             raise HTTPException(status_code=400, detail="Logistic must approve first.")
         
         db_request.status = models.RequestStatus.FULLY_APPROVED
         step_num = 4
         
-        # --- FINALIZATION (Generate PDF for Emails) ---
-        # Fetch actual user objects for signatories to get real names from DB
+        # --- FINAL ACTIONS (3-WAY EMAIL DISPATCH) ---
+        
+        # A. Fetch Data for PDF
         log_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("logistic")).first()
         darh_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("darh")).first()
         passenger_users = db.query(models.User).filter(models.User.matricule.in_(db_request.passengers)).all()
         
-        pdf_buffer = generate_mission_order_pdf(
-            request=db_request, 
-            passenger_details=passenger_users,
-            logistic_officer=log_off,
-            darh_officer=darh_off
-        )
+        pdf_buffer = generate_mission_order_pdf(db_request, passenger_users, log_off, darh_off)
         pdf_bytes = pdf_buffer.getvalue()
-        filename = f"Mission_{db_request.id}.pdf"
+        filename = f"Mission_Order_{db_request.id}.pdf"
 
-        # Background Emails
+        # 1. Email to Requester
         if db_request.requester.email:
-            background_tasks.add_task(send_mission_order_email, email_to=db_request.requester.email, requester_name=db_request.requester.full_name, pdf_file=pdf_bytes, filename=filename)
-        background_tasks.add_task(send_driver_assignment_email, email_to="charoi-office@company.com", driver_name=db_request.driver.full_name, requester_name=db_request.requester.full_name, destination=db_request.destination, pdf_file=pdf_bytes, filename=filename)
-        background_tasks.add_task(send_accounting_email, pdf_file=pdf_bytes, filename=filename, request_id=db_request.id)
+            background_tasks.add_task(
+                send_mission_order_email, 
+                email_to=db_request.requester.email, 
+                recipient_name=db_request.requester.full_name, 
+                pdf_bytes=pdf_bytes, 
+                filename=filename
+            )
+        
+        # 2. Email to all users with 'charoi' role
+        charoi_list = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("charoi")).all()
+        for charoi_user in charoi_list:
+            if charoi_user.email:
+                background_tasks.add_task(
+                    send_mission_order_email, 
+                    email_to=charoi_user.email, 
+                    recipient_name=charoi_user.full_name, 
+                    pdf_bytes=pdf_bytes, 
+                    filename=filename
+                )
+
+        # 3. Email to all users with 'accounting' role
+        accounting_list = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("accounting")).all()
+        for accountant in accounting_list:
+            if accountant.email:
+                background_tasks.add_task(
+                    send_accounting_email, 
+                    email_to=accountant.email, 
+                    accountant_name=accountant.full_name, 
+                    pdf_bytes=pdf_bytes, 
+                    filename=filename, 
+                    request_id=db_request.id
+                )
 
     # Record the approval history
     db.add(models.RequestApproval(
@@ -107,13 +142,8 @@ def submit_approval(
     db.refresh(db_request)
     return db_request
 
-
-
-
-
 @router.get("/{request_id}/pdf")
 def get_pdf(request_id: int, db: Session = Depends(get_db)):
-    # Fetch Request with relationships loaded via 'make_ref' and 'model_ref'
     request = db.query(models.VehicleRequest).options(
         joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.make_ref),
         joinedload(models.VehicleRequest.vehicle).joinedload(models.Vehicle.model_ref),
@@ -124,28 +154,13 @@ def get_pdf(request_id: int, db: Session = Depends(get_db)):
     if not request:
         raise HTTPException(status_code=404, detail="Request not found.")
     
-    # Case-insensitive status check
-    current_status = str(request.status.value if hasattr(request.status, 'value') else request.status).lower()
-    if current_status != "fully_approved":
+    status_str = str(request.status.value if hasattr(request.status, 'value') else request.status).lower()
+    if status_str != "fully_approved":
         raise HTTPException(status_code=400, detail="Mission not fully approved.")
     
-    logistic_officer = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("logistic")).first()
-    darh_officer = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("darh")).first()
-    
+    log_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("logistic")).first()
+    darh_off = db.query(models.User).join(models.Role).filter(models.Role.name.ilike("darh")).first()
     passenger_users = db.query(models.User).filter(models.User.matricule.in_(request.passengers)).all()
 
-    pdf_buffer = generate_mission_order_pdf(
-        request=request, 
-        passenger_details=passenger_users,
-        logistic_officer=logistic_officer,
-        darh_officer=darh_officer
-    )
-    
+    pdf_buffer = generate_mission_order_pdf(request, passenger_users, log_off, darh_off)
     return StreamingResponse(pdf_buffer, media_type="application/pdf")
-
-
-
-
-
-
-    
