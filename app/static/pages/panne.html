@@ -1,81 +1,83 @@
 <!-- app/static/pages/panne.html -->
 
 <!-- MODULE HEADER -->
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 animate-up">
-    <div>
-        <h2 class="text-3xl font-black text-white tracking-tighter uppercase tracking-widest">Breakdown Ledger</h2>
-        <p class="text-slate-500 text-sm mt-1 font-medium italic">Incident tracking synced with fleet readiness.</p>
-    </div>
-
-    <div class="flex items-center gap-3">
-        <!-- BULK VERIFY (Hidden by default) -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-up">
+    <div class="flex items-center gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-white tracking-tight">Breakdown Reports</h2>
+            <p class="text-slate-400 text-sm mt-1 uppercase tracking-widest text-[10px] font-bold">Fleet Incident Tracking Ledger</p>
+        </div>
+        
+        <!-- BULK VERIFY ACTION BUTTON -->
         <button id="btnPanneBulkVerify" onclick="executePanneBulkVerify()" 
-            class="hidden bg-emerald-700 hover:bg-emerald-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center gap-2">
+            class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg transition-all flex items-center gap-2 animate-up">
             <i data-lucide="shield-check" class="w-4 h-4"></i>
-            <span>Verify (<span id="panneSelectedCount">0</span>)</span>
-        </button>
-
-        <button onclick="openAddPanneModal()" 
-            class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-900/20 flex items-center gap-2 transition-all active:scale-95 group">
-            <i data-lucide="plus-circle" class="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"></i>
-            <span>Report Incident</span>
+            <span>Verify Selected (<span id="panneSelectedCount">0</span>)</span>
         </button>
     </div>
+
+    <button onclick="openAddPanneModal()" 
+        class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span>Report Panne</span>
+    </button>
 </div>
 
 <!-- FILTERS SECTION -->
-<div class="glass-panel p-5 mb-8 flex flex-col md:flex-row gap-6 items-center justify-between animate-up delay-1 border-white/5 shadow-2xl">
-    <div class="relative w-full md:w-[400px]">
-        <i data-lucide="search" class="absolute left-4 top-3.5 w-4 h-4 text-slate-600"></i>
-        <input type="text" id="panneSearch" placeholder="Search vehicle or fault description..." 
-            class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-sm rounded-2xl pl-12 pr-4 py-3 outline-none focus:border-blue-500 transition-all shadow-inner uppercase tracking-tighter">
+<div class="glass-panel p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between animate-up delay-1">
+    <div class="relative w-full md:w-96">
+        <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
+        <input type="text" id="panneSearch" placeholder="Search plate or description..." 
+            class="w-full bg-slate-900/50 border border-slate-700 text-slate-200 text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-indigo-500 transition placeholder-slate-500">
     </div>
     
-    <div class="flex items-center gap-3 w-full md:w-auto">
-        <select id="panneStatusFilter" class="bg-slate-950 border border-slate-800 text-slate-400 text-[10px] font-black rounded-2xl px-6 py-3 outline-none focus:border-blue-500 uppercase tracking-[0.1em] shadow-inner">
-            <option value="all">Validation: All</option>
-            <option value="verified">Verified Logs</option>
-            <option value="pending">Pending Audit</option>
+    <div class="flex items-center gap-3">
+        <select id="panneStatusFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition-colors">
+            <option value="all">All Verification</option>
+            <option value="verified">Verified Only</option>
+            <option value="pending">Pending Only</option>
         </select>
-        <select id="panneVehicleFilter" class="bg-slate-950 border border-slate-800 text-slate-400 text-[10px] font-black rounded-2xl px-6 py-3 outline-none focus:border-blue-500 uppercase tracking-[0.1em] shadow-inner">
-            <option value="">Units: All</option>
+        <select id="panneVehicleFilter" class="bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition-colors">
+            <option value="">All Vehicles</option>
         </select>
     </div>
 </div>
 
-<!-- DATA TABLE -->
-<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl border-white/5">
+<!-- DATA TABLE SECTION (Aligned 9-column style) -->
+<div class="glass-panel overflow-hidden animate-up delay-2 shadow-2xl shadow-black/20 border border-white/5">
     <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse min-w-[800px]">
+        <table class="w-full text-left border-collapse min-w-[900px]">
             <thead>
-                <tr class="text-[10px] text-slate-600 uppercase tracking-[0.2em] border-b border-slate-800 bg-slate-900/50">
-                    <th class="p-5 w-12 text-center">
-                        <input type="checkbox" id="selectAllPanne" class="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0 cursor-pointer">
+                <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-700/50 bg-slate-800/40">
+                    <th class="p-4 w-10 text-center">
+                        <input type="checkbox" id="selectAllPanne" class="rounded border-slate-600 bg-slate-800 text-indigo-600 focus:ring-0 cursor-pointer">
                     </th>
-                    <th class="p-5 font-black">Fleet Unit</th>
-                    <th class="p-5 font-black">Fault Category</th>
-                    <th class="p-5 font-black">System details</th>
-                    <th class="p-5 font-black text-center">Protocol</th>
-                    <th class="p-5 font-black text-center">Audit</th>
-                    <th class="p-5 font-black">Logged</th>
-                    <th class="p-5 font-black text-right">Actions</th>
+                    <th class="p-4 font-semibold">Vehicle</th>
+                    <th class="p-4 font-semibold">Category</th>
+                    <th class="p-4 font-semibold">Issue Details</th>
+                    <th class="p-4 font-semibold text-center">Progress</th>
+                    <th class="p-4 font-semibold text-center">Validation</th>
+                    <th class="p-4 font-semibold">Date</th>
+                    <th class="p-4 font-semibold text-right">Actions</th>
                 </tr>
             </thead>
-            <tbody id="panneLogsBody" class="divide-y divide-slate-800/50 text-slate-300 text-sm"></tbody>
+            <tbody id="panneLogsBody" class="text-sm divide-y divide-slate-700/30 text-slate-300">
+                <!-- Data dynamically injected -->
+            </tbody>
         </table>
     </div>
 
     <!-- PAGINATION FOOTER -->
-    <div class="p-5 border-t border-slate-800 bg-slate-900/30 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <span class="text-[10px] font-black text-slate-700 uppercase tracking-widest" id="panneCount">0 Records Synchronized</span>
+    <div class="p-4 border-t border-slate-700/30 bg-slate-800/20 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <span class="text-xs text-slate-500" id="panneLogsCount">Showing 0 incidents</span>
         
         <div class="flex items-center gap-2">
-            <button id="prevPannePage" onclick="changePannePage(-1)" class="p-2 rounded-xl border border-slate-800 text-slate-600 hover:text-white transition-all disabled:opacity-20">
-                <i data-lucide="chevron-left" class="w-5 h-5"></i>
+            <button id="prevPannePage" onclick="changePannePage(-1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
             </button>
-            <div class="px-6 py-2 bg-slate-950 border border-slate-800 rounded-xl text-[10px] font-black text-blue-500 min-w-[120px] text-center" id="pannePageIndicator">PHASE 1</div>
-            <button id="nextPannePage" onclick="changePannePage(1)" class="p-2 rounded-xl border border-slate-800 text-slate-600 hover:text-white transition-all disabled:opacity-20">
-                <i data-lucide="chevron-right" class="w-5 h-5"></i>
+            <span class="text-xs font-medium text-slate-300 bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700" id="pannePageIndicator">Page 1</span>
+            <button id="nextPannePage" onclick="changePannePage(1)" class="p-2 rounded-lg border border-slate-700 hover:bg-slate-700 text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
             </button>
         </div>
     </div>
@@ -83,102 +85,85 @@
 
 <!-- ================= MODALS ================= -->
 
-<!-- ADD / EDIT MODAL -->
-<div id="addPanneModal" class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
-    <div class="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-[2.5rem] shadow-2xl animate-up overflow-hidden border-white/5">
-        <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-            <div>
-                <h3 class="text-white font-black uppercase tracking-widest text-sm" id="panneModalTitle">Initiate Panne Report</h3>
-                <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Incident Categorization</p>
-            </div>
-            <button onclick="closeModal('addPanneModal')" class="text-slate-600 hover:text-white transition p-2 hover:bg-slate-800 rounded-2xl"><i data-lucide="x" class="w-6 h-6"></i></button>
+<!-- ADD/EDIT MODAL (SCROLLABLE ON MOBILE) -->
+<div id="addPanneModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-up">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+            <h3 class="text-lg font-bold text-white uppercase tracking-tight" id="panneModalTitle">Report Panne</h3>
+            <button onclick="closeModal('addPanneModal')" class="text-slate-400 hover:text-white transition p-1 hover:bg-white/10 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
         </div>
         
-        <div class="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        <div class="p-6 overflow-y-auto custom-scrollbar space-y-5">
             <input type="hidden" id="panneEditId">
             
-            <div class="grid grid-cols-2 gap-6">
-                <div class="space-y-2">
-                    <label class="label-text">Fleet Unit *</label>
-                    <select id="panneVehicleSelect" class="input-field"></select>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">Target Vehicle</label>
+                    <select id="panneVehicleSelect" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 transition-all"></select>
                 </div>
-                <div class="space-y-2">
-                    <label class="label-text">Fleet Status (Lock)</label>
-                    <select id="panneStatusSelect" disabled class="input-field opacity-40 italic">
-                        <option value="active">ACTIVE PANNE</option>
-                        <option value="resolved">RESOLVED</option>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">Incident Progress</label>
+                    <select id="panneStatusSelect" disabled class="w-full bg-slate-800 border border-slate-700 text-slate-400 rounded-lg px-3 py-2 text-sm outline-none opacity-50 italic">
+                        <option value="active">Active Panne</option>
+                        <option value="resolved">Resolved</option>
                     </select>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-6">
-                <div class="space-y-2">
-                    <label class="label-text">Incident Category</label>
-                    <select id="panneCatSelect" class="input-field"></select>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">Category</label>
+                    <select id="panneCatSelect" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 transition-all"></select>
                 </div>
-                <div class="space-y-2">
-                    <label class="label-text">Logging Date</label>
-                    <input type="date" id="panneDate" class="input-field">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">Report Date</label>
+                    <input type="date" id="panneDate" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 transition-all">
                 </div>
             </div>
             
-            <div class="space-y-2">
-                <label class="label-text">Diagnostic Description *</label>
-                <textarea id="panneDesc" class="input-field h-32" placeholder="Detail the fault symptoms or cause of failure..."></textarea>
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">Symptom / Description</label>
+                <textarea id="panneDesc" class="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm h-32 resize-none outline-none focus:border-indigo-500 transition-all placeholder-slate-600" placeholder="Provide a detailed description of the mechanical failure..."></textarea>
             </div>
         </div>
 
-        <div class="p-6 border-t border-slate-800 bg-slate-900/50 flex justify-end gap-4">
-            <button onclick="closeModal('addPanneModal')" class="btn-secondary">Abort</button>
-            <button id="btnSavePanne" onclick="savePanne()" class="btn-primary uppercase font-black">Commit Report</button>
+        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+            <button onclick="closeModal('addPanneModal')" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition">Cancel</button>
+            <button id="btnSavePanne" onclick="savePanne()" class="px-6 py-2 text-sm font-bold bg-indigo-600 text-white rounded-lg transition-all hover:bg-indigo-500 shadow-lg shadow-indigo-900/20">Save Report</button>
         </div>
     </div>
 </div>
 
 <!-- VIEW DETAILS MODAL -->
-<div id="viewPanneModal" class="fixed inset-0 z-[100] hidden bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4">
-    <div class="bg-slate-950 border border-slate-800 w-full max-w-md rounded-[3rem] shadow-2xl animate-up border-white/5">
-        <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/40">
-            <h3 class="text-white font-black uppercase tracking-[0.2em] text-[9px]">Breakdown Dossier Metadata</h3>
-            <button onclick="closeModal('viewPanneModal')" class="text-slate-600 hover:text-white transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+<div id="viewPanneModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl flex flex-col animate-up">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50 text-white font-bold">
+            <h3 class="uppercase text-xs tracking-widest">Incident Dossier</h3>
+            <button onclick="closeModal('viewPanneModal')"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
-        <div class="p-8" id="viewPanneContent"></div>
-        <div class="p-6 border-t border-slate-800 bg-slate-900/40 flex justify-end">
-            <button onclick="closeModal('viewPanneModal')" class="btn-secondary px-10 text-[10px]">Exit Dossier</button>
-        </div>
-    </div>
-</div>
-
-<!-- CONFIRMATION / ALERT MODALS (REUSED IDs) -->
-<div id="panneConfirmModal" class="fixed inset-0 z-[110] hidden bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-950 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-10 shadow-2xl animate-up text-center border-white/5">
-        <div id="panneConfirmIcon"></div>
-        <h3 class="text-xl font-black text-white mb-2 uppercase tracking-tighter" id="panneConfirmTitle">Protocol</h3>
-        <div id="panneConfirmMessage" class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-8 leading-relaxed"></div>
-        <div class="grid grid-cols-2 gap-4">
-            <button onclick="closeModal('panneConfirmModal')" class="btn-secondary uppercase font-black text-[10px] tracking-widest">Abort</button>
-            <button id="btnPanneConfirmAction" class="btn-primary uppercase font-black text-[10px] tracking-widest">Execute</button>
+        <div class="p-6" id="viewPanneContent"></div>
+        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-center">
+            <button onclick="closeModal('viewPanneModal')" class="px-8 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all">Close Entry</button>
         </div>
     </div>
 </div>
 
-<div id="panneAlertModal" class="fixed inset-0 z-[120] hidden bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-950 border border-slate-800 w-full max-w-xs rounded-[2.5rem] p-10 shadow-2xl animate-up text-center border-white/5">
-        <div id="panneAlertIcon"></div>
-        <h3 class="text-sm font-black text-white mb-2 uppercase tracking-widest" id="panneAlertTitle">System Status</h3>
-        <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-8" id="panneAlertMessage"></p>
-        <button onclick="closeModal('panneAlertModal')" class="btn-primary w-full py-4 text-[10px] uppercase font-black tracking-widest">Dismiss</button>
+<!-- CONFIRMATION MODAL -->
+<div id="panneConfirmModal" class="fixed inset-0 z-[60] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-xl p-6 text-center animate-up shadow-2xl">
+        <div id="panneConfirmIcon" class="mb-4 text-indigo-500 bg-indigo-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto border border-indigo-500/20"></div>
+        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-tighter" id="panneConfirmTitle">Action Protocol</h3>
+        <p class="text-slate-400 text-sm mb-6" id="panneConfirmMessage"></p>
+        <div class="flex gap-3 justify-center">
+            <button onclick="closeModal('panneConfirmModal')" class="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg text-xs font-bold uppercase w-full">Cancel</button>
+            <button id="btnPanneConfirmAction" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold uppercase w-full">Execute</button>
+        </div>
     </div>
 </div>
 
 <style>
-    .label-text { display: block; font-size: 0.6rem; font-weight: 900; text-transform: uppercase; color: #475569; margin-bottom: 0.5rem; letter-spacing: 0.15em; }
-    .input-field { width: 100%; background: #020617; border: 1px solid #1e293b; color: #f8fafc; border-radius: 1.25rem; padding: 0.85rem 1.25rem; font-size: 0.85rem; outline: none; transition: all 0.3s ease; }
-    .input-field:focus { border-color: #3b82f6; background: #080c14; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.05); }
-    .btn-primary { display: flex; align-items: center; justify-content: center; background: #1d4ed8; color: white; border-radius: 1.25rem; font-weight: 900; font-size: 0.75rem; transition: all 0.3s; letter-spacing: 0.1em; padding: 0.85rem 1.5rem; box-shadow: 0 10px 15px -3px rgba(29, 78, 216, 0.2); }
-    .btn-primary:hover { background: #2563eb; transform: translateY(-2px); }
-    .btn-secondary { background: transparent; border: 1px solid #334155; color: #64748b; padding: 0.85rem 1.5rem; border-radius: 1.25rem; font-weight: 800; font-size: 0.75rem; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.1em; }
-    .btn-secondary:hover { color: white; border-color: #f8fafc; }
-    .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 20px; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 </style>
