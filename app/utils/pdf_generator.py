@@ -66,7 +66,7 @@ def generate_mission_order_pdf(request, passenger_details, logistic_officer=None
     
     story.append(Paragraph("BANQUE DE LA REPUBLIQUE DU BURUNDI", header_bold))
     story.append(Spacer(1, 10))
-    story.append(Paragraph("DIRECTION DE L'ADMINISTRATION,<br/>ET RESSOURCES HUMAINES", header_bold))
+    story.append(Paragraph("DIRECTION DE L'ADMINISTRATION <br/>ET RESSOURCES HUMAINES", header_bold))
     story.append(Spacer(1, 12))
     story.append(Paragraph("Service Logistique et Patrimoine", header_bold))
     story.append(Paragraph("Section Charroi", header_bold))
